@@ -14,6 +14,9 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Fix: scholar list rendered only a few rows
+- `web/src/app/pages/admin/scholars.ts`: the virtual-scroll viewport's height depends on the loaded data, but the CDK only measured it once (while empty), so it kept rendering rows for a tiny window. Now re-measures (`checkViewportSize`) whenever the height changes. The list is also capped to the visible screen height (`max-h`) and scrolls inside itself, so all rows are reachable.
+
 ### 2026-11-20 — Two years of dummy data
 - New `api/src/SkolarAid.Api/Infrastructure/HistorySeeder.cs`, switched on by `Seed:HistoricalData` (env `SEED_HISTORICAL_DATA=true`, wired in `run.sh` for `dev` and `demo`, documented in `.env.example`). Off by default. Idempotent (skips if seeded scholars exist) and deterministic (fixed random seed).
 - Fills Nov 2024 – Nov 2026 with: 64 scholars (with login accounts), their approved registrations plus 8 pending/rejected ones, 5 compliance requirements each (placeholder PDFs attached where submitted), 862 monthly/semi-annual Released payments (~₱3.9M), ~930 notifications and ~1,800 activity-log entries. Mix of Active, Probation, Inactive and Dropped scholars.

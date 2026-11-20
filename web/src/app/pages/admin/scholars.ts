@@ -1,5 +1,5 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { ScrollingModule } from '@angular/cdk/scrolling';
+import { Component, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
@@ -73,7 +73,7 @@ const blank = (): Form => ({
                 @for (h of heads; track h) { <div role="columnheader" class="h-[35px] truncate px-3 leading-[35px]">{{ h }}</div> }
               </div>
               @if (!list().length) { <div class="py-8 text-center text-[12px] text-[#595959]">No scholars found</div> }
-              <cdk-virtual-scroll-viewport [itemSize]="rowH" [style.height.px]="viewportH()" class="[scrollbar-gutter:stable]">
+              <cdk-virtual-scroll-viewport [itemSize]="rowH" [style.height.px]="viewportH()" class="max-h-[max(260px,calc(100vh-330px))] [scrollbar-gutter:stable]">
                 <div *cdkVirtualFor="let s of list(); trackBy: trackId; let i = index; templateCacheSize: 0" role="row"
                      class="grid cursor-pointer text-[12px]" [style.grid-template-columns]="cols" [style.height.px]="rowH"
                      [style.background]="rowBg(i, s.id)"
@@ -234,6 +234,12 @@ export class ScholarsPage implements OnInit {
   readonly heads = ['ID', 'Scholar #', 'Student ID', 'Full Name', 'Course', 'Year', 'Scholarship', 'Status'];
   readonly cols = '52px 112px 112px minmax(150px,1.3fr) minmax(200px,1.8fr) 84px minmax(150px,1.3fr) 92px';
   viewportH = computed(() => Math.min(this.list().length, 24) * this.rowH);
+  private viewport = viewChild(CdkVirtualScrollViewport);
+  /** The viewport's height depends on the data, so tell the CDK to re-measure whenever it changes; otherwise it keeps rendering rows for its old (tiny) size. */
+  private remeasure = effect(() => {
+    this.viewportH(); const v = this.viewport();
+    if (v) setTimeout(() => v.checkViewportSize());
+  });
   rowBg = (i: number, id: number) => (id === this.selectedId() ? '#e6f5f5' : i % 2 ? '#f5fafa' : '#fff');
   trackId = (_: number, s: ScholarListItem) => s.id;
   total = signal(0);
