@@ -34,6 +34,13 @@ stop_all() {
       rm -f "$f"
     fi
   done
+  # fallback: anything still listening on our ports (dotnet/ng can outlive the wrapper process)
+  for port in 5080 4200; do
+    for pid in $(ss -ltnp "sport = :$port" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u); do
+      kill "$pid" 2>/dev/null || true
+    done
+  done
+  sleep 1
 }
 
 wait_for() {  # url, name
