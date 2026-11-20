@@ -7,12 +7,14 @@ import { DatePipeShort, PesoPipe, statusColor, formatPeso } from '../../core/for
 import { DisbursementHistory, Option, PayrollCandidate, PayrollPreview, PayrollResult, PayrollStats, ProcessedPayment, ReleaseResult, ScholarFilters } from '../../core/models';
 import { YEAR_LEVELS } from '../register';
 import { AppIcon } from '../../shared/icon';
+import { Fact, FactGrid } from '../../shared/fact-grid';
+import { Modal } from '../../shared/modal';
 import { ScrollCue } from '../../shared/scroll-cue';
 import { StatItem, StatStrip } from '../../shared/stat-strip';
 
 @Component({
   selector: 'app-payroll',
-  imports: [StatStrip, ScrollCue, AppIcon, FormsModule, PesoPipe, DatePipeShort],
+  imports: [Modal, FactGrid, StatStrip, ScrollCue, AppIcon, FormsModule, PesoPipe, DatePipeShort],
   template: `
     <app-stat-strip [items]="cards()" />
 
@@ -81,6 +83,84 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
         </table>
       </div>
     </section>
+
+    @if (previewDlg(); as v) {
+      <app-modal [title]="v.confirm ? 'Confirm payroll' : 'Payroll preview'" [width]="720" (closed)="previewDlg.set(null)">
+        <app-fact-grid [facts]="previewFacts(v.p)" />
+        @if (v.p.alreadyPaid) {
+          <div class="mt-4 flex items-start gap-3 rounded-lg border-l-4 border-warn bg-[#fff8e6] px-4 py-3" role="alert">
+            <app-icon name="alert" class="mt-[2px] h-5 w-5 shrink-0 text-[#8a5300]"></app-icon>
+            <p class="text-[13px] text-[#333]"><b>{{ v.p.alreadyPaid }}</b> of the selected scholars already have a payment for {{ v.p.period }}. They will be skipped so nobody is paid twice.</p>
+          </div>
+        }
+        <h3 class="section-title mt-4">Scholars in this batch</h3>
+        <div scrollCue class="grid-wrap max-h-[280px] rounded border border-[#e6e6e6]">
+          <table class="dgrid"><thead><tr><th>Scholar</th><th class="text-right">Amount</th><th>Result</th></tr></thead>
+            <tbody>@for (l of v.p.lines; track l.scholarId; let i = $index) {
+              <tr [class.alt]="i % 2 === 1"><td class="font-bold">{{ l.fullName }}</td><td class="text-right">{{ l.amount | peso }}</td>
+                <td>@if (l.alreadyPaid) { <span class="font-bold text-[#8a5300]"><app-icon name="alert" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Skipped, already paid</span> }
+                    @else { <span class="font-bold text-ok"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Will be paid</span> }</td></tr>
+            }</tbody></table>
+        </div>
+        <div class="mt-5 flex justify-end gap-2">
+          @if (v.confirm) {
+            <button class="btn btn-gray !h-[40px]" (click)="previewDlg.set(null)">Cancel</button>
+            <button class="btn btn-brand !h-[40px]" [disabled]="busy()" (click)="runProcess()"><app-icon name="dollar" class="h-5 w-5"></app-icon>Process {{ v.p.new }} payment{{ v.p.new === 1 ? '' : 's' }}</button>
+          } @else { <button class="btn btn-brand !h-[40px]" (click)="previewDlg.set(null)">Close</button> }
+        </div>
+      </app-modal>
+    }
+
+    @if (processed(); as r) {
+      <app-modal title="Payroll processed" [width]="520" (closed)="processed.set(null)">
+        <div class="mb-4 flex items-center gap-3"><app-icon name="checked" class="h-[40px] w-[40px] text-ok"></app-icon>
+          <p class="text-[14px] text-[#333]">{{ r.processed }} payment{{ r.processed === 1 ? ' is' : 's are' }} queued for release. Scholars were notified.</p></div>
+        <app-fact-grid [facts]="resultFacts(r)" />
+        <div class="mt-5 flex justify-end"><button class="btn btn-brand !h-[40px]" (click)="processed.set(null)">Done</button></div>
+      </app-modal>
+    }
+
+    @if (releaseDlg(); as v) {
+      <app-modal title="Release payments" [width]="720" (closed)="releaseDlg.set(null)">
+        <app-fact-grid [facts]="releaseFacts(v.ready, v.total)" />
+        <div class="mt-4 flex items-start gap-3 rounded-lg bg-[#eef8f8] px-4 py-3">
+          <app-icon name="info" class="mt-[2px] h-5 w-5 shrink-0 text-accent"></app-icon>
+          <p class="text-[13px] text-[#333]">Releasing marks these payments as Released, sets today as the release date and notifies each scholar. This can't be undone.</p>
+        </div>
+        <div scrollCue class="grid-wrap mt-4 max-h-[260px] rounded border border-[#e6e6e6]">
+          <table class="dgrid"><thead><tr><th>Scholar</th><th>Period</th><th class="text-right">Amount</th><th>Method</th></tr></thead>
+            <tbody>@for (x of v.ready; track x.paymentId; let i = $index) {
+              <tr [class.alt]="i % 2 === 1"><td class="font-bold">{{ x.scholarName }}</td><td>{{ x.period }}</td><td class="text-right">{{ x.amount | peso }}</td><td>{{ x.paymentMethod }}</td></tr>
+            }</tbody></table>
+        </div>
+        <div class="mt-5 flex justify-end gap-2">
+          <button class="btn btn-gray !h-[40px]" (click)="releaseDlg.set(null)">Cancel</button>
+          <button class="btn btn-brand !h-[40px]" [disabled]="busy()" (click)="runRelease()"><app-icon name="wallet" class="h-5 w-5"></app-icon>Release {{ v.ready.length }} payment{{ v.ready.length === 1 ? '' : 's' }}</button>
+        </div>
+      </app-modal>
+    }
+
+    @if (released(); as r) {
+      <app-modal title="Payments released" [width]="480" (closed)="released.set(null)">
+        <div class="mb-4 flex items-center gap-3"><app-icon name="checked" class="h-[40px] w-[40px] text-ok"></app-icon>
+          <p class="text-[14px] text-[#333]">Scholars have been notified of their released stipends.</p></div>
+        <app-fact-grid [facts]="releasedFacts(r)" />
+        <div class="mt-5 flex justify-end"><button class="btn btn-brand !h-[40px]" (click)="released.set(null)">Done</button></div>
+      </app-modal>
+    }
+
+    @if (noneReady()) {
+      <app-modal title="Nothing to release yet" [width]="520" (closed)="noneReady.set(false)">
+        <p class="mb-3 text-[14px] text-[#333]">A payment can be released when:</p>
+        <ul class="mb-4 space-y-2 text-[14px]">
+          <li class="flex items-center gap-2"><app-icon name="checked" class="h-5 w-5 text-ok"></app-icon>its status is Processed, and</li>
+          <li class="flex items-center gap-2"><app-icon name="checked" class="h-5 w-5 text-ok"></app-icon>its release date is today or earlier.</li>
+        </ul>
+        <div class="flex items-start gap-3 rounded-lg bg-[#eef8f8] px-4 py-3"><app-icon name="wall-clock" class="mt-[2px] h-5 w-5 shrink-0 text-accent"></app-icon>
+          <p class="text-[13px] text-[#333]">New payments wait about 3 working days before they can be released. See the Disbursement History below for each payment's release date.</p></div>
+        <div class="mt-5 flex justify-end"><button class="btn btn-brand !h-[40px]" (click)="noneReady.set(false)">OK</button></div>
+      </app-modal>
+    }
   `,
 })
 export class PayrollPage implements OnInit {
@@ -137,44 +217,75 @@ export class PayrollPage implements OnInit {
 
   private body() { return { periodDate: this.periodDate(), method: this.method, scholarIds: [...this.selected()] }; }
 
-  async preview(): Promise<void> {
-    try {
-      const p = await firstValueFrom(this.api.post<PayrollPreview>('/admin/payroll/preview', this.body()));
-      let m = `📋 PAYROLL PREVIEW\n\n📅 Period: ${p.period}\n💳 Method: ${p.method}\n👥 Selected Scholars: ${p.selected}\n`;
-      if (p.alreadyPaid) m += `⚠ Already Paid (will be skipped): ${p.alreadyPaid}\n✅ New Scholars: ${p.new}\n`;
-      m += `\n💰 Total Amount: ₱${p.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}\n\n` + p.lines.map((l) => `• ${l.fullName} - ₱${l.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`).join('\n');
-      void this.dlg.info(m, 'Payroll Preview');
-    } catch (e) { void this.dlg.error(errorMessage(e)); }
+  previewDlg = signal<{ p: PayrollPreview; confirm: boolean } | null>(null);
+  processed = signal<PayrollResult | null>(null);
+  releaseDlg = signal<{ ready: ProcessedPayment[]; total: number } | null>(null);
+  released = signal<ReleaseResult | null>(null);
+  noneReady = signal(false);
+
+  previewFacts(p: PayrollPreview): Fact[] {
+    return [
+      { icon: 'calendar', label: 'Period', value: p.period }, { icon: 'wallet', label: 'Method', value: p.method },
+      { icon: 'user-groups', label: 'Selected', value: String(p.selected) }, { icon: 'checked', label: 'Will be paid', value: String(p.new), tone: 'ok' },
+      ...(p.alreadyPaid ? [{ icon: 'alert', label: 'Skipped (already paid)', value: String(p.alreadyPaid), tone: 'pending' } as Fact] : []),
+      { icon: 'dollar', label: 'Total amount', value: formatPeso(p.totalAmount), tone: 'strong' },
+    ];
+  }
+  resultFacts(r: PayrollResult): Fact[] {
+    return [
+      { icon: 'calendar', label: 'Period', value: r.period }, { icon: 'wallet', label: 'Method', value: r.method },
+      { icon: 'checked', label: 'Processed', value: String(r.processed), tone: 'ok' },
+      ...(r.skipped ? [{ icon: 'alert', label: 'Skipped', value: String(r.skipped), tone: 'pending' } as Fact] : []),
+      { icon: 'dollar', label: 'Total', value: formatPeso(r.total), tone: 'strong' },
+      { icon: 'mail', label: 'Emails sent', value: String(r.emailsSent) }, { icon: 'phone', label: 'Texts sent', value: String(r.smsSent) },
+    ];
+  }
+  releaseFacts(ready: ProcessedPayment[], total: number): Fact[] {
+    return [{ icon: 'user-groups', label: 'Scholars', value: String(new Set(ready.map((x) => x.scholarId)).size) }, { icon: 'file', label: 'Payments', value: String(ready.length) },
+      { icon: 'dollar', label: 'Total amount', value: formatPeso(total), tone: 'strong' }];
+  }
+  releasedFacts(r: ReleaseResult): Fact[] {
+    return [{ icon: 'checked', label: 'Released', value: String(r.released), tone: 'ok' }, { icon: 'dollar', label: 'Total', value: formatPeso(r.total), tone: 'strong' }, { icon: 'mail', label: 'Emails sent', value: String(r.emailsSent) }];
   }
 
+  async preview(): Promise<void> {
+    try { this.previewDlg.set({ p: await firstValueFrom(this.api.post<PayrollPreview>('/admin/payroll/preview', this.body())), confirm: false }); }
+    catch (e) { void this.dlg.error(errorMessage(e)); }
+  }
+
+  /** Step 2: show the batch for confirmation; nothing is paid until "Process" is pressed in the dialog. */
   async process(): Promise<void> {
     const pv = await firstValueFrom(this.api.post<PayrollPreview>('/admin/payroll/preview', this.body())).catch((e) => { void this.dlg.error(errorMessage(e)); return null; });
     if (!pv) return;
-    if (pv.alreadyPaid && !(await this.dlg.confirm(`⚠ DOUBLE DISBURSEMENT WARNING!\n\n${pv.alreadyPaid} selected scholar(s) already have payments for ${pv.period} and will be skipped.\n\nContinue with the remaining scholars?`, '⚠ Duplicate Payment Warning'))) return;
-    if (!pv.new) { void this.dlg.info('All selected scholars already have payments for this period.', 'No New Payments'); return; }
-    if (!(await this.dlg.confirm(`CONFIRM PAYROLL\n\n📅 Period: ${pv.period}\n💳 Method: ${pv.method}\n👥 Scholars: ${pv.new}\n💰 Total: ₱${pv.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}\n\nProceed?`, 'Confirm Payroll Processing', 'Proceed', 'Cancel'))) return;
+    if (!pv.new) { void this.dlg.info('All selected scholars already have payments for this period.', 'No new payments'); return; }
+    this.previewDlg.set({ p: pv, confirm: true });
+  }
+
+  async runProcess(): Promise<void> {
     this.busy.set(true);
     try {
       const r = await firstValueFrom(this.api.post<PayrollResult>('/admin/payroll/process', this.body()));
-      this.selected.set(new Set());
+      this.previewDlg.set(null); this.selected.set(new Set());
       await Promise.all([this.load(), this.loadHistory(), this.loadStats()]);
-      void this.dlg.success(`✅ PAYROLL PROCESSED SUCCESSFULLY!\n\n📅 Period: ${r.period}\n💳 Method: ${r.method}\n✅ Processed: ${r.processed} scholars${r.skipped ? `\n⏭ Skipped: ${r.skipped}` : ''}\n💰 Total: ₱${r.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}\n📧 Emails sent: ${r.emailsSent}  📱 SMS sent: ${r.smsSent}`, 'Payroll Processed');
-    } catch (e) { void this.dlg.error(errorMessage(e), 'Processing Error'); } finally { this.busy.set(false); }
+      this.processed.set(r);
+    } catch (e) { void this.dlg.error(errorMessage(e), 'Processing error'); } finally { this.busy.set(false); }
   }
 
   async release(): Promise<void> {
     try {
       const ready = await firstValueFrom(this.api.get<ProcessedPayment[]>('/admin/payroll/ready-for-release'));
-      if (!ready.length) {
-        void this.dlg.info("📋 NO PAYMENTS READY FOR RELEASE\n\nPayments must meet ALL these conditions:\n✓ Status = 'Processed'\n✓ Release date is today or earlier\n\n📌 Newly processed payments have a 3-day waiting period before release.\n💡 Check the Disbursement History panel for payment status.", 'No Payments Ready');
-        return;
-      }
-      const total = ready.reduce((s, p) => s + p.amount, 0);
-      if (!(await this.dlg.confirm(`📋 RELEASE PAYMENTS\n\n👥 Scholars: ${ready.length}\n💰 Total Amount: ₱${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}\n\nThis will:\n• Mark payments as 'Released'\n• Set release date to today\n• Send release notifications to scholars\n\nContinue?`, 'Confirm Release', 'Release', 'Cancel'))) return;
-      this.busy.set(true);
+      if (!ready.length) { this.noneReady.set(true); return; }
+      this.releaseDlg.set({ ready, total: ready.reduce((t, x) => t + x.amount, 0) });
+    } catch (e) { void this.dlg.error(errorMessage(e), 'Release error'); }
+  }
+
+  async runRelease(): Promise<void> {
+    this.busy.set(true);
+    try {
       const r = await firstValueFrom(this.api.post<ReleaseResult>('/admin/payroll/release', {}));
+      this.releaseDlg.set(null);
       await Promise.all([this.load(), this.loadHistory(), this.loadStats()]);
-      void this.dlg.success(`✅ PAYMENTS RELEASED SUCCESSFULLY!\n\n🔓 Released: ${r.released} payments\n📧 Emails: ${r.emailsSent} sent\n\nScholars have been notified of their released stipends.`, 'Release Complete');
-    } catch (e) { void this.dlg.error(errorMessage(e), 'Release Error'); } finally { this.busy.set(false); }
+      this.released.set(r);
+    } catch (e) { void this.dlg.error(errorMessage(e), 'Release error'); } finally { this.busy.set(false); }
   }
 }

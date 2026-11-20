@@ -14,6 +14,12 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Payroll dialogs: icons and tables instead of emoji text
+- `web/src/app/pages/admin/payroll.ts`: Preview, Confirm payroll, Payroll processed, Release payments, Payments released and "Nothing to release yet" are now proper dialogs (icon tiles for period / method / counts / total, a table of the scholars in the batch with a per-row result, a warning banner for already-paid scholars, clear primary/cancel buttons) instead of emoji-filled text pop-ups.
+- New `shared/fact-grid.ts` (icon + label + value tiles); icons added: calendar, mail, phone, info.
+- Process Payroll now opens the confirm dialog with the full batch table; nothing is paid until "Process N payments" is pressed. Release likewise lists the payments before releasing.
+- Other pop-ups that still carry emoji in their text (registration approval/rejection results) are unchanged.
+
 ### 2026-11-20 — Scholar Management: list first, form in a dialog
 - `web/src/app/pages/admin/scholars.ts`: the add/edit form no longer sits beside or under the table. **Add scholar** (toolbar) opens it in a dialog; every row has an **Edit** button that opens the same dialog filled with that scholar (Save changes / Deactivate / Compliance / Cancel in a sticky footer). Clicking a row opens the full details view (which also has an "Edit this scholar" button).
 - With the form gone the table gets the full width: dropped the internal ID column, tightened column widths, and all of Scholar #, Student ID, name, course, year, scholarship, status and actions fit without sideways scrolling at normal desktop widths.

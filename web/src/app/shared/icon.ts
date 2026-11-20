@@ -3,7 +3,7 @@ import { HugeiconsIconComponent } from '@hugeicons/angular';
 import {
   Analytics01Icon, Attachment01Icon, CheckmarkCircle02Icon, ChartBarLineIcon, Clock01Icon, DashboardSquare01Icon,
   File01Icon, GraduationScrollIcon, Invoice01Icon, Money01Icon, MoneyBag02Icon, Note01Icon, Notification01Icon,
-  Task01Icon, UserCircleIcon, UserGroupIcon, UserIcon, Wallet01Icon, Cancel01Icon, AlarmClockIcon, Search01Icon, Menu01Icon, Alert02Icon, FolderOpenIcon, Folder01Icon,
+  Task01Icon, UserCircleIcon, UserGroupIcon, UserIcon, Wallet01Icon, Cancel01Icon, AlarmClockIcon, Calendar03Icon, Mail01Icon, SmartPhone01Icon, InformationCircleIcon, Search01Icon, Menu01Icon, Alert02Icon, FolderOpenIcon, Folder01Icon,
 } from '@hugeicons/core-free-icons';
 
 /** Maps the semantic names used across the app (formerly PNG file names) to Hugeicons. */
@@ -26,6 +26,10 @@ export const ICONS: Record<string, typeof UserIcon> = {
   alert: Alert02Icon,
   overdue: AlarmClockIcon,
   menu: Menu01Icon,
+  calendar: Calendar03Icon,
+  mail: Mail01Icon,
+  phone: SmartPhone01Icon,
+  info: InformationCircleIcon,
   search: Search01Icon,
   // document-upload slots / report templates
   attachment: Attachment01Icon,
