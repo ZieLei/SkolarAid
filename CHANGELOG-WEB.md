@@ -14,6 +14,10 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — screenshots/ now covers every screen and dialog
+- `screenshots/` (git-ignored, local) holds 53 images named `<area>-<screen>[-state].png`: public (login, login error, register, register validation), admin (dashboard + charts + collapsed sidebar, scholars list/search, add/edit/details/scholarship-management dialogs, compliance management + status/add-requirement dialogs, payroll + batch selected + preview/confirm/release dialogs, reports + generated + receipt picker + analytics, activity log + selected entry, notifications + selected, registrations + detail + reject dialog), generic confirm/warning dialogs, and the scholar portal (dashboard, profile, payments, compliance, notifications with their detail panels, collapsed sidebar) for both a populated scholar and a brand-new one.
+- Not captured because they only appear after a real, state-changing action: payroll "processed" / "released" results, "nothing to release", scholar-added summary, registration approved/rejected results. (The release dialog was captured by temporarily moving two release dates and restoring them.)
+
 ### 2026-11-20 — Fix: empty-state cards stuck to the left
 - `web/src/styles.css`: the page-rhythm rule zeroed all margins of top-level blocks, including the left/right auto margins that centre the empty-state cards on scholar Payments and Notifications. It now only resets vertical margins, so those cards centre again.
 
