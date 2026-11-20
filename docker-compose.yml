@@ -1,0 +1,58 @@
+# API + MySQL + web (nginx). Copy .env.example to .env first.
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-iskolaraid}
+      MYSQL_USER: ${MYSQL_USER:-skolaraid}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Default: "Server=db;Port=3306;Database=${MYSQL_DATABASE:-iskolaraid};User=${MYSQL_USER:-skolaraid};Password=${MYSQL_PASSWORD};"
+      Database__AutoMigrate: "true"
+      Jwt__Key: ${JWT_KEY:?set JWT_KEY in .env (32+ random characters)}
+      Cors__Origins: ${CORS_ORIGINS:-http://localhost:4200}
+      Seed__AdminUsername: ${SEED_ADMIN_USERNAME:-admin}
+      Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
+      Seed__SampleData: ${SEED_SAMPLE_DATA:-false}
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__User: ${SMTP_USER:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__FromAddress: ${SMTP_FROM_ADDRESS:-}
+      Smtp__LoginUrl: ${SMTP_LOGIN_URL:-http://localhost:4200/login}
+      Sms__ApiKey: ${SMS_API_KEY:-}
+      Sms__SenderName: ${SMS_SENDER_NAME:-}
+    volumes:
+      - uploads:/app/uploads
+    ports:
+      - "5080:8080"
+
+  web:
+    build: ./web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "4200:80"
+
+volumes:
+  dbdata:
+  uploads:

@@ -361,3 +361,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# --- Web migration (api/ + web/) ---
+.env
+api/**/uploads/
+*.db
+web/dist/
+web/.angular/
