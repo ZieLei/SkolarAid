@@ -14,6 +14,11 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Admin layout now matches the scholar layout
+- `web/src/app/layout/admin-shell.ts`: the full-width teal top bar is gone. Like the scholar portal, the teal sidebar runs the full height with the logo block at its top, and the header is plain light with the burger button (outside the sidebar), the page title on the left and the user + Logout on the right. Sidebar widths (300/76) and item height (60px) are shared with the scholar side.
+- The header now shows the current page's title in every admin page (so the duplicate "Scholar Management" heading inside that page was removed); the dashboard keeps its "Welcome back" greeting like the scholar dashboard does.
+- screenshots/ refreshed.
+
 ### 2026-11-20 — Logout confirmation and a matching logo block
 - Both portals: the Logout button now opens a confirmation ("Log out of IskolarAid?" with "Stay signed in" / "Log out") instead of signing out immediately.
 - The admin top-left now uses the scholar sidebar's logo style: full logo at the same height with a small uppercase portal label underneath ("ADMIN PORTAL" / "SCHOLAR PORTAL"), replacing the admin's outlined "Admin" pill.

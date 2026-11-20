@@ -16,34 +16,35 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
   selector: 'app-admin-shell',
   imports: [AppIcon, RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <header class="fixed inset-x-0 top-0 z-30 flex h-[80px] items-center bg-brand px-5">
-      <button type="button" class="mr-3 flex h-[36px] w-[36px] items-center justify-center rounded text-white hover:bg-brand-hover" (click)="toggle()" [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'" [attr.aria-expanded]="!collapsed()"><app-icon name="menu" class="h-[24px] w-[24px]"></app-icon></button>
-      <div class="flex flex-col justify-center">
-        <img src="assets/logo-white.svg" alt="IskolarAid" class="h-[44px] w-auto self-start" />
-        <span class="mt-1 text-[12px] font-bold uppercase tracking-[.14em] text-white/80">Admin portal</span>
+    <aside class="fixed inset-y-0 left-0 z-20 overflow-y-auto overflow-x-hidden bg-brand transition-[width] duration-200" [style.width.px]="collapsed() ? 76 : 300">
+      <div class="flex h-[110px] flex-col justify-center px-5">
+        @if (collapsed()) { <img src="assets/logo-mark-white.svg" alt="IskolarAid" class="mx-auto h-[40px]" /> }
+        @else {
+          <img src="assets/logo-white.svg" alt="IskolarAid" class="h-[44px] w-auto self-start" />
+          <span class="mt-2 text-[12px] font-bold uppercase tracking-[.14em] text-white/80">Admin portal</span>
+        }
       </div>
-      <div class="ml-auto flex items-center gap-3">
-        <app-icon name="user" class="h-[35px] w-[36px] text-white"></app-icon>
-        <span class="text-[14px] font-bold text-[#e6e6e6]">Administrator</span>
-        <button class="btn btn-ghost !h-[40px] w-[110px] !text-[14px]" (click)="confirmLogout()">Logout</button>
-      </div>
-    </header>
-    <aside class="fixed left-0 top-[80px] bottom-0 z-20 overflow-y-auto overflow-x-hidden bg-brand pt-[45px] transition-[width] duration-200" [style.width.px]="collapsed() ? 72 : 280">
       @for (n of nav; track n.label) {
         <a [routerLink]="n.link" [queryParams]="n.query" routerLinkActive="!bg-brand-hover font-bold"
            [routerLinkActiveOptions]="{ paths: 'subset', queryParams: 'exact', fragment: 'ignored', matrixParams: 'ignored' }"
            [attr.title]="collapsed() ? n.label : null" [attr.aria-label]="n.label"
-           class="relative flex h-[55px] w-full items-center gap-3 whitespace-nowrap bg-brand px-5 text-[15px] text-white transition-colors hover:bg-brand-hover">
+           class="relative flex h-[60px] w-full items-center gap-3 whitespace-nowrap bg-brand px-5 text-[15px] text-white transition-colors hover:bg-brand-hover">
           <app-icon [name]="n.icon" class="h-[28px] w-[28px]"></app-icon>@if (!collapsed()) { {{ n.label }} }
           @if (n.badge && pendingRegs() > 0) { <span class="rounded-full bg-white px-2 text-[12px] font-bold text-brand" [class.ml-auto]="!collapsed()" [class.absolute]="collapsed()" [class.right-1]="collapsed()" [class.top-1]="collapsed()" [attr.aria-label]="pendingRegs() + ' waiting'">{{ pendingRegs() }}</span> }
         </a>
       }
     </aside>
-    <main class="min-h-screen bg-surface pt-[80px] transition-[padding] duration-200" [style.padding-left.px]="collapsed() ? 72 : 280">
-      <div class="p-[30px]">
-        @if (title(); as t) { <h1 class="page-title mb-4">{{ t }}</h1> }
-        <router-outlet />
-      </div>
+    <main class="min-h-screen bg-surface transition-[padding] duration-200" [style.padding-left.px]="collapsed() ? 76 : 300">
+      <header class="flex h-[80px] items-center px-[30px]">
+        <button type="button" class="mr-3 flex h-[36px] w-[36px] items-center justify-center rounded text-brand hover:bg-black/5" (click)="toggle()" [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'" [attr.aria-expanded]="!collapsed()"><app-icon name="menu" class="h-[24px] w-[24px]"></app-icon></button>
+        <h1 class="text-[20px] font-bold text-ink">{{ title() }}</h1>
+        <div class="ml-auto flex items-center gap-3">
+          <app-icon name="user" class="h-[35px] w-[36px]"></app-icon>
+          <span class="text-[14px] font-bold text-ink">Administrator</span>
+          <button class="btn btn-outline !h-[40px] w-[110px] !text-[14px]" (click)="confirmLogout()">Logout</button>
+        </div>
+      </header>
+      <div class="px-[30px] pb-[30px]"><router-outlet /></div>
     </main>
   `,
 })
@@ -69,10 +70,9 @@ export class AdminShell {
   private router = inject(Router);
   pendingRegs = signal(0);
   private url = toSignal(this.router.events.pipe(filter((e) => e instanceof NavigationEnd), map((e) => (e as NavigationEnd).urlAfterRedirects)), { initialValue: this.router.url });
-  /** Dashboard and Scholar Management draw their own heading; every other page gets one here. */
+  /** Shown in the header, as in the scholar portal. */
   title = computed(() => {
     const u = this.url();
-    if (u.startsWith('/admin/dashboard') || u.startsWith('/admin/scholars')) return '';
     if (u.includes('tab=reg')) return 'Scholar Registrations';
     return this.nav.find((n) => !n.query && u.startsWith(n.link))?.label ?? '';
   });

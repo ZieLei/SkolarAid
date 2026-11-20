@@ -38,8 +38,6 @@ const blank = (): Form => ({
   selector: 'app-scholars',
   imports: [ErrorSummary, ScrollCue, AppIcon, ScrollingModule, FormsModule, Modal, PesoPipe, DatePipeShort, ComplianceTab, ScholarshipTypesDialog],
   template: `
-    <h1 class="page-title mb-4">Scholar Management</h1>
-
     <div class="mb-4 flex gap-1 border-b-2 border-[#d9d9d9]">
       @for (t of tabs; track t.id) {
         <button class="rounded-t-lg px-5 py-2 text-[14px] font-bold" [class.bg-brand]="tab() === t.id" [class.text-white]="tab() === t.id" [class.text-label]="tab() !== t.id"
