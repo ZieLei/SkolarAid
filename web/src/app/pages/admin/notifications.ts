@@ -27,14 +27,13 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
           <select class="input !w-[180px]" [ngModel]="recipientFilter()" (ngModelChange)="recipientFilter.set($event); loadList()"><option [ngValue]="0">All Recipients</option>@for (r of recipients(); track r.id) { <option [ngValue]="r.id">{{ r.name }}</option> }</select></div>
         <div><label class="field-label-b">Type</label>
           <select class="input !w-[150px]" [ngModel]="typeFilter()" (ngModelChange)="typeFilter.set($event); loadList()"><option>All Types</option>@for (t of types; track t) { <option>{{ t }}</option> }</select></div>
-        <div><label class="field-label-b">Method</label><select class="input !w-[130px]" disabled><option>In-App</option></select></div>
         <label class="flex items-center gap-2 pb-1 text-[13px]"><input type="checkbox" [ngModel]="unreadOnly()" (ngModelChange)="unreadOnly.set($event); loadList()" /> Unread only</label>
         <div class="ml-auto flex flex-wrap items-center gap-2">
           <button class="btn btn-accent" (click)="refresh()">Refresh</button>
-          <button class="btn btn-gray" (click)="clearFilters()">Clear filters</button>
-          <button class="btn btn-brand" (click)="markAllRead()">Mark All Read</button>
+          <button class="btn btn-gray" (click)="clearFilters()">Clear</button>
+          <button class="btn btn-brand" (click)="markAllRead()" title="Mark every unread notification as read">Mark all read</button>
           <span class="mx-2 h-[28px] w-px bg-[#c9c9c9]" aria-hidden="true"></span>
-          <button class="btn btn-danger-outline" (click)="deleteRead()">Delete All Read…</button>
+          <button class="btn btn-danger-outline" (click)="deleteRead()" title="Permanently delete every notification that has been read">Delete read…</button>
         </div>
       </div>
 

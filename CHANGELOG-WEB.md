@@ -14,6 +14,9 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Notifications toolbar fits on one row
+- `web/src/app/pages/admin/notifications.ts`: the action buttons (Refresh, Clear, Mark all read, Delete read…) wrapped onto a second line, with Delete stranded at the end. Removed the always-disabled "Method: In-App" filter (nothing to choose) and shortened the labels ("Clear filters" to "Clear", "Delete All Read…" to "Delete read…"); the full meaning moved into tooltips. Everything now sits on a single row.
+
 ### 2026-11-20 — Comfortable rows in every table
 - `web/src/styles.css`: the roomy row style is now the default for all `table.dgrid` tables (52px rows, 14px side padding, 42px header, vertical centring, 1.4 line height), so Activity Log, Notifications, Compliance, Reports and the dialogs' tables match Payroll. Wrapped text columns lost their tight 5px padding.
 - Scholar Management's virtual list rows went from 44px to 56px with matching padding and header height.
