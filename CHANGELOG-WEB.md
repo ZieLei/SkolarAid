@@ -14,6 +14,12 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Emoji purge
+- Removed every emoji and decorative symbol from the web app source and from the API strings the web displays (searched `web/src` and `api/src` for emoji, arrows, dingbats and geometric symbols: none remain).
+- Registrations: the "approved" and "rejected" pop-ups are now dialogs with icon tiles (scholar, scholar number, student ID), a status line with a mail/warning icon for whether the email went out, and a Done button. The Reject button uses the reject icon instead of "✗".
+- Smaller: "→" in the registration detail is now "to"; the profile status uses a drawn dot instead of "●"; the release notification title is "Payment Released!" without the party emoji.
+- Existing database rows had no emoji, so no data changes were needed.
+
 ### 2026-11-20 — Payroll dialogs: icons and tables instead of emoji text
 - `web/src/app/pages/admin/payroll.ts`: Preview, Confirm payroll, Payroll processed, Release payments, Payments released and "Nothing to release yet" are now proper dialogs (icon tiles for period / method / counts / total, a table of the scholars in the batch with a per-row result, a warning banner for already-paid scholars, clear primary/cancel buttons) instead of emoji-filled text pop-ups.
 - New `shared/fact-grid.ts` (icon + label + value tiles); icons added: calendar, mail, phone, info.

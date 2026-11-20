@@ -9,13 +9,14 @@ import { ToastService } from '../../core/toast';
 import { DatePipeShort, DateTimePipe, NOTIFICATION_COLORS, PesoPipe, relativeTime, statusColor } from '../../core/format';
 import { ComposeResult, NotificationItem, NotificationStats, Option, RegistrationApproved, RegistrationDetail, RegistrationListItem } from '../../core/models';
 import { Modal } from '../../shared/modal';
+import { Fact, FactGrid } from '../../shared/fact-grid';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
 import { StatItem, StatStrip } from '../../shared/stat-strip';
 
 @Component({
   selector: 'app-notifications',
-  imports: [StatStrip, ScrollCue, AppIcon, FormsModule, DateTimePipe, DatePipeShort, PesoPipe, Modal],
+  imports: [FactGrid, StatStrip, ScrollCue, AppIcon, FormsModule, DateTimePipe, DatePipeShort, PesoPipe, Modal],
   template: `
     @if (tab() === 'notifs') { <app-stat-strip [items]="cards()" /> }
 
@@ -110,7 +111,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
               <dt class="text-muted">Degree Program</dt><dd>{{ r.degreeProgram }}</dd><dt class="text-muted">Year Level</dt><dd>{{ r.yearLevel }}</dd>
               <dt class="text-muted">Scholarship</dt><dd>{{ r.scholarshipName }} — {{ r.stipendAmount | peso }} / {{ r.stipendFrequency }}</dd>
               <dt class="text-muted">Fund Source</dt><dd>{{ r.scholarshipFundSource }}</dd><dt class="text-muted">Renewal</dt><dd>{{ r.renewalConditions }}</dd>
-              <dt class="text-muted">Enrollment / Graduation</dt><dd>{{ r.enrollmentDate | dmy }} → {{ r.expectedGraduation | dmy }}</dd>
+              <dt class="text-muted">Enrollment / Graduation</dt><dd>{{ r.enrollmentDate | dmy }} to {{ r.expectedGraduation | dmy }}</dd>
               <dt class="text-muted">Bank</dt><dd>{{ r.bankName }} {{ r.bankAccountNumber }}</dd><dt class="text-muted">Notes</dt><dd>{{ r.notes }}</dd>
               @if (r.rejectionReason) { <dt class="text-muted">Rejection reason</dt><dd class="text-danger">{{ r.rejectionReason }}</dd> }
             </dl>
@@ -119,7 +120,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
               @for (k of r.files; track k) { <button class="btn btn-brand" (click)="openFile(r.id, k)"><app-icon name="attachment" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>{{ fileLabel(k) }}</button> } @empty { <span class="text-[13px] text-muted">No files</span> }
             </div>
             @if (r.status === 'Pending') {
-              <div class="flex gap-3"><button class="btn btn-ok !h-[40px]" [disabled]="busy()" (click)="approve(r)"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Approve</button><button class="btn btn-danger !h-[40px]" [disabled]="busy()" (click)="rejectOpen.set(true)">✗ Reject</button></div>
+              <div class="flex gap-3"><button class="btn btn-ok !h-[40px]" [disabled]="busy()" (click)="approve(r)"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Approve</button><button class="btn btn-danger !h-[40px]" [disabled]="busy()" (click)="rejectOpen.set(true)"><app-icon name="reject" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Reject</button></div>
             }
           }
         </section> }
@@ -133,6 +134,33 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
         <textarea class="input mb-3" rows="5" [(ngModel)]="rejectReason" maxlength="1000"></textarea>
         <label class="mb-4 flex items-center gap-2 text-[13px]"><input type="checkbox" [(ngModel)]="rejectEmail" /> Send rejection email to applicant</label>
         <button class="btn btn-danger ml-auto" (click)="reject()">Submit Rejection</button>
+      </app-modal>
+    }
+
+    @if (approvedDlg(); as v) {
+      <app-modal title="Registration approved" [width]="560" (closed)="approvedDlg.set(null)">
+        <div class="mb-4 flex items-center gap-3"><app-icon name="checked" class="h-[40px] w-[40px] text-ok"></app-icon>
+          <p class="text-[14px] text-[#333]">A scholar account was created for {{ v.a.fullName }}.</p></div>
+        <app-fact-grid [facts]="approvedFacts(v)" />
+        <div class="mt-4 flex items-start gap-3 rounded-lg px-4 py-3" [class.bg-[#eef8f8]]="v.a.emailSent" [class.bg-[#fff8e6]]="!v.a.emailSent" [attr.role]="v.a.emailSent ? null : 'alert'">
+          <app-icon [name]="v.a.emailSent ? 'mail' : 'alert'" class="mt-[2px] h-5 w-5 shrink-0" [class.text-accent]="v.a.emailSent" [class.text-[#8a5300]]="!v.a.emailSent"></app-icon>
+          <p class="text-[13px] text-[#333]">@if (v.a.emailSent) { Login details were emailed to <b>{{ v.email }}</b>. } @else { The email could not be sent. Reset the scholar's credentials manually and give them to {{ v.a.fullName }}. }</p>
+        </div>
+        <div class="mt-5 flex justify-end"><button class="btn btn-brand !h-[40px]" (click)="approvedDlg.set(null)">Done</button></div>
+      </app-modal>
+    }
+
+    @if (rejectedDlg(); as v) {
+      <app-modal title="Registration rejected" [width]="520" (closed)="rejectedDlg.set(null)">
+        <div class="mb-4 flex items-center gap-3"><app-icon name="reject" class="h-[40px] w-[40px] text-[#b42318]"></app-icon>
+          <p class="text-[14px] text-[#333]">{{ v.name }}'s application was rejected.</p></div>
+        @if (v.asked) {
+          <div class="flex items-start gap-3 rounded-lg px-4 py-3" [class.bg-[#eef8f8]]="v.sent" [class.bg-[#fff8e6]]="!v.sent">
+            <app-icon [name]="v.sent ? 'mail' : 'alert'" class="mt-[2px] h-5 w-5 shrink-0" [class.text-accent]="v.sent" [class.text-[#8a5300]]="!v.sent"></app-icon>
+            <p class="text-[13px] text-[#333]">@if (v.sent) { A rejection email with your reason was sent to <b>{{ v.email }}</b>. } @else { The rejection email to {{ v.email }} could not be sent. }</p>
+          </div>
+        }
+        <div class="mt-5 flex justify-end"><button class="btn btn-brand !h-[40px]" (click)="rejectedDlg.set(null)">Done</button></div>
       </app-modal>
     }
   `,
@@ -248,23 +276,32 @@ export class NotificationsPage implements OnInit, OnDestroy {
   fileLabel(k: string): string { return ({ PSA: 'PSA Birth Certificate', COE: 'Certificate of Enrollment', COR: 'Certificate of Registration', Grades: 'Latest Grades/TOR', Contract: 'Scholarship Contract' } as Record<string, string>)[k] ?? k; }
   async openFile(id: number, key: string): Promise<void> { try { await this.api.open(`/admin/registrations/${id}/files/${key}`); } catch (e) { void this.dlg.error(errorMessage(e)); } }
 
+  approvedDlg = signal<{ a: RegistrationApproved; email: string } | null>(null);
+  rejectedDlg = signal<{ name: string; email: string; asked: boolean; sent: boolean } | null>(null);
+  private rejectEmailAsked = false;
+  approvedFacts(v: { a: RegistrationApproved }): Fact[] {
+    return [{ icon: 'user', label: 'Scholar', value: v.a.fullName }, { icon: 'scholar', label: 'Scholar number', value: v.a.scholarNumber, tone: 'strong' },
+      { icon: 'file', label: 'Username (Student ID)', value: v.a.studentId, tone: 'strong' }];
+  }
+
   async approve(r: RegistrationDetail): Promise<void> {
     if (!(await this.dlg.confirm(`Approve registration for ${r.firstName} ${r.lastName}?\n\nThis will create a scholar account and send welcome email.`, 'Confirm Approval'))) return;
     this.busy.set(true);
     try {
       const a = await firstValueFrom(this.api.post<RegistrationApproved>(`/admin/registrations/${r.id}/approve`));
       this.regSel.set(null); await this.refresh();
-      void this.dlg.success(`✅ Registration approved!\n\n👤 ${a.fullName}\n🔢 ${a.scholarNumber}\n🆔 Username (Student ID): ${a.studentId}\n${a.emailSent ? `📧 Login details sent to ${r.email}` : '⚠️ Email could not be sent — reset the credentials manually.'}`);
+      this.approvedDlg.set({ a, email: r.email });
     } catch (e) { void this.dlg.error(errorMessage(e)); } finally { this.busy.set(false); }
   }
 
   async reject(): Promise<void> {
     const r = this.regSel(); if (!r) return;
+    this.rejectEmailAsked = this.rejectEmail;
     if (!this.rejectReason.trim()) { void this.dlg.warning('Please enter a rejection reason.'); return; }
     try {
       const res = await firstValueFrom(this.api.post<{ emailSent: boolean }>(`/admin/registrations/${r.id}/reject`, { reason: this.rejectReason.trim(), sendEmail: this.rejectEmail }));
       this.rejectOpen.set(false); this.rejectReason = ''; this.regSel.set(null); await this.refresh();
-      void this.dlg.info(`Registration rejected.${this.rejectEmail ? (res.emailSent ? `\n📧 Rejection email sent to ${r.email}` : `\n⚠️ Failed to send rejection email to ${r.email}`) : ''}`, 'Registration Rejected');
+      this.rejectedDlg.set({ name: `${r.firstName} ${r.lastName}`, email: r.email, asked: this.rejectEmailAsked, sent: res.emailSent });
     } catch (e) { void this.dlg.error(errorMessage(e)); }
   }
 }

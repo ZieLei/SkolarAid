@@ -130,7 +130,7 @@ public class PayrollService(SkolarDbContext db, ActivityLogService log, ICurrent
             p.ReleaseDate = today;
             db.Notifications.Add(new Notification
             {
-                SenderId = current.UserId, RecipientId = p.ScholarId, Title = "🎉 Payment Released!", NotificationType = "Update",
+                SenderId = current.UserId, RecipientId = p.ScholarId, Title = "Payment Released!", NotificationType = "Update",
                 Message = $"Great news, {p.Scholar!.FullName}!\n\nYour stipend for {p.PaymentPeriod} has been RELEASED.\nAmount: ₱{p.Amount:N2}\nMethod: {p.PaymentMethod}\nReference: {p.ReferenceNumber}\n\nThe funds should reflect in your account within 1-3 business days."
             });
         }

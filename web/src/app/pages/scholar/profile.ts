@@ -18,7 +18,7 @@ import { BANKS } from '../register';
       <section class="card mb-5 flex items-center gap-5 p-6">
         <app-icon name="user" class="h-[80px] w-[80px]"></app-icon>
         <div><h2 class="text-[22px] font-bold text-ink">{{ p.firstName }} {{ p.middleName }} {{ p.lastName }}</h2>
-          <p class="text-[12pt] font-bold" [style.color]="p.status === 'Active' ? '#17692c' : '#4b5563'">● {{ p.status }} Scholar · {{ p.scholarNumber }}</p></div>
+          <p class="text-[12pt] font-bold" [style.color]="p.status === 'Active' ? '#17692c' : '#4b5563'"><span class="mr-2 inline-block h-[10px] w-[10px] rounded-full bg-current align-middle"></span>{{ p.status }} Scholar · {{ p.scholarNumber }}</p></div>
       </section>
 
       @if (missing().length) {
