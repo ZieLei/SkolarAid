@@ -12,9 +12,10 @@ public class ActivityLogService(SkolarDbContext db, ICurrentUser current)
     public async Task LogAsync(string action, string? details, string? table = null, int? recordId = null,
         int? userId = null, string? userName = null)
     {
+        Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<ActivityLog>? entry = null;
         try
         {
-            db.ActivityLogs.Add(new ActivityLog
+            entry = db.ActivityLogs.Add(new ActivityLog
             {
                 UserId = userId ?? current.UserId,
                 UserName = userName ?? current.UserName ?? "System",
@@ -29,6 +30,8 @@ public class ActivityLogService(SkolarDbContext db, ICurrentUser current)
         catch
         {
             // Logging must never break the request (same behaviour as the desktop app).
+            // Detach the failed row so it cannot poison the next SaveChanges on this context.
+            if (entry is not null) entry.State = EntityState.Detached;
         }
     }
 

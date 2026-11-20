@@ -9,7 +9,8 @@ namespace SkolarAid.Core.Services;
 
 public class PayrollService(SkolarDbContext db, ActivityLogService log, ICurrentUser current, IEmailSender email, ISmsSender sms)
 {
-    private static readonly string[] PaidStatuses = ["Released", "Processed"];
+    // List<string>, not string[]: C# 14 binds string[].Contains to a span overload that EF Core 9 cannot translate.
+    private static readonly List<string> PaidStatuses = ["Released", "Processed"];
 
     public async Task<List<PayrollCandidateDto>> CandidatesAsync(DateTime periodDate, int? scholarshipTypeId, string? yearLevel, string? search)
     {
