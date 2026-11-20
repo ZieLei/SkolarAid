@@ -4,7 +4,7 @@ import { Chart } from 'chart.js';
 import { Api, errorMessage } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { DialogService } from '../../core/dialog';
-import { DatePipeShort, PesoPipe, relativeTime, statusColor } from '../../core/format';
+import { DatePipeShort, PesoPipe, relativeTime, statusColor, formatPeso } from '../../core/format';
 import { ChartPoint, DashboardStats, RecentActivity, UpcomingPayment } from '../../core/models';
 import { lineConfig, makeChart, pieConfig } from '../../shared/charts';
 import { AppIcon } from '../../shared/icon';
@@ -14,7 +14,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
   selector: 'app-admin-dashboard',
   imports: [ScrollCue, AppIcon, PesoPipe, DatePipeShort],
   template: `
-    <h1 class="text-[20pt] font-bold text-ink">Welcome back, {{ auth.user()?.name || 'Administrator' }}! 👋</h1>
+    <h1 class="text-[20pt] font-bold text-ink">Welcome back, {{ auth.user()?.name || 'Administrator' }}!</h1>
     <p class="mb-5 text-[12pt] text-[#646464]">{{ today }}</p>
 
     <div class="mb-6 grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-6">
@@ -24,7 +24,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
           <div>
             <p class="text-[12pt] font-bold text-label">{{ c.label }}</p>
             <p class="font-bold" [class.text-brand]="!c.danger" [class.text-danger]="c.danger" [class.text-[32px]]="!c.money" [class.text-[28px]]="c.money">{{ c.value }}</p>
-            @if (c.hint) { <p class="text-[11px] leading-tight text-muted">{{ c.hint }}</p> }
+            @if (c.hint) { <p class="text-[12px] leading-tight text-muted">{{ c.hint }}</p> }
           </div>
         </div>
       }
@@ -38,9 +38,9 @@ import { ScrollCue } from '../../shared/scroll-cue';
             <li class="py-2" [class.bg-[#f8fafc]]="$index % 2 === 0">
               <p class="text-[13px] font-bold text-brand">{{ a.userName }}</p>
               <p class="line-clamp-2 text-[12px] text-[#646464]" [title]="a.details">{{ a.details }}</p>
-              <p class="text-[11px] text-[#969696]">{{ rel(a.createdAt) }}</p>
+              <p class="text-[12px] text-[#595959]">{{ rel(a.createdAt) }}</p>
             </li>
-          } @empty { <li class="py-6 text-center text-[13px] text-[#969696]">No recent activity</li> }
+          } @empty { <li class="py-6 text-center text-[13px] text-[#595959]">No recent activity</li> }
         </ul>
       </section>
 
@@ -54,7 +54,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
                 <tr [style.color]="color(p.status)">
                   <td>{{ p.scholarName }}</td><td>{{ p.scholarNumber }}</td><td>{{ p.amount | peso }}</td><td>{{ p.status }}</td><td>{{ p.releaseDate | dmy: 'Pending' }}</td>
                 </tr>
-              } @empty { <tr><td colspan="5" class="!py-6 text-center text-[#969696]">No upcoming payments</td></tr> }
+              } @empty { <tr><td colspan="5" class="!py-6 text-center text-[#595959]">No upcoming payments</td></tr> }
             </tbody>
           </table>
         </div>
@@ -94,8 +94,8 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       this.cards.set([
         { label: 'Total Scholars', value: String(s.totalScholars), icon: 'user-groups' },
         { label: 'Active Scholarships', value: String(s.activeScholarships), icon: 'checked', hint: 'Scholarship programs in use' },
-        { label: 'Total Disbursed', value: '₱' + s.totalDisbursed.toLocaleString('en-US', { maximumFractionDigits: 0 }), icon: 'wallet', money: true,
-          hint: s.queuedAmount > 0 ? `Released only · ₱${s.queuedAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })} processed, awaiting release` : 'Released to scholars' },
+        { label: 'Total Disbursed', value: formatPeso(s.totalDisbursed), icon: 'wallet', money: true,
+          hint: s.queuedAmount > 0 ? `Released only · ${formatPeso(s.queuedAmount)} processed, awaiting release` : 'Released to scholars' },
         { label: 'Pending Payments', value: String(s.pendingPayments), icon: 'wall-clock', danger: true, hint: 'Processed, not yet released' },
       ]);
       this.recent.set(r); this.upcoming.set(u);

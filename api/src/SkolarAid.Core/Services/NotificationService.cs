@@ -20,7 +20,7 @@ public class NotificationService(SkolarDbContext db, ICurrentUser current, Activ
             var t = search.Trim();
             q = q.Where(n => n.Title.Contains(t) || n.Message.Contains(t) || n.Recipient!.FirstName.Contains(t) || n.Recipient.LastName.Contains(t));
         }
-        var rows = await q.OrderByDescending(n => n.DateCreated).Take(100).ToListAsync();
+        var rows = await q.OrderByDescending(n => n.DateCreated).ThenByDescending(n => n.Id).Take(100).ToListAsync();
         return rows.Select(n => new NotificationDto(n.Id, n.Title, n.Message, n.NotificationType, n.DateCreated, n.IsRead, n.ReadAt,
             n.Sender?.Name ?? "System", n.Recipient?.FullName, n.Recipient?.ScholarNumber)).ToList();
     }
@@ -58,7 +58,7 @@ public class NotificationService(SkolarDbContext db, ICurrentUser current, Activ
                 if (await email.SendAsync(s.Email, s.FullName, subject, body)) emails++;
             }
             if (dto.SendSms && !string.IsNullOrEmpty(s.ContactNumber) &&
-                await sms.SendAsync(s.ContactNumber, $"ScholarAid: {dto.Title} - {dto.Message}")) texts++;
+                await sms.SendAsync(s.ContactNumber, $"IskolarAid: {dto.Title} - {dto.Message}")) texts++;
         }
         return new ComposeResultDto(recipients.Count, emails, texts);
     }
@@ -105,7 +105,7 @@ public class NotificationService(SkolarDbContext db, ICurrentUser current, Activ
     public async Task<ScholarNotificationsDto> ListForScholarAsync(int scholarId, string? type, bool unreadOnly)
     {
         var all = await db.Notifications.AsNoTracking().Include(n => n.Sender).Where(n => n.RecipientId == scholarId)
-            .OrderByDescending(n => n.DateCreated).ToListAsync();
+            .OrderByDescending(n => n.DateCreated).ThenByDescending(n => n.Id).ToListAsync();
         var filtered = all.Where(n => (string.IsNullOrWhiteSpace(type) || type.StartsWith("All") || n.NotificationType == type) && (!unreadOnly || !n.IsRead));
         var items = filtered.Select(ToScholarDto).ToList();
         return new ScholarNotificationsDto(items, all.Count, all.Count(n => !n.IsRead),

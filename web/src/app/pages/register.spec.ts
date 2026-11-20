@@ -26,7 +26,7 @@ describe('RegisterPage', () => {
     sel.selectedIndex = 1; sel.dispatchEvent(new Event('change')); // choose the first scholarship type like a user would
     await fx.whenStable(); fx.detectChanges();
     expect(c.m.scholarshipTypeId).toBe(7);
-    expect(el.textContent).toContain('Scholarship Details (Auto-Filled)');
+    expect(el.textContent).toContain('What this scholarship gives');
     expect(el.textContent).toContain('₱5,000.00');
     expect(el.textContent).toContain('GPA 2.5');
   });
@@ -46,10 +46,20 @@ describe('RegisterPage', () => {
     expect(el.querySelector('[role=alert]')?.textContent).toContain('valid Email');
   });
 
+  it('will not submit until the data privacy consent is ticked', async () => {
+    const { fx, el, http, c } = await setup();
+    fill(c);
+    c.docs.update((ds) => ds.map((d) => ({ ...d, file: d.required ? new File(['x'], `${d.key}.pdf`) : null })));
+    await c.submit(); fx.detectChanges();
+    expect(el.querySelector('[role=alert]')?.textContent).toContain('privacy consent');
+    http.expectNone('/api/registrations');
+  });
+
   it('posts multipart form data with the documents when everything is valid', async () => {
     const { http, c } = await setup();
     fill(c);
     c.docs.update((ds) => ds.map((d) => ({ ...d, file: d.required ? new File(['x'], `${d.key}.pdf`) : null })));
+    c.consent = true;
     const p = c.submit();
     const req = http.expectOne('/api/registrations');
     const fd = req.request.body as FormData;

@@ -68,11 +68,17 @@ public static class DbSeeder
         {
             db.Scholars.Add(new Scholar
             {
-                UserId = user.Id, StudentId = username, ScholarNumber = "DEMO-0001",
+                UserId = user.Id, StudentId = "2026-000099", ScholarNumber = "DEMO-0001",
                 FirstName = name, LastName = "Demo", Email = "shimamura@example.com",
                 Course = "BS Computer Science", YearLevel = "3rd Year", Status = "Active"
             });
             await db.SaveChangesAsync();
+        }
+        else if (role == Roles.Scholar)
+        {
+            // Earlier versions used the username as the Student ID; give it a realistic one.
+            var existing = await db.Scholars.FirstAsync(s => s.UserId == user.Id);
+            if (existing.StudentId == username) { existing.StudentId = "2026-000099"; await db.SaveChangesAsync(); }
         }
         log.LogInformation("Demo login ready: {User} ({Role})", username, role);
     }

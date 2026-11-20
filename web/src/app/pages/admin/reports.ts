@@ -4,7 +4,7 @@ import { Chart } from 'chart.js';
 import { firstValueFrom } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
-import { DatePipeShort, PesoPipe, daysAgo, today } from '../../core/format';
+import { DatePipeShort, PesoPipe, daysAgo, today, formatPeso } from '../../core/format';
 import { Analytics, Receipt, ReleasedPayment, ReportResult, ScholarFilters } from '../../core/models';
 import { Modal } from '../../shared/modal';
 import { barConfig, lineConfig, makeChart, pieConfig } from '../../shared/charts';
@@ -36,7 +36,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
             <select class="input !w-[150px]" [(ngModel)]="q.status"><option>All Status</option>@for (s of filters()?.statuses ?? []; track s) { <option>{{ s }}</option> }</select>
             <div class="ml-auto flex gap-2">
               <button class="btn btn-accent" [disabled]="busy()" (click)="generate()">Generate Report</button>
-              <button class="btn" style="background:#dc3545" (click)="exportPdf()">Export PDF</button>
+              <button class="btn btn-accent" (click)="exportPdf()">Export PDF</button>
               <button class="btn btn-ok" (click)="exportCsv()">Export Excel</button>
               <button class="btn" style="background:#646464" (click)="exportPdf()">Print</button>
             </div>
@@ -45,19 +45,19 @@ import { ScrollCue } from '../../shared/scroll-cue';
             @if (report(); as r) {
               <table class="dgrid">
                 <thead><tr>@for (c of r.columns; track c) { <th>{{ c }}</th> }</tr></thead>
-                <tbody>@for (row of r.rows; track $index; let i = $index) { <tr [class.alt]="i % 2 === 1">@for (cell of row; track $index) { <td>{{ cell }}</td> }</tr> } @empty { <tr><td [attr.colspan]="r.columns.length" class="!py-8 text-center text-[#969696]">No records found</td></tr> }</tbody>
+                <tbody>@for (row of r.rows; track $index; let i = $index) { <tr [class.alt]="i % 2 === 1">@for (cell of row; track $index) { <td>{{ cell }}</td> }</tr> } @empty { <tr><td [attr.colspan]="r.columns.length" class="!py-8 text-center text-[#595959]">No records found</td></tr> }</tbody>
               </table>
-            } @else { <p class="p-10 text-center text-[13px] text-[#969696]">Choose a report type and press “Generate Report”.</p> }
+            } @else { <p class="p-10 text-center text-[13px] text-[#595959]">Choose a report type and press “Generate Report”.</p> }
           </div>
         </section>
 
         <aside class="card p-5">
-          <h2 class="mb-1 text-[14pt] font-bold text-accent">📄 Report Templates</h2>
-          <p class="mb-3 text-[12px] text-muted">Print blank, fillable templates for reports and liquidations:</p>
+          <h2 class="mb-1 text-[14pt] font-bold text-accent">Blank forms to print</h2>
+          <p class="mb-3 text-[12px] text-[#444]">Empty forms to print and fill in by hand. (To get a report with your data, use the report builder on the left.)</p>
           @for (t of templates; track t) { <button class="mb-2 w-full rounded bg-brand px-3 py-2 text-left text-[13px] text-white hover:bg-brand-hover" (click)="printTemplate(t)"><app-icon [name]="icons[t]" class="mr-2 inline-flex h-4 w-4 align-[-3px]"></app-icon>{{ t }}</button> }
           <hr class="my-3" />
-          <h2 class="mb-2 text-[14pt] font-bold text-accent">🧾 Payroll Receipt</h2>
-          <button class="btn btn-ok w-full !h-[40px]" (click)="openReceipts()">🖨️ Print Disbursement Receipt</button>
+          <h2 class="mb-2 text-[14pt] font-bold text-accent">Disbursement receipt</h2>
+          <button class="btn btn-ok w-full !h-[40px]" (click)="openReceipts()"><app-icon name="invoice" class="h-4 w-4"></app-icon>Choose a payment to print…</button>
         </aside>
       </div>
     } @else {
@@ -81,13 +81,13 @@ import { ScrollCue } from '../../shared/scroll-cue';
     }
 
     @if (receiptsOpen()) {
-      <app-modal title="🧾 Select Payment to Print" [width]="760" (closed)="receiptsOpen.set(false)">
+      <app-modal title="Which released payment do you want a receipt for?" [width]="760" (closed)="receiptsOpen.set(false)">
         <div scrollCue class="grid-wrap max-h-[420px] rounded border border-[#e6e6e6]">
           <table class="dgrid"><thead><tr><th>ID</th><th>Scholar #</th><th>Scholar Name</th><th>Period</th><th>Amount</th><th>Release Date</th><th></th></tr></thead>
             <tbody>@for (p of released(); track p.id; let i = $index) {
               <tr [class.alt]="i % 2 === 1"><td>{{ p.id }}</td><td>{{ p.scholarNumber }}</td><td>{{ p.scholarName }}</td><td>{{ p.period }}</td><td>{{ p.amount | peso }}</td><td>{{ p.releaseDate | dmy }}</td>
-                <td><button class="btn btn-ok !h-[26px] !px-3 !text-[11px]" (click)="printReceipt(p.id)">Print</button></td></tr>
-            } @empty { <tr><td colspan="7" class="!py-6 text-center text-[#969696]">No released payments yet</td></tr> }</tbody></table>
+                <td><button class="btn btn-ok !h-[26px] !px-3 !text-[12px]" (click)="printReceipt(p.id)" [attr.aria-label]="'Print receipt for ' + p.scholarName + ', ' + p.period">Print receipt</button></td></tr>
+            } @empty { <tr><td colspan="7" class="!py-6 text-center text-[#595959]">No released payments yet</td></tr> }</tbody></table>
         </div>
       </app-modal>
     }
@@ -117,9 +117,9 @@ export class ReportsPage implements OnInit, OnDestroy {
     const s = this.analytics()?.stats;
     return [
       { label: 'Total Scholars', value: String(s?.totalScholars ?? 0), icon: 'user-groups', color: '#0a5c5c' },
-      { label: 'Active Scholars', value: String(s?.totalScholars ?? 0), icon: 'checked', color: '#28a745' },
-      { label: 'Total Disbursed', value: '₱' + (s?.totalDisbursed ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 }), icon: 'wallet', color: '#ffc107' },
-      { label: 'Pending Payments', value: String(s?.pendingPayments ?? 0), icon: 'wall-clock', color: '#dc3545' },
+      { label: 'Active Scholars', value: String(s?.totalScholars ?? 0), icon: 'checked', color: '#17692c' },
+      { label: 'Total Disbursed', value: formatPeso(s?.totalDisbursed), icon: 'wallet', color: '#ffc107' },
+      { label: 'Pending Payments', value: String(s?.pendingPayments ?? 0), icon: 'wall-clock', color: '#b42318' },
     ];
   });
 

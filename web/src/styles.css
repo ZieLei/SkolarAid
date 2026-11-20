@@ -15,10 +15,13 @@
   --color-ink: #1e1e1e;
   --color-muted: #646464;
   --color-label: #505050;
-  --color-danger: #ef4444;
+  /* Semantic colours (all >= 4.5:1 on white). Red = danger/errors only, amber = waiting, blue = in progress, green = done. */
+  --color-danger: #c62828;
   --color-warn: #ffaa00;
-  --color-ok: #28a745;
-  --color-info: #007bff;
+  --color-pending: #8a5300;
+  --color-processed: #0b5cad;
+  --color-ok: #1e7e34;
+  --color-info: #0b5cad;
   --color-row-select: #e6f5f5;
   --font-sans: "Nimbus Sans", Arial, sans-serif; /* Arial after Nimbus supplies the ₱ sign, which Nimbus lacks */
 }
@@ -41,8 +44,18 @@
   .btn-danger { @apply bg-danger hover:brightness-95; }
   .btn-warn { @apply bg-[#ffc107] hover:brightness-95 text-black; }
   .btn-info { @apply bg-info hover:brightness-95; }
-  .btn-gray { @apply bg-[#b4b4b4] hover:brightness-95; }
-  .field-label { @apply block text-[13px] text-muted mb-1; }
+  /* Secondary / neutral actions (Clear, Cancel): outlined so they never look disabled. */
+  .btn-gray { @apply bg-white text-[#374151] border border-[#6b7280] hover:bg-[#f3f4f6]; }
+  .btn-outline { @apply bg-white text-[#1e1e1e] border border-[#6b7280] hover:bg-[#f3f4f6]; }
+  .btn-danger-outline { @apply bg-white text-[#b42318] border border-[#b42318] hover:bg-[#fdecea]; }
+  .btn-ghost { @apply bg-transparent text-white border border-white/70 hover:bg-white/15; }
+  .field-label { @apply block text-[13px] text-label mb-1; }
+  .reg-h { @apply mb-4 flex items-center gap-3 text-[18px] font-bold text-brand; }
+  .reg-n { @apply inline-flex h-[28px] w-[28px] items-center justify-center rounded-full bg-brand text-[14px] text-white; }
+  .reg-l { @apply mb-1 block text-[14px] text-[#1e1e1e]; }
+  .reg-hint { @apply mt-1 text-[12px] text-[#555]; }
+  .opt::after { content: " (optional)"; color: #555; font-size: 12px; }
+  .req::after { content: " *"; color: #c62828; font-weight: 700; }
   .field-label-b { @apply block text-[13px] font-bold text-label mb-1; }
   .input { @apply w-full h-[30px] px-2 border border-gray-300 rounded bg-white text-[14px] outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:bg-gray-100; }
   textarea.input { @apply h-auto py-1; }

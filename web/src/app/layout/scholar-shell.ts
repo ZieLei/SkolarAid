@@ -15,7 +15,7 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
     <aside class="fixed inset-y-0 left-0 z-20 overflow-y-auto overflow-x-hidden bg-brand transition-[width] duration-200" [style.width.px]="collapsed() ? 76 : 300">
       <div class="flex h-[110px] items-start px-5 pt-[15px]">
         <img src="assets/scholar.png" alt="" class="h-[55px] w-[60px] shrink-0 object-contain" />
-        @if (!collapsed()) { <span class="ml-[5px] mt-[15px] whitespace-nowrap text-[16px] font-bold text-white">Iskolar Portal</span> }
+        @if (!collapsed()) { <span class="ml-[5px] mt-[15px] whitespace-nowrap text-[16px] font-bold text-white">IskolarAid Scholar</span> }
       </div>
       @for (n of nav; track n.link) {
         <a [routerLink]="n.link" routerLinkActive="!bg-brand-hover font-bold !text-[17px]"
@@ -32,7 +32,7 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
         <div class="ml-auto flex items-center gap-3">
           <app-icon name="user" class="h-[35px] w-[36px]"></app-icon>
           <span class="text-[12pt] font-bold text-black">{{ auth.user()?.name }}</span>
-          <button class="btn btn-danger !h-[40px] w-[110px] !text-[14px]" (click)="auth.logout()">Logout</button>
+          <button class="btn btn-outline !h-[40px] w-[110px] !text-[14px]" (click)="auth.logout()">Logout</button>
         </div>
       </header>
       <div class="px-[30px] pb-[30px]"><router-outlet /></div>

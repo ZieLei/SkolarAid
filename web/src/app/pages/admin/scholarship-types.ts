@@ -21,13 +21,13 @@ import { ScrollCue } from '../../shared/scroll-cue';
             @for (t of types(); track t.id; let i = $index) {
               <tr [class.alt]="i % 2 === 1">
                 <td>{{ t.name }}</td><td>{{ t.stipendAmount | peso }}</td><td>{{ t.paymentFrequency }}</td><td>{{ t.scholarCount }}</td>
-                <td><span class="font-bold" [style.color]="t.isActive ? '#28a745' : '#969696'">{{ t.isActive ? 'Active' : 'Inactive' }}</span></td>
+                <td><span class="font-bold" [style.color]="t.isActive ? '#17692c' : '#595959'">{{ t.isActive ? 'Active' : 'Inactive' }}</span></td>
                 <td>
-                  @if (t.isActive) { <button class="btn btn-warn !h-[26px] !px-2 !text-[11px]" (click)="toggle(t, false)">Deactivate</button> }
-                  @else { <button class="btn btn-ok !h-[26px] !px-2 !text-[11px]" (click)="toggle(t, true)">Activate</button> }
+                  @if (t.isActive) { <button class="btn btn-warn !h-[26px] !px-2 !text-[12px]" (click)="toggle(t, false)">Deactivate</button> }
+                  @else { <button class="btn btn-ok !h-[26px] !px-2 !text-[12px]" (click)="toggle(t, true)">Activate</button> }
                 </td>
               </tr>
-            } @empty { <tr><td colspan="6" class="!py-6 text-center text-[#969696]">No scholarship types yet</td></tr> }
+            } @empty { <tr><td colspan="6" class="!py-6 text-center text-[#595959]">No scholarship types yet</td></tr> }
           </tbody>
         </table>
       </div>

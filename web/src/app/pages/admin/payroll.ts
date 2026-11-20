@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
-import { DatePipeShort, PesoPipe, statusColor } from '../../core/format';
+import { DatePipeShort, PesoPipe, statusColor, formatPeso } from '../../core/format';
 import { DisbursementHistory, Option, PayrollCandidate, PayrollPreview, PayrollResult, PayrollStats, ProcessedPayment, ReleaseResult, ScholarFilters } from '../../core/models';
 import { YEAR_LEVELS } from '../register';
 import { AppIcon } from '../../shared/icon';
@@ -15,9 +15,9 @@ import { ScrollCue } from '../../shared/scroll-cue';
   template: `
     <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
       @for (c of cards(); track c.label) {
-        <div class="card flex h-[120px] items-center gap-4 px-5">
+        <div class="card flex h-[92px] items-center gap-4 px-5">
           <app-icon [name]="c.icon" class="card-icon h-[52px] w-[48px]"></app-icon>
-          <div><p class="text-[12pt] font-bold">{{ c.label }}</p><p class="font-bold text-accent" [class.text-[30px]]="!c.small" [class.text-[24px]]="c.small">{{ c.value }}</p>@if (c.hint) { <p class="text-[11px] leading-tight text-muted">{{ c.hint }}</p> }</div>
+          <div><p class="text-[12pt] font-bold">{{ c.label }}</p><p class="font-bold text-accent" [class.text-[26px]]="!c.small" [class.text-[24px]]="c.small">{{ c.value }}</p>@if (c.hint) { <p class="text-[12px] leading-tight text-muted">{{ c.hint }}</p> }</div>
         </div>
       }
     </div>
@@ -28,17 +28,25 @@ import { ScrollCue } from '../../shared/scroll-cue';
         <select class="input !w-[190px]" [ngModel]="typeId()" (ngModelChange)="typeId.set($event); load()"><option [ngValue]="0">All Scholarships</option>@for (o of typeOptions(); track o.id) { <option [ngValue]="o.id">{{ o.name }}</option> }</select></div>
       <div><label class="field-label-b">Year Level</label>
         <select class="input !w-[140px]" [ngModel]="year()" (ngModelChange)="year.set($event); load()"><option>All Year Levels</option>@for (y of years; track y) { <option>{{ y }}</option> }</select></div>
-      <div class="ml-auto flex gap-2"><button class="btn btn-accent" (click)="selectAll()">Select All Eligible</button><button class="btn" style="background:gray" (click)="selected.set(new_set())">Clear Selection</button></div>
+      <div class="ml-auto flex gap-2"><button class="btn btn-accent" (click)="selectAll()">Select All Eligible</button><button class="btn btn-gray" (click)="selected.set(new_set())">Clear Selection</button></div>
     </div>
 
     <div class="card mb-4 flex flex-wrap items-end gap-4 p-4">
       <div><label class="field-label-b">Payment Period</label><input class="input !w-[210px]" type="month" [ngModel]="periodMonth()" (ngModelChange)="periodMonth.set($event); load(); loadHistory()" /></div>
       <div><label class="field-label-b">Payment Method</label>
         <select class="input !w-[180px]" [(ngModel)]="method">@for (m of methods; track m) { <option>{{ m }}</option> }</select></div>
-      <div class="ml-auto flex flex-wrap gap-2">
-        <button class="btn btn-accent !h-[40px]" [disabled]="busy()" (click)="release()">🔓 Release Payments{{ stats()?.readyForRelease ? ' (' + stats()!.readyForRelease + ' ready)' : '' }}</button>
-        <button class="btn btn-ok !h-[40px] !text-[14px]" [disabled]="busy() || !selected().size" (click)="process()"><app-icon name="dollar" class="h-5 w-5"></app-icon>Process Payroll</button>
-        <button class="btn btn-accent !h-[40px] !text-[14px]" [disabled]="busy() || !selected().size" (click)="preview()"><app-icon name="analysis" class="h-5 w-5"></app-icon>Preview</button>
+      <div class="ml-auto flex flex-col items-end gap-2">
+        <div class="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Payroll steps">
+          <span class="text-[12px] font-bold text-label">Step 1</span>
+          <button class="btn btn-gray !h-[40px] !text-[14px]" [disabled]="busy() || !selected().size" [attr.title]="selected().size ? null : needSelection" (click)="preview()"><app-icon name="analysis" class="h-5 w-5"></app-icon>Preview</button>
+          <span class="text-[12px] font-bold text-label">Step 2</span>
+          <button class="btn btn-brand !h-[40px] !text-[14px]" [disabled]="busy() || !selected().size" [attr.title]="selected().size ? null : needSelection" (click)="process()"><app-icon name="dollar" class="h-5 w-5"></app-icon>Process Payroll</button>
+          <span class="mx-1 hidden h-[28px] w-px bg-[#c9c9c9] sm:block" aria-hidden="true"></span>
+          <span class="text-[12px] font-bold text-label">Step 3</span>
+          <button class="btn btn-outline !h-[40px] !text-[14px]" [disabled]="busy() || !(stats()?.readyForRelease)" [attr.title]="stats()?.readyForRelease ? null : noRelease" (click)="release()"><app-icon name="wallet" class="h-5 w-5"></app-icon>Release Payments{{ stats()?.readyForRelease ? ' (' + stats()!.readyForRelease + ' ready)' : '' }}</button>
+        </div>
+        @if (!selected().size) { <p class="text-[12px] text-muted">Preview and Process are off until you tick at least one eligible scholar.</p> }
+        @if (!stats()?.readyForRelease) { <p class="text-[12px] text-muted">{{ noRelease }}</p> }
       </div>
     </div>
 
@@ -54,9 +62,9 @@ import { ScrollCue } from '../../shared/scroll-cue';
                   <td>{{ c.scholarNumber }}</td><td class="font-bold">{{ c.fullName }}</td><td class="wrap">{{ c.course }}</td><td>{{ c.yearLevel }}</td>
                   <td class="wrap">{{ c.scholarshipType }}</td><td>{{ c.stipendAmount | peso }}</td>
                   <td><span class="font-bold" [style.color]="color(c.complianceStatus)">{{ c.complianceStatus }}</span></td>
-                  <td>@if (c.paymentStatus === 'Already Paid') { <span class="font-bold text-[#d98f00]"><app-icon name="alert" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Already Paid</span> } @else if (c.isEligible) { <span class="font-bold text-ok">✓ Yes</span> } @else { <span class="text-[#969696]">✗ No</span><span class="block whitespace-normal text-[11px] leading-tight text-[#969696]">{{ reason(c) }}</span> }</td>
+                  <td>@if (c.paymentStatus === 'Already Paid') { <span class="font-bold text-[#8a5300]"><app-icon name="alert" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Already Paid</span> } @else if (c.isEligible) { <span class="font-bold text-ok"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Yes</span> } @else { <span class="font-bold text-[#4b5563]">No</span><span class="block whitespace-normal text-[12px] leading-tight text-[#4b5563]">{{ reason(c) }}</span> }</td>
                 </tr>
-              } @empty { <tr><td colspan="9" class="!py-8 text-center text-[#969696]">No scholars found</td></tr> }
+              } @empty { <tr><td colspan="9" class="!py-8 text-center text-[#595959]">No scholars found</td></tr> }
             </tbody>
           </table>
         </div>
@@ -82,7 +90,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
                 <td>{{ h.scholarName }}</td><td>{{ h.period }}</td><td>{{ h.amount | peso }}</td>
                 <td><span class="font-bold" [style.color]="color(h.status)">{{ h.status }}</span></td><td>{{ h.releaseDate | dmy: 'Pending' }}</td><td>{{ h.paymentMethod }}</td><td>{{ h.referenceNumber }}</td>
               </tr>
-            } @empty { <tr><td colspan="7" class="!py-6 text-center text-[#969696]">No payments for this period</td></tr> }
+            } @empty { <tr><td colspan="7" class="!py-6 text-center text-[#595959]">No payments for this period</td></tr> }
           </tbody>
         </table>
       </div>
@@ -104,6 +112,8 @@ export class PayrollPage implements OnInit {
   busy = signal(false);
   private timer: ReturnType<typeof setTimeout> | undefined;
 
+  readonly needSelection = 'Select at least one eligible scholar in the table first.';
+  readonly noRelease = 'Release is off: no processed payment has reached its release date yet (new payments wait about 3 days).';
   new_set(): Set<number> { return new Set<number>(); }
   periodDate = computed(() => `${this.periodMonth() || new Date().toISOString().slice(0, 7)}-01`);
   periodLabel = computed(() => new Date(this.periodDate() + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
@@ -117,7 +127,7 @@ export class PayrollPage implements OnInit {
   cards = computed<{ label: string; value: string; icon: string; small: boolean; hint?: string }[]>(() => [
     { label: 'Eligible Scholars', value: String(this.rows().filter((r) => r.isEligible).length), icon: 'user-groups', small: false, hint: `of ${this.rows().length} listed · rest already paid or need compliance approved` },
     { label: `Selected (${this.selected().size})`, value: String(this.selected().size), icon: 'checked', small: false },
-    { label: 'Total Amount', value: '₱' + this.total().toLocaleString('en-US', { maximumFractionDigits: 0 }), icon: 'wallet', small: true },
+    { label: 'Total Amount', value: formatPeso(this.total()), icon: 'wallet', small: true },
     { label: 'Processed Today', value: String(this.stats()?.processedToday ?? 0), icon: 'dollar', small: false, hint: 'Payments processed today' },
   ]);
 

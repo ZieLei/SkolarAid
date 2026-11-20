@@ -226,4 +226,7 @@ public record ScholarProfileDto(string FirstName, string? MiddleName, string Las
     string? Address, DateTime? DateOfBirth, string? Gender, string? BankName, string? BankAccountNumber, string? StudentId, string? Hei,
     string? Course, string? YearLevel, string ScholarNumber, string? ScholarshipType, DateTime? EnrollmentDate,
     DateTime? ExpectedGraduation, string Status, decimal StipendAmount, string? FundSource, string? RenewalConditions);
+/// <summary>The only fields a scholar may change themselves.</summary>
+public record ScholarProfileUpdateDto([StringLength(30)] string? ContactNumber, [StringLength(500)] string? Address,
+    [StringLength(100)] string? BankName, [StringLength(50)] string? BankAccountNumber);
 public record ScholarComplianceDto(IReadOnlyList<ComplianceItemDto> Items, int Total, int Completed, int Pending, int Overdue, int Rate);

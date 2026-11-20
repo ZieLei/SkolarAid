@@ -7,7 +7,7 @@ import { DialogService } from '../../core/dialog';
 import { DatePipeShort, PesoPipe, dateInput, statusColor } from '../../core/format';
 import { ComplianceItem, Paged, ScholarCreated, ScholarDetail, ScholarFilters, ScholarListItem, ScholarSave, ScholarshipType } from '../../core/models';
 import { Modal } from '../../shared/modal';
-import { COURSES, GENDERS, YEAR_LEVELS } from '../register';
+import { BANKS, COURSES, GENDERS, YEAR_LEVELS } from '../register';
 import { ComplianceTab } from './compliance-tab';
 import { ScholarshipTypesDialog } from './scholarship-types';
 import { AppIcon } from '../../shared/icon';
@@ -23,13 +23,13 @@ const FUND_SOURCES = ['Government', 'Private', 'Alumni', 'Corporate', 'Others'];
 
 interface Form {
   studentId: string; firstName: string; middleName: string; lastName: string; suffix: string; email: string; contactNumber: string;
-  dateOfBirth: string; gender: string; address: string; course: string; yearLevel: string; scholarshipTypeId: number; stipendAmount: number;
+  dateOfBirth: string; gender: string; address: string; course: string; yearLevel: string; scholarshipTypeId: number; stipendAmount: number | null;
   stipendFrequency: string; scholarshipFundSource: string; renewalConditions: string; bankName: string; bankAccountNumber: string;
   enrollmentDate: string; expectedGraduation: string; status: string; scholarNumber: string;
 }
 const blank = (): Form => ({
-  studentId: '', firstName: '', middleName: '', lastName: '', suffix: '', email: '', contactNumber: '', dateOfBirth: '', gender: 'Male', address: '', course: '',
-  yearLevel: '', scholarshipTypeId: 0, stipendAmount: 0, stipendFrequency: 'Monthly', scholarshipFundSource: 'Government', renewalConditions: '', bankName: '',
+  studentId: '', firstName: '', middleName: '', lastName: '', suffix: '', email: '', contactNumber: '', dateOfBirth: '', gender: '', address: '', course: '',
+  yearLevel: '', scholarshipTypeId: 0, stipendAmount: null, stipendFrequency: 'Monthly', scholarshipFundSource: 'Government', renewalConditions: '', bankName: '',
   bankAccountNumber: '', enrollmentDate: '', expectedGraduation: '', status: 'Active', scholarNumber: '',
 });
 
@@ -50,16 +50,17 @@ const blank = (): Form => ({
       <app-compliance-tab [preselect]="complianceFor()" />
     } @else {
       <div class="card mb-4 flex flex-wrap items-center gap-3 p-4">
-        <button class="btn btn-brand !h-[35px] !px-4" (click)="typesOpen.set(true)">View Scholarships Management</button>
+        <button class="btn btn-brand !h-[35px] !px-4" (click)="typesOpen.set(true)">Manage scholarships</button>
         <div class="relative min-w-[240px] flex-1">
-          <span class="absolute left-2 top-[6px] text-[13px] text-muted">🔍</span>
+          <app-icon name="search" class="absolute left-2 top-[7px] h-4 w-4 text-muted"></app-icon>
           <input class="input !pl-8" placeholder="Search scholar..." [ngModel]="search()" (ngModelChange)="onSearch($event)" aria-label="Search scholar" />
         </div>
-        <span class="text-[13px] font-bold text-label">Filter:</span>
-        <select class="input !w-[170px]" [ngModel]="filterType()" (ngModelChange)="filterType.set($event); loadList()" aria-label="Scholarship filter">
+        <label class="text-[13px] font-bold text-label" for="f-sch">Scholarship:</label>
+        <select class="input !w-[170px]" [ngModel]="filterType()" (ngModelChange)="filterType.set($event); loadList()" id="f-sch">
           <option [ngValue]="0">All Scholarships</option>@for (o of filters()?.scholarships ?? []; track o.id) { <option [ngValue]="o.id">{{ o.name }}</option> }
         </select>
-        <select class="input !w-[130px]" [ngModel]="filterStatus()" (ngModelChange)="filterStatus.set($event); loadList()" aria-label="Status filter">
+        <label class="text-[13px] font-bold text-label" for="f-st">Status:</label>
+        <select id="f-st" class="input !w-[130px]" [ngModel]="filterStatus()" (ngModelChange)="filterStatus.set($event); loadList()" aria-label="Status filter">
           <option>All</option>@for (s of statuses; track s) { <option>{{ s }}</option> }
         </select>
       </div>
@@ -71,7 +72,7 @@ const blank = (): Form => ({
               <div role="row" class="grid overflow-hidden bg-brand text-left text-[13px] font-bold text-white [scrollbar-gutter:stable]" [style.grid-template-columns]="cols">
                 @for (h of heads; track h) { <div role="columnheader" class="h-[35px] truncate px-3 leading-[35px]">{{ h }}</div> }
               </div>
-              @if (!list().length) { <div class="py-8 text-center text-[12px] text-[#969696]">No scholars found</div> }
+              @if (!list().length) { <div class="py-8 text-center text-[12px] text-[#595959]">No scholars found</div> }
               <cdk-virtual-scroll-viewport [itemSize]="rowH" [style.height.px]="viewportH()" class="[scrollbar-gutter:stable]">
                 <div *cdkVirtualFor="let s of list(); trackBy: trackId; let i = index; templateCacheSize: 0" role="row"
                      class="grid cursor-pointer text-[12px]" [style.grid-template-columns]="cols" [style.height.px]="rowH"
@@ -90,17 +91,23 @@ const blank = (): Form => ({
         </section>
 
         <section class="card p-4">
-          <h2 class="mb-1 text-[18px] font-bold text-brand">{{ selectedId() ? 'Scholar Information/Editing Scholar' : 'Scholar Information/Adding Scholar' }}</h2>
+          <div class="mb-1 flex flex-wrap items-center gap-2">
+            <h2 class="text-[18px] font-bold text-brand">{{ selectedId() ? 'Edit scholar' : 'Add a new scholar' }}</h2>
+            <span class="rounded-full px-3 py-[2px] text-[12px] font-bold" [class.bg-[#e6f5f5]]="!selectedId()" [class.text-brand]="!selectedId()" [class.bg-[#fff3d6]]="!!selectedId()" [class.text-[#6b4400]]="!!selectedId()">
+              {{ selectedId() ? 'Editing ' + f.firstName + ' ' + f.lastName : 'New record' }}</span>
+            @if (selectedId()) { <button class="btn btn-outline !h-[28px] !px-3 !text-[12px]" (click)="clear()">+ Add another scholar instead</button> }
+          </div>
+          <p class="mb-1 text-[12px] text-[#555]"><span class="font-bold text-[#c62828]">*</span> required. Pick a scholar in the list to edit them.</p>
 
           <h3 class="section-title">Basic Information</h3>
           <div class="grid grid-cols-3 gap-x-3 gap-y-2">
-            <div><label class="field-label">First Name</label><input class="input" [(ngModel)]="f.firstName" maxlength="100" /></div>
-            <div><label class="field-label">Last Name</label><input class="input" [(ngModel)]="f.lastName" maxlength="100" /></div>
+            <div><label class="field-label req">First Name</label><input class="input" [(ngModel)]="f.firstName" maxlength="100" /></div>
+            <div><label class="field-label req">Last Name</label><input class="input" [(ngModel)]="f.lastName" maxlength="100" /></div>
             <div><label class="field-label">Middle Name</label><input class="input" [(ngModel)]="f.middleName" maxlength="100" /></div>
-            <div class="col-span-2"><label class="field-label">Email</label><input class="input" type="email" [(ngModel)]="f.email" maxlength="150" /></div>
+            <div class="col-span-2"><label class="field-label req">Email</label><input class="input" type="email" [(ngModel)]="f.email" maxlength="150" /></div>
             <div><label class="field-label">Contact Number</label><input class="input" [(ngModel)]="f.contactNumber" maxlength="30" /></div>
-            <div><label class="field-label">Date of Birth</label><input class="input" type="date" [(ngModel)]="f.dateOfBirth" /></div>
-            <div><label class="field-label">Gender</label><select class="input" [(ngModel)]="f.gender">@for (g of genders; track g) { <option>{{ g }}</option> }</select></div>
+            <div><label class="field-label">Date of Birth</label><input class="input" type="date" [(ngModel)]="f.dateOfBirth" [max]="todayIso" /></div>
+            <div><label class="field-label req">Gender</label><select class="input" [(ngModel)]="f.gender"><option value="">Select…</option>@for (g of genders; track g) { <option>{{ g }}</option> }</select></div>
             @if (!selectedId()) { <div><label class="field-label">Suffixes</label><input class="input" [(ngModel)]="f.suffix" maxlength="30" /></div> } @else { <div></div> }
             <div class="col-span-2"><label class="field-label">Address</label><input class="input" [(ngModel)]="f.address" maxlength="500" /></div>
             <div><label class="field-label">Student ID #</label><input class="input" [(ngModel)]="f.studentId" maxlength="50" placeholder="auto if blank" /></div>
@@ -108,15 +115,15 @@ const blank = (): Form => ({
 
           <h3 class="section-title">Academic Details</h3>
           <div class="grid grid-cols-[1fr_90px] gap-x-3">
-            <div><label class="field-label">Course</label><select class="input" [(ngModel)]="f.course"><option value="">Select...</option>@for (c of courses; track c) { <option>{{ c }}</option> }</select></div>
-            <div><label class="field-label">Year Level</label><select class="input" [(ngModel)]="f.yearLevel"><option value="">-</option>@for (y of years; track y) { <option>{{ y }}</option> }</select></div>
+            <div><label class="field-label req">Course</label><select class="input" [(ngModel)]="f.course"><option value="">Select...</option>@for (c of courses; track c) { <option>{{ c }}</option> }</select></div>
+            <div><label class="field-label req">Year Level</label><select class="input" [(ngModel)]="f.yearLevel"><option value="">-</option>@for (y of years; track y) { <option>{{ y }}</option> }</select></div>
           </div>
 
           <h3 class="section-title">Scholarship Details</h3>
           <div class="grid grid-cols-2 gap-x-3 gap-y-2">
-            <div><label class="field-label">Scholarship Type</label>
+            <div><label class="field-label req">Scholarship Type</label>
               <select class="input" [ngModel]="f.scholarshipTypeId" (ngModelChange)="onTypeChange($event)"><option [ngValue]="0">Select...</option>@for (t of types(); track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }</select></div>
-            <div><label class="field-label">Stipend Amount</label><input class="input" type="number" min="0" step="0.01" [(ngModel)]="f.stipendAmount" /></div>
+            <div><label class="field-label">Stipend Amount</label><input class="input" type="number" min="0" step="0.01" [(ngModel)]="f.stipendAmount" placeholder="Set by scholarship type" /></div>
             <div><label class="field-label">Stipend Frequency</label><select class="input" [(ngModel)]="f.stipendFrequency">@for (x of freqs; track x) { <option>{{ x }}</option> }</select></div>
             <div><label class="field-label">Scholarship Fund Source</label><select class="input" [(ngModel)]="f.scholarshipFundSource">@for (x of funds; track x) { <option>{{ x }}</option> }</select></div>
             <div class="col-span-2"><label class="field-label">Renewal Conditions</label><input class="input" [(ngModel)]="f.renewalConditions" maxlength="1000" /></div>
@@ -124,7 +131,7 @@ const blank = (): Form => ({
 
           <h3 class="section-title">Bank Information</h3>
           <div class="grid grid-cols-[1.5fr_1fr] gap-x-3 gap-y-2">
-            <div><label class="field-label">Bank Name</label><input class="input" [(ngModel)]="f.bankName" maxlength="100" /></div>
+            <div><label class="field-label">Bank Name</label><select class="input" [(ngModel)]="f.bankName"><option value="">Select…</option>@for (b of banks; track b) { <option>{{ b }}</option> }@if (f.bankName && !banks.includes(f.bankName)) { <option>{{ f.bankName }}</option> }</select></div>
             <div><label class="field-label">Account Number</label><input class="input" [(ngModel)]="f.bankAccountNumber" maxlength="50" /></div>
             <div><label class="field-label">Enrollment Date</label><input class="input" type="date" [(ngModel)]="f.enrollmentDate" /></div>
             <div><label class="field-label">Expected Graduation</label><input class="input" type="date" [(ngModel)]="f.expectedGraduation" /></div>
@@ -138,33 +145,33 @@ const blank = (): Form => ({
               <div>
                 <label class="field-label">{{ d.label }}</label>
                 @if (!selectedId()) {
-                  <label class="input flex cursor-pointer items-center truncate !text-[12px]" [class.!text-ok]="!!pending[d.key]">
-                    @if (pending[d.key]) { <app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon> } {{ pending[d.key] ? pending[d.key]!.name : 'ATTACH FILE' }}
+                  <label class="btn btn-outline !h-[30px] w-full cursor-pointer justify-start !text-[12px]" [class.!text-ok]="!!pending[d.key]" [attr.title]="pending[d.key]?.name ?? 'Attach file'">
+                    <app-icon [name]="pending[d.key] ? 'checked' : 'attachment'" class="h-4 w-4 shrink-0"></app-icon><span class="truncate">{{ pending[d.key] ? pending[d.key]!.name : 'Attach file' }}</span>
                     <input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="pickPending(d.key, $event)" />
                   </label>
                 } @else {
                   @let doc = docFor(d.key);
                   @if (doc; as dc) {
                     <div class="flex gap-1">
-                      <button type="button" class="input !text-left !text-[12px]" [disabled]="!dc.hasFile" (click)="openDoc(dc.complianceId)">{{ dc.hasFile ? '📎 ' + dc.fileName : 'TBA' }}</button>
-                      <label class="btn btn-info !h-[30px] !px-2 !text-[11px]">↑<input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="replaceDoc(dc.complianceId, $event)" /></label>
+                      <button type="button" class="input !text-left !text-[12px]" [disabled]="!dc.hasFile" (click)="openDoc(dc.complianceId)">{{ dc.hasFile ? dc.fileName : 'Not uploaded' }}</button>
+                      <label class="btn btn-outline !h-[30px] !px-2 !text-[12px]" title="Replace file"><app-icon name="attachment" class="h-4 w-4"></app-icon><input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="replaceDoc(dc.complianceId, $event)" /></label>
                     </div>
-                  } @else { <span class="text-[12px] text-muted">TBA</span> }
+                  } @else { <span class="text-[12px] text-muted">Not uploaded</span> }
                 }
               </div>
             }
           </div>
 
-          <div class="mt-5 flex flex-wrap gap-2">
+          <div class="sticky bottom-0 -mx-4 -mb-4 mt-5 flex flex-wrap gap-2 rounded-b-xl border-t border-[#e0e0e0] bg-white px-4 py-3">
             @if (!selectedId()) {
               <button class="btn btn-brand" [disabled]="busy()" (click)="save()">Add Scholar</button>
             } @else {
               <button class="btn btn-info" (click)="openDetails(selectedId()!)">View</button>
-              <button class="btn btn-warn" [disabled]="busy()" (click)="save()">Update</button>
-              <button class="btn" style="background:#ffaa00" (click)="toggleStatus()">{{ f.status === 'Active' ? 'Deactivate' : 'Reactivate' }}</button>
+              <button class="btn btn-brand" [disabled]="busy()" (click)="save()">Save changes</button>
+              <button class="btn btn-warn" (click)="toggleStatus()">{{ f.status === 'Active' ? 'Deactivate' : 'Reactivate' }}</button>
               <button class="btn btn-accent" (click)="complianceFor.set(selectedId()); tab.set('compliance')">Compliance</button>
             }
-            <button class="btn btn-gray" (click)="clear()">Clear Fields</button>
+            <button class="btn btn-gray" (click)="clear()">{{ selectedId() ? 'Cancel' : 'Clear form' }}</button>
           </div>
         </section>
       </div>
@@ -243,7 +250,7 @@ export class ScholarsPage implements OnInit {
   detailItems = signal<ComplianceItem[]>([]);
   f: Form = blank();
   pending: Record<string, File | undefined> = {};
-  docs = DOCS; statuses = STATUSES; freqs = FREQS; funds = FUND_SOURCES; courses = COURSES; years = YEAR_LEVELS; genders = GENDERS;
+  docs = DOCS; statuses = STATUSES; freqs = FREQS; funds = FUND_SOURCES; courses = COURSES; years = YEAR_LEVELS; genders = GENDERS; banks = BANKS; readonly todayIso = new Date().toISOString().slice(0, 10);
   color = statusColor;
   private timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -280,7 +287,7 @@ export class ScholarsPage implements OnInit {
       this.selectedId.set(id); this.detail.set(d); this.pending = {};
       this.f = {
         studentId: d.studentId ?? '', firstName: d.firstName, middleName: d.middleName ?? '', lastName: d.lastName, suffix: '', email: d.email ?? '', contactNumber: d.contactNumber ?? '',
-        dateOfBirth: dateInput(d.dateOfBirth), gender: d.gender ?? 'Male', address: d.address ?? '', course: d.course ?? '', yearLevel: d.yearLevel ?? '',
+        dateOfBirth: dateInput(d.dateOfBirth), gender: d.gender ?? '', address: d.address ?? '', course: d.course ?? '', yearLevel: d.yearLevel ?? '',
         scholarshipTypeId: d.scholarshipTypeId ?? 0, stipendAmount: d.stipendAmount, stipendFrequency: d.stipendFrequency ?? 'Monthly',
         scholarshipFundSource: d.scholarshipFundSource ?? 'Government', renewalConditions: d.renewalConditions ?? '', bankName: d.bankName ?? '',
         bankAccountNumber: d.bankAccountNumber ?? '', enrollmentDate: dateInput(d.enrollmentDate), expectedGraduation: dateInput(d.expectedGraduation),
@@ -300,6 +307,7 @@ export class ScholarsPage implements OnInit {
     if (!f.firstName.trim()) return 'First Name is required.';
     if (!f.lastName.trim()) return 'Last Name is required.';
     if (!f.email.trim()) return 'Email is required.';
+    if (!f.gender) return 'Please select a gender.';
     if (!f.course) return 'Please select a course.';
     if (!f.yearLevel) return 'Please select a year level.';
     if (!f.scholarshipTypeId) return 'Please select a scholarship type.';

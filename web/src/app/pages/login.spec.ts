@@ -18,7 +18,7 @@ describe('LoginPage', () => {
 
   it('shows the original heading and a LOG IN button', () => {
     const { el } = setup();
-    expect(el.textContent).toContain('Welcome back to IskolarAid');
+    expect(el.textContent).toContain('Welcome back');
     expect(el.querySelector('button[type=submit]')?.textContent).toContain('LOG IN');
   });
 

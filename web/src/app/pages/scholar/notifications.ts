@@ -11,46 +11,56 @@ import { AppIcon } from '../../shared/icon';
   selector: 'app-scholar-notifications',
   imports: [AppIcon, FormsModule, DateTimePipe],
   template: `
+    @if (data(); as d) {
+      @if (d.total === 0 && !filtersActive()) {
+        <section class="card mx-auto mt-6 max-w-[640px] p-10 text-center">
+          <app-icon name="bell" class="card-icon mx-auto mb-4 h-[64px] w-[64px]"></app-icon>
+          <h2 class="mb-2 text-[18pt] font-bold text-brand">You're all caught up</h2>
+          <p class="text-[12pt] text-[#444]">Nothing here yet. When the Scholarship Office sends you a reminder, a payment update or an announcement, it will show up on this page.</p>
+        </section>
+      } @else {
     <div class="mb-5 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
-      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="bell" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[12pt] font-bold text-label">Total Notifications</p><p class="text-[30px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="wall-clock" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[12pt] font-bold text-label">Unread Count</p><p class="text-[30px] font-bold text-warn">{{ data()?.unread ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="dollar" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[12pt] font-bold text-label">Payment Notifications</p><p class="text-[30px] font-bold text-ok">{{ data()?.payment ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="reject" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[12pt] font-bold text-label">Alert Notifications</p><p class="text-[30px] font-bold text-danger">{{ data()?.alert ?? 0 }}</p></div></div>
-    </div>
-
-    <div class="card mb-4 flex flex-wrap items-center gap-3 p-4">
-      <label class="text-[11pt] font-bold text-label">Type:</label>
-      <select class="input !w-[170px]" [ngModel]="type()" (ngModelChange)="type.set($event); load()"><option>All Types</option>@for (t of types; track t) { <option>{{ t }}</option> }</select>
-      <label class="flex items-center gap-2 text-[11pt]"><input type="checkbox" [ngModel]="unreadOnly()" (ngModelChange)="unreadOnly.set($event); load()" /> Unread Only</label>
-      <div class="ml-auto flex gap-2"><button class="btn btn-gray" (click)="type.set('All Types'); unreadOnly.set(false); load()">Clear</button><button class="btn btn-brand" (click)="load()">Refresh</button>
-        <button class="btn btn-brand" [disabled]="!data()?.unread" (click)="markAll()">Mark All as Read</button></div>
-    </div>
-
-    <div class="grid gap-5 xl:grid-cols-[1fr_380px]">
-      <section class="card p-3">
-        <div class="max-h-[560px] space-y-2 overflow-auto">
-          @for (n of data()?.items ?? []; track n.id) {
-            <button class="flex w-full gap-3 rounded-lg border-l-4 px-4 py-3 text-left transition hover:bg-[#eef8f8]" [class.bg-[#fafafa]]="n.isRead" [class.bg-white]="!n.isRead"
-                    [class.ring-1]="sel()?.id === n.id" [class.ring-brand]="sel()?.id === n.id" [style.border-color]="n.isRead ? '#e0e0e0' : color(n.type)" (click)="open(n)">
-              <app-icon name="bell" class="h-[36px] w-[36px]"></app-icon>
-              <div class="min-w-0 flex-1"><p class="text-[11pt] text-brand" [class.font-bold]="!n.isRead">{{ n.title }}</p><p class="line-clamp-2 text-[10pt] text-[#555]">{{ n.message }}</p></div>
-              <span class="whitespace-nowrap text-[9pt] text-[#969696]">{{ rel(n.dateCreated) }}</span>
-            </button>
-          } @empty { <p class="p-8 text-center text-[13px] text-[#969696]">No notifications</p> }
-        </div>
-        <p class="px-3 pt-2 text-[9pt] text-muted">Showing {{ data()?.items?.length ?? 0 }} records</p>
-      </section>
-      <aside class="card p-5">
-        @if (sel(); as n) {
-          <h2 class="mb-1 text-[16pt] font-bold text-brand">{{ n.title }}</h2>
-          <p class="text-[11pt] font-bold" [style.color]="color(n.type)">{{ n.type }}</p><p class="mb-3 text-[10pt] text-muted">{{ n.dateCreated | dt }}</p>
-          <p class="mb-4 whitespace-pre-wrap text-[11pt]">{{ n.message }}</p>
-          <p class="text-[10pt] font-bold text-label">Sent by:</p><p class="mb-2 text-[11pt]">{{ n.senderName }}</p>
-          <p class="text-[10pt] font-bold text-label">Delivery Method:</p><p class="mb-2 text-[11pt]">In-App</p>
-          <p class="text-[10pt] font-bold text-label">Status:</p><p class="text-[11pt] font-bold" [style.color]="n.isRead ? '#28a745' : '#ffaa00'">{{ n.isRead ? 'Read' : 'Unread' }}</p>
-        } @else { <h2 class="mb-2 text-[16pt] font-bold text-brand">Select a notification</h2><p class="text-[11pt]">Click on any notification to view its details.</p> }
-      </aside>
-    </div>
+        <div class="card flex h-[88px] items-center gap-4 px-5"><app-icon name="bell" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[12pt] font-bold text-label">Total Notifications</p><p class="text-[26px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
+        <div class="card flex h-[88px] items-center gap-4 px-5"><app-icon name="wall-clock" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[12pt] font-bold text-label">Unread Count</p><p class="text-[26px] font-bold text-pending">{{ data()?.unread ?? 0 }}</p></div></div>
+        <div class="card flex h-[88px] items-center gap-4 px-5"><app-icon name="dollar" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[12pt] font-bold text-label">Payment Notifications</p><p class="text-[26px] font-bold text-ok">{{ data()?.payment ?? 0 }}</p></div></div>
+        <div class="card flex h-[88px] items-center gap-4 px-5"><app-icon name="alert" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[12pt] font-bold text-label">Alert Notifications</p><p class="text-[26px] font-bold text-danger">{{ data()?.alert ?? 0 }}</p></div></div>
+      </div>
+  
+      <div class="card mb-4 flex flex-wrap items-center gap-3 p-4">
+        <label class="text-[11pt] font-bold text-label">Type:</label>
+        <select class="input !w-[170px]" [ngModel]="type()" (ngModelChange)="type.set($event); load()"><option>All Types</option>@for (t of types; track t) { <option>{{ t }}</option> }</select>
+        <label class="flex items-center gap-2 text-[11pt]"><input type="checkbox" [ngModel]="unreadOnly()" (ngModelChange)="unreadOnly.set($event); load()" /> Unread Only</label>
+        <div class="ml-auto flex gap-2"><button class="btn btn-gray" (click)="type.set('All Types'); unreadOnly.set(false); load()">Clear</button><button class="btn btn-brand" (click)="load()">Refresh</button>
+          <button class="btn btn-brand" [disabled]="!data()?.unread" (click)="markAll()">Mark All as Read</button></div>
+      </div>
+  
+      <div class="grid gap-5 xl:grid-cols-[1fr_380px]">
+        <section class="card p-3">
+          <div class="max-h-[560px] space-y-2 overflow-auto">
+            @for (n of data()?.items ?? []; track n.id) {
+              <button class="flex w-full gap-3 rounded-lg border-l-4 px-4 py-3 text-left transition hover:bg-[#eef8f8]" [class.bg-[#fafafa]]="n.isRead" [class.bg-white]="!n.isRead"
+                      [class.ring-1]="sel()?.id === n.id" [class.ring-brand]="sel()?.id === n.id" [style.border-color]="n.isRead ? '#e0e0e0' : color(n.type)" (click)="open(n)">
+                <app-icon name="bell" class="h-[36px] w-[36px]"></app-icon>
+                <div class="min-w-0 flex-1"><p class="text-[11pt] text-brand" [class.font-bold]="!n.isRead">{{ n.title }}</p><p class="line-clamp-2 text-[10pt] text-[#555]">{{ n.message }}</p></div>
+                <span class="whitespace-nowrap text-[10pt] text-[#595959]" [title]="n.dateCreated | dt">{{ rel(n.dateCreated) }}</span>
+              </button>
+            } @empty { <p class="p-8 text-center text-[13px] text-[#595959]">No notifications</p> }
+          </div>
+          <p class="px-3 pt-2 text-[9pt] text-muted">Showing {{ data()?.items?.length ?? 0 }} records</p>
+        </section>
+        <aside class="card p-5">
+          @if (sel(); as n) {
+            <h2 class="mb-1 text-[16pt] font-bold text-brand">{{ n.title }}</h2>
+            <p class="text-[11pt] font-bold" [style.color]="color(n.type)">{{ n.type }}</p><p class="mb-3 text-[10pt] text-muted">{{ n.dateCreated | dt }}</p>
+            <p class="mb-4 whitespace-pre-wrap text-[11pt]">{{ n.message }}</p>
+            <p class="text-[10pt] font-bold text-label">Sent by:</p><p class="mb-2 text-[11pt]">{{ n.senderName }}</p>
+            <p class="text-[10pt] font-bold text-label">Delivery Method:</p><p class="mb-2 text-[11pt]">In-App</p>
+            <p class="text-[10pt] font-bold text-label">Status:</p><p class="text-[11pt] font-bold" [style.color]="n.isRead ? '#17692c' : '#8a5300'">{{ n.isRead ? 'Read' : 'Unread' }}</p>
+          } @else { <h2 class="mb-2 text-[16pt] font-bold text-brand">Select a notification</h2><p class="text-[11pt]">Click on any notification to view its details.</p> }
+        </aside>
+      </div>
+      }
+    }
   `,
 })
 export class ScholarNotificationsPage implements OnInit {
@@ -59,6 +69,7 @@ export class ScholarNotificationsPage implements OnInit {
   data = signal<ScholarNotifications | null>(null);
   sel = signal<ScholarNotification | null>(null);
   type = signal('All Types'); unreadOnly = signal(false);
+  filtersActive = () => this.type() !== 'All Types' || this.unreadOnly();
   types = ['Reminder', 'Alert', 'Update', 'Announcement'];
   color = (t: string) => NOTIFICATION_COLORS[t] ?? '#646464'; rel = relativeTime;
 

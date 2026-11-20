@@ -41,7 +41,8 @@ public class DashboardService(SkolarDbContext db)
 
     public async Task<List<RecentActivityDto>> RecentActivityAsync()
     {
-        var rows = await db.ActivityLogs.AsNoTracking().OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id).Take(10).ToListAsync();
+        // Logins are noise on a dashboard; they stay in the full Activity Log.
+        var rows = await db.ActivityLogs.AsNoTracking().Where(a => a.ActionType != "LOGIN" && a.ActionType != "LOGOUT").OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id).Take(10).ToListAsync();
         return rows.Select(a => new RecentActivityDto(a.UserName ?? "System", a.Details ?? "", a.CreatedAt)).ToList();
     }
 
@@ -228,8 +229,22 @@ public class ReportService(SkolarDbContext db, ActivityLogService log)
         .Select(p => new ReleasedPaymentDto(p.Id, p.Scholar!.ScholarNumber, p.Scholar.FullName, p.PaymentPeriod, p.Amount, p.ReleaseDate)).ToList();
 }
 
-public class ScholarPortalService(SkolarDbContext db, ComplianceService compliance, NotificationService notifications)
+public class ScholarPortalService(SkolarDbContext db, ComplianceService compliance, NotificationService notifications, ActivityLogService log)
 {
+    /// <summary>Scholars can keep their own contact and payout details current; everything else stays with the Scholarship Office.</summary>
+    public async Task<ScholarProfileDto> UpdateProfileAsync(int scholarId, ScholarProfileUpdateDto dto)
+    {
+        var s = await db.Scholars.FirstOrDefaultAsync(x => x.Id == scholarId) ?? throw AppException.NotFound("Scholar");
+        static string? N(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+        s.ContactNumber = N(dto.ContactNumber) is { } c ? ScholarRules.NormalizePhone(c) : null;
+        s.Address = N(dto.Address);
+        s.BankName = N(dto.BankName);
+        s.BankAccountNumber = N(dto.BankAccountNumber);
+        await db.SaveChangesAsync();
+        await log.LogUpdate("scholars", scholarId, $"{s.FullName} updated their own contact/bank details");
+        return await ProfileAsync(scholarId);
+    }
+
     private async Task<Data.Entities.Scholar> ScholarAsync(int id) =>
         await db.Scholars.AsNoTracking().Include(s => s.ScholarshipType).FirstOrDefaultAsync(s => s.Id == id) ?? throw AppException.NotFound("Scholar");
 

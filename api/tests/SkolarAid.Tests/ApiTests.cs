@@ -123,6 +123,14 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var adminView = await admin.GetFromJsonAsync<ComplianceScholarInfoDto>($"/api/admin/scholars/{created.Id}/compliance");
         Assert.Equal("Submitted", adminView!.Items.First(i => i.Id == item.Id).Status);
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/api/admin/compliance/{item.Id}/file")).StatusCode);
+
+        // scholar can update only their own contact/bank details
+        var upd = await scholar.PutAsJsonAsync("/api/scholar/profile", new ScholarProfileUpdateDto("+63 917 123 4567", "1 Main St", "BDO Unibank", "0012345678"));
+        Assert.Equal(HttpStatusCode.OK, upd.StatusCode);
+        var profile = await scholar.GetFromJsonAsync<ScholarProfileDto>("/api/scholar/profile");
+        Assert.Equal("09171234567", profile!.ContactNumber);
+        Assert.Equal("BDO Unibank", profile.BankName);
+        Assert.Equal(HttpStatusCode.Forbidden, (await admin.PutAsJsonAsync("/api/scholar/profile", new ScholarProfileUpdateDto(null, null, null, null))).StatusCode);
     }
 
     [Fact]

@@ -16,7 +16,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
       @for (c of cards(); track c.label) {
         <div class="card flex h-[120px] items-center gap-4 px-5">
           <app-icon [name]="c.icon" class="card-icon h-[52px] w-[48px]"></app-icon>
-          <div><p class="text-[12pt] font-bold">{{ c.label }}</p><p class="text-[30px] font-bold text-accent">{{ c.value }}</p></div>
+          <div><p class="text-[12pt] font-bold">{{ c.label }}</p><p class="text-[26px] font-bold text-accent">{{ c.value }}</p></div>
         </div>
       }
     </div>
@@ -31,7 +31,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
         <select class="input !w-[160px]" [(ngModel)]="user" (change)="apply()"><option>All Users</option>@for (u of filters()?.users ?? []; track u) { <option>{{ u }}</option> }</select></div>
       <div class="ml-auto flex gap-2">
         <button class="btn btn-accent" (click)="refresh()">Refresh</button>
-        <button class="btn" style="background:gray" (click)="clearFilters()">Clear</button>
+        <button class="btn btn-gray" (click)="clearFilters()">Clear</button>
         <button class="btn btn-ok" (click)="exportCsv()"><app-icon name="file" class="h-4 w-4"></app-icon>Export Logs</button>
       </div>
     </div>
@@ -47,16 +47,16 @@ import { ScrollCue } from '../../shared/scroll-cue';
                   <td>{{ l.id }}</td><td class="whitespace-nowrap">{{ l.createdAt | dt }}</td><td>{{ l.userName }}</td><td>{{ l.role }}</td><td class="font-bold">{{ l.actionType }}</td>
                   <td>{{ l.tableAffected }}</td><td class="wrap !min-w-[220px]">{{ l.details }}</td><td>{{ l.ipAddress }}</td>
                 </tr>
-              } @empty { <tr><td colspan="8" class="!py-8 text-center text-[#969696]">No activity found</td></tr> }
+              } @empty { <tr><td colspan="8" class="!py-8 text-center text-[#595959]">No activity found</td></tr> }
             </tbody>
           </table>
         </div>
         <div class="flex items-center justify-center gap-2 border-t border-[#e6e6e6] py-2">
-          <button class="btn btn-accent !h-[26px] !px-3" [disabled]="pageNo() <= 1" (click)="go(1)">&lt;&lt;</button>
-          <button class="btn btn-accent !h-[26px] !px-3" [disabled]="pageNo() <= 1" (click)="go(pageNo() - 1)">&lt;</button>
-          <span class="mx-4 text-[13px]">Page {{ pageNo() }} of {{ totalPages() }}</span>
-          <button class="btn btn-accent !h-[26px] !px-3" [disabled]="pageNo() >= totalPages()" (click)="go(pageNo() + 1)">&gt;</button>
-          <button class="btn btn-accent !h-[26px] !px-3" [disabled]="pageNo() >= totalPages()" (click)="go(totalPages())">&gt;&gt;</button>
+          <button class="btn btn-brand !h-[40px] !min-w-[48px]" [disabled]="pageNo() <= 1" (click)="go(1)" aria-label="First page">«</button>
+          <button class="btn btn-brand !h-[40px] !min-w-[48px]" [disabled]="pageNo() <= 1" (click)="go(pageNo() - 1)" aria-label="Previous page">‹ Prev</button>
+          <span class="mx-4 text-[14px]">Page {{ pageNo() }} of {{ totalPages() }}</span>
+          <button class="btn btn-brand !h-[40px] !min-w-[48px]" [disabled]="pageNo() >= totalPages()" (click)="go(pageNo() + 1)" aria-label="Next page">Next ›</button>
+          <button class="btn btn-brand !h-[40px] !min-w-[48px]" [disabled]="pageNo() >= totalPages()" (click)="go(totalPages())" aria-label="Last page">»</button>
         </div>
       </section>
 

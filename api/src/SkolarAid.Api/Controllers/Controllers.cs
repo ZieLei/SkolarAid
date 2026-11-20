@@ -214,6 +214,7 @@ public class ScholarPortalController(ScholarPortalService portal, ComplianceServ
 
     [HttpGet("dashboard")] public Task<ScholarDashboardDto> Dashboard() => portal.DashboardAsync(Me);
     [HttpGet("profile")] public Task<ScholarProfileDto> Profile() => portal.ProfileAsync(Me);
+    [HttpPut("profile")] public Task<ScholarProfileDto> UpdateProfile(ScholarProfileUpdateDto dto) => portal.UpdateProfileAsync(Me, dto);
     [HttpGet("payments")] public Task<ScholarPaymentsDto> Payments() => portal.PaymentsAsync(Me);
 
     [HttpGet("payments/csv")]

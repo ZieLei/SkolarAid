@@ -24,7 +24,7 @@ const STYLE = `
   @media print{.noprint{display:none}}
 `;
 
-const header = (): string => `<div class="head"><h1>Legacy College of Compostela</h1><p>ScholarAid — Scholarship Management</p></div>`;
+const header = (): string => `<div class="head"><h1>Legacy College of Compostela</h1><p>IskolarAid — Scholarship Management</p></div>`;
 
 /** Prints through a hidden iframe (no popup blocker issues). In the print dialog choose "Save as PDF" to export. */
 export function printHtml(title: string, body: string): void {

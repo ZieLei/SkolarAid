@@ -14,6 +14,23 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — UX fixes 4–7 + medium/small issues
+**4. Payroll safeguards**
+- Buttons now follow the workflow: Preview (Step 1) → Process Payroll (Step 2) → Release Payments (Step 3, outlined, set apart). Disabled buttons say why, in a visible line and a tooltip; Release is off until something is actually due.
+- Notifications: "Delete All Read…" is separated from "Mark All Read" and styled as danger-outline. Both ask for confirmation with counts (danger-styled confirm button). Deletes now have an **Undo** toast (8s grace before the permanent API delete; also for single deletes). New `ToastService`/`ToastHost`.
+**5. Colour semantics**
+- One meaning per colour, all ≥4.5:1: amber = pending, blue = processed/submitted, green = done, red = problems only. Pending ≠ Processed now. Dashboard "Pending Payments" no longer red; Logout and Export PDF no longer red; Clear/Cancel are outlined, not faded gray. Distinct icons for Overdue (alarm clock), Alert (warning) and Rejected (X).
+**6. Registration form**
+- Rebuilt as 5 numbered sections (About you, Your school, Scholarship and payout, Documents, Review and send) in one column, Submit at the end as a full-width primary button; uploads are outlined "Choose file" rows with required/optional tags. Consistent `*` required / "(optional)" marking, explanation that no password is needed now (emailed after approval), required Data Privacy Act consent checkbox (frontend-enforced; consent is not stored server-side yet). Bank is a list. Logo overlap fixed (background pinned, content starts below it); login simplified (one greeting, dimmed photo).
+**7. Empty states** — Scholar Payments and Notifications show a single guidance card (next expected payment, what to do) instead of zero cards + empty panel.
+**Medium / small**
+- Typos & naming: "Send email", "Manage scholarships", brand unified to IskolarAid (UI, print, emails/SMS), admin nav "Notifications", new "Registrations" sidebar item with a pending badge, page titles on every admin page, COR/COE spelled out, status filter labelled. Fixed "3nd/4nd Year" data in the local DB.
+- Scholar Management form: no preselected gender or stipend, required markers, darker labels, bank list, attach buttons look like buttons, sticky Save bar, clear Add vs Edit mode.
+- Scholar Profile: editable contact/address/bank with Save (new `PUT /api/scholar/profile`, with test), read-only facts as plain text, "—" for missing, "Finish your profile" prompt.
+- Dashboard recent activity hides logins; notification lists sort by date then id and show exact time on hover; one money format (₱0.00) everywhere; larger pagination buttons; emoji icons in templates replaced with line icons; low-contrast gray text darkened; stat cards slimmed.
+- Demo Shimamura now has a normal Student ID (2026-000099).
+- **Not done:** native date pickers (kept), manual Refresh buttons, duplicate "Total Logs/Today" numbers (they're real data), dialog text still contains emoji.
+
 ### 2026-11-20 — UX fixes: consistent data, unclipped tables, visible scholar task
 **1. Data no longer contradicts itself**
 - Status wording unified: a queued payment is **Processed** everywhere (dashboard used to say "Processing"). Dashboard "Total Disbursed" now explains itself ("Released only · ₱8,500 processed, awaiting release"); API adds `queuedAmount` to dashboard stats. Pending Payments card says "Processed, not yet released".

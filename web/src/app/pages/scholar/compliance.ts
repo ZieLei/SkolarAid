@@ -3,21 +3,21 @@ import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
-import { DatePipeShort, statusColor } from '../../core/format';
+import { DatePipeShort, statusColor, RequirementNamePipe } from '../../core/format';
 import { ComplianceItem, ScholarCompliance } from '../../core/models';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
 
 @Component({
   selector: 'app-scholar-compliance',
-  imports: [ScrollCue, AppIcon, FormsModule, DatePipeShort],
+  imports: [RequirementNamePipe, ScrollCue, AppIcon, FormsModule, DatePipeShort],
   template: `
     <div class="mb-5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5">
-      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="file" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Total Requirements</p><p class="text-[30px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="checked" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Completed</p><p class="text-[30px] font-bold text-ok">{{ data()?.completed ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="wall-clock" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Pending</p><p class="text-[30px] font-bold text-warn">{{ data()?.pending ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="reject" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Overdue</p><p class="text-[30px] font-bold text-danger">{{ data()?.overdue ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] flex-col justify-center px-5"><p class="text-[12pt] font-bold text-label">Compliance Rate</p><p class="text-[28px] font-bold text-brand">{{ data()?.rate ?? 0 }}%</p>
+      <div class="card flex h-[88px] items-center gap-4 px-5"><app-icon name="file" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Total Requirements</p><p class="text-[26px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
+      <div class="card flex h-[88px] items-center gap-4 px-5"><app-icon name="checked" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Completed</p><p class="text-[26px] font-bold text-ok">{{ data()?.completed ?? 0 }}</p></div></div>
+      <div class="card flex h-[88px] items-center gap-4 px-5"><app-icon name="wall-clock" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Pending</p><p class="text-[26px] font-bold text-pending">{{ data()?.pending ?? 0 }}</p></div></div>
+      <div class="card flex h-[88px] items-center gap-4 px-5"><app-icon name="overdue" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Overdue</p><p class="text-[26px] font-bold text-danger">{{ data()?.overdue ?? 0 }}</p></div></div>
+      <div class="card flex h-[88px] flex-col justify-center px-5"><p class="text-[12pt] font-bold text-label">Compliance Rate</p><p class="text-[28px] font-bold text-brand">{{ data()?.rate ?? 0 }}%</p>
         <div class="h-[10px] w-full overflow-hidden rounded bg-[#e6e6e6]"><div class="h-full bg-ok" [style.width.%]="data()?.rate ?? 0"></div></div></div>
     </div>
 
@@ -43,7 +43,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
           <thead><tr><th>ID</th><th>Requirement Type</th><th>Due Date</th><th>Date Submitted</th><th>Status</th><th>Action</th></tr></thead>
           <tbody>@for (c of filtered(); track c.id; let i = $index) {
             <tr class="cursor-pointer" [class.alt]="i % 2 === 1" [class.sel]="sel()?.id === c.id" (click)="sel.set(c)">
-              <td>{{ c.id }}</td><td class="wrap font-bold">{{ c.requirementType }}</td><td>{{ c.dueDate | dmy }}</td><td>{{ c.dateSubmitted | dmy }}</td>
+              <td>{{ c.id }}</td><td class="wrap font-bold">{{ c.requirementType | reqName }}</td><td>{{ c.dueDate | dmy }}</td><td>{{ c.dateSubmitted | dmy }}</td>
               <td><span class="font-bold" [style.color]="color(c.status)">{{ c.status }}</span></td>
               <td class="whitespace-nowrap">
                 @if (canUpload(c)) {
@@ -51,7 +51,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
                     <input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" [disabled]="busy()" (change)="upload($event, c)" /></label>
                 } @else if (c.fileCount) { <button class="btn btn-accent !h-[26px] !px-3 !text-[12px]" (click)="$event.stopPropagation(); view(c)">View file</button> }
               </td></tr>
-          } @empty { <tr><td colspan="6" class="!py-8 text-center text-[#969696]">No requirements found</td></tr> }</tbody></table></div>
+          } @empty { <tr><td colspan="6" class="!py-8 text-center text-[#595959]">No requirements found</td></tr> }</tbody></table></div>
         <p class="px-3 py-2 text-[9pt] text-muted">Showing {{ filtered().length }} records</p>
       </section>
 
@@ -59,7 +59,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
         <h2 class="mb-3 text-[16pt] font-bold text-brand">Requirement Details</h2>
         @if (sel(); as c) {
           <p class="mb-3 text-[14pt] font-bold text-brand">#{{ c.id }}</p>
-          <p class="text-[10pt] font-bold text-label">Requirement Type:</p><p class="mb-2 text-[12pt]">{{ c.requirementType }}</p>
+          <p class="text-[10pt] font-bold text-label">Requirement Type:</p><p class="mb-2 text-[12pt]">{{ c.requirementType | reqName }}</p>
           <p class="text-[10pt] font-bold text-label">Description:</p><p class="mb-2 text-[11pt]">{{ c.description || '-' }}</p>
           <p class="text-[10pt] font-bold text-label">Due Date:</p><p class="mb-2 text-[12pt]">{{ c.dueDate | dmy }}</p>
           <p class="text-[10pt] font-bold text-label">Date Submitted:</p><p class="mb-2 text-[12pt]">{{ c.dateSubmitted | dmy }}</p>
@@ -67,11 +67,11 @@ import { ScrollCue } from '../../shared/scroll-cue';
           <p class="text-[10pt] font-bold text-label">Remarks:</p><p class="mb-2 text-[11pt]">{{ c.remarks || '-' }}</p>
           <p class="text-[10pt] font-bold text-label">Checked By:</p><p class="mb-3 text-[12pt]">{{ c.checkedBy || '-' }}</p>
           @if (c.status === 'Submitted') { <p class="mb-2 rounded bg-[#eef8f8] p-2 text-[11pt] text-label">Received. Waiting for the administrator to review it. If you registered online, this is the document you uploaded then.</p> }
-          @if (c.fileCount) { <button class="btn btn-accent mb-2 w-full" (click)="view(c)">📎 {{ c.fileName || 'View uploaded file' }}</button> }
+          @if (c.fileCount) { <button class="btn btn-accent mb-2 w-full" (click)="view(c)"><app-icon name="attachment" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>{{ c.fileName || 'View uploaded file' }}</button> }
           @if (c.status === 'Pending' || c.status === 'Rejected' || c.status === 'Overdue') {
-            <label class="btn btn-ok w-full !h-[40px]" [class.opacity-60]="busy()">⬆ Upload Document
+            <label class="btn btn-ok w-full !h-[40px]" [class.opacity-60]="busy()"><app-icon name="attachment" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Upload Document
               <input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" [disabled]="busy()" (change)="upload($event, c)" /></label>
-            <p class="mt-1 text-[11px] text-muted">PDF, Word or image, up to 10 MB.</p>
+            <p class="mt-1 text-[12px] text-muted">PDF, Word or image, up to 10 MB.</p>
           }
         } @else { <p class="text-[12px] text-muted">Select a requirement to see its details.</p> }
       </aside>

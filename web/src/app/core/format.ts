@@ -1,13 +1,26 @@
 import { Pipe, PipeTransform } from '@angular/core';
 
+// One colour per meaning, each >= 4.5:1 on white: amber = waiting, blue = in progress / received, green = done, red = problem.
+const AMBER = '#8a5300', BLUE = '#0b5cad', GREEN = '#17692c', RED = '#b42318', GRAY = '#4b5563', PURPLE = '#6b2d8a';
 export const STATUS_COLORS: Record<string, string> = {
-  Active: '#28a745', Approved: '#28a745', Released: '#28a745', Complete: '#28a745', Submitted: '#007bff',
-  Processed: '#ffaa00', Processing: '#ffaa00', Pending: '#ffaa00', 'Pending Approval': '#ffaa00', Incomplete: '#ffaa00', Probation: '#ffaa00',
-  Rejected: '#ef4444', Overdue: '#dc2626', Failed: '#ef4444', Inactive: '#646464', Suspended: '#ef4444', Terminated: '#ef4444',
+  Active: GREEN, Approved: GREEN, Released: GREEN, Complete: GREEN, Completed: GREEN, Graduated: GREEN,
+  Submitted: BLUE, Processed: BLUE, Processing: BLUE,
+  Pending: AMBER, 'Pending Approval': AMBER, Incomplete: AMBER, Probation: AMBER,
+  Rejected: RED, Overdue: RED, Failed: RED, Suspended: RED, Terminated: RED, Expelled: RED, Dropped: RED,
+  Inactive: GRAY, Withdrawn: GRAY,
 };
-export const statusColor = (s: string | null | undefined): string => STATUS_COLORS[s ?? ''] ?? '#646464';
+export const statusColor = (s: string | null | undefined): string => STATUS_COLORS[s ?? ''] ?? GRAY;
 
-export const NOTIFICATION_COLORS: Record<string, string> = { Payment: '#28a745', Reminder: '#ffaa00', Alert: '#ef4444', Update: '#007bff', Announcement: '#9c27b0' };
+export const NOTIFICATION_COLORS: Record<string, string> = { Payment: GREEN, Reminder: AMBER, Alert: RED, Update: BLUE, Announcement: PURPLE };
+
+/** Spell out abbreviations once, so "COR" / "COE" are never a mystery. Stored names are left unchanged. */
+const REQUIREMENT_NAMES: Record<string, string> = {
+  COR: 'Certificate of Registration (COR)', 'Enrollment Form': 'Certificate of Enrollment (COE)', COE: 'Certificate of Enrollment (COE)',
+  'PSA Birth Certificate': 'PSA Birth Certificate', Grades: 'Latest Grades / TOR',
+};
+export const requirementName = (t: string | null | undefined): string => REQUIREMENT_NAMES[t ?? ''] ?? t ?? '';
+@Pipe({ name: 'reqName' })
+export class RequirementNamePipe implements PipeTransform { transform(v: string | null | undefined): string { return requirementName(v); } }
 
 export const toIso = (d: Date | string | null | undefined): string | null => {
   if (!d) return null;
@@ -27,6 +40,9 @@ export function relativeTime(iso: string): string {
   if (mins < 60 * 24 * 7) return `${Math.floor(mins / 60 / 24)}d ago`;
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 }
+
+/** One money format everywhere: ₱1,234.50 (always two decimals). */
+export const formatPeso = (v: number | null | undefined, digits = 2): string => '₱' + (v ?? 0).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 /** Peso formatting: ₱1,234.50 */
 @Pipe({ name: 'peso' })

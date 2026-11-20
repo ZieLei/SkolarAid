@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
-import { DatePipeShort, statusColor } from '../../core/format';
+import { DatePipeShort, statusColor, RequirementNamePipe } from '../../core/format';
 import { ComplianceItem, ComplianceScholarInfo, ComplianceScholarOption } from '../../core/models';
 import { Modal } from '../../shared/modal';
 import { ScrollCue } from '../../shared/scroll-cue';
@@ -11,7 +11,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
 /** Compliance Management tab of Scholar Management. */
 @Component({
   selector: 'app-compliance-tab',
-  imports: [ScrollCue, FormsModule, Modal, DatePipeShort],
+  imports: [RequirementNamePipe, ScrollCue, FormsModule, Modal, DatePipeShort],
   template: `
     <div class="card mb-4 flex flex-wrap items-center gap-3 p-4">
       <label class="text-[13px] font-bold text-label" for="cs">Scholar:</label>
@@ -31,7 +31,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
           <button class="btn btn-brand" [disabled]="!sel()" (click)="openStatus()">Update Status</button>
           <label class="btn btn-info" [class.opacity-50]="!sel()">Upload File<input type="file" class="hidden" [disabled]="!sel()" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="upload($event)" /></label>
           <button class="btn btn-brand" [disabled]="!sel()?.fileCount" (click)="view()">View File</button>
-          <button class="btn btn-gray" [disabled]="!sel()?.fileCount" (click)="deleteFile()">Delete File</button>
+          <button class="btn btn-danger-outline" [disabled]="!sel()?.fileCount" (click)="deleteFile()">Delete File</button>
           <button class="btn btn-warn" [disabled]="!sel()" (click)="markMissing()">Mark Missing</button>
           <button class="btn btn-ok" (click)="remind()">Remind Scholar</button>
           <button class="btn btn-accent" (click)="addOpen.set(true)">Add Requirement</button>
@@ -43,12 +43,12 @@ import { ScrollCue } from '../../shared/scroll-cue';
             <tbody>
               @for (r of i.items; track r.id; let k = $index) {
                 <tr [class.alt]="k % 2 === 1" [class.sel]="sel()?.id === r.id" (click)="selected.set(r.id)" (dblclick)="view()" class="cursor-pointer">
-                  <td>{{ r.id }}</td><td class="font-bold">{{ r.requirementType }}</td><td>{{ r.description }}</td>
+                  <td>{{ r.id }}</td><td class="wrap font-bold">{{ r.requirementType | reqName }}</td><td>{{ r.description }}</td>
                   <td>{{ r.dueDate | dmy }}</td><td>{{ r.dateSubmitted | dmy }}</td>
                   <td><span class="font-bold" [style.color]="color(r.status)">{{ r.status }}</span></td>
-                  <td>{{ r.fileCount ? '📎 ' + (r.fileName || r.fileCount) : '—' }}</td><td>{{ r.remarks }}</td>
+                  <td>{{ r.fileCount ? (r.fileName || r.fileCount) : '—' }}</td><td>{{ r.remarks }}</td>
                 </tr>
-              } @empty { <tr><td colspan="8" class="!py-6 text-center text-[#969696]">No requirements</td></tr> }
+              } @empty { <tr><td colspan="8" class="!py-6 text-center text-[#595959]">No requirements</td></tr> }
             </tbody>
           </table>
         </div>

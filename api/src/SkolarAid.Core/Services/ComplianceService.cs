@@ -146,8 +146,8 @@ public class ComplianceService(SkolarDbContext db, ActivityLogService log, ICurr
         db.Notifications.Add(new Notification
         {
             SenderId = current.UserId, RecipientId = scholarId, NotificationType = "Reminder",
-            Title = "Compliance Reminder - ScholarAid",
-            Message = "Dear scholar, you have pending compliance requirements that need your attention. Please submit them as soon as possible to avoid scholarship suspension. Log in to your ScholarAid account to view details."
+            Title = "Compliance Reminder - IskolarAid",
+            Message = "Dear scholar, you have pending compliance requirements that need your attention. Please submit them as soon as possible to avoid scholarship suspension. Log in to your IskolarAid account to view details."
         });
         await db.SaveChangesAsync();
         await log.LogCreate("notifications", scholarId, "Compliance reminder sent");

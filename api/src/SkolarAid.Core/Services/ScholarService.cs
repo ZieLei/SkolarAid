@@ -124,7 +124,7 @@ public class ScholarService(SkolarDbContext db, PasswordService passwords, Activ
         var (subject, body) = MessageTemplates.Welcome(fullName, number, studentId, password, smtp.Value.LoginUrl);
         var emailSent = await email.SendAsync(scholar.Email!, fullName, subject, body);
         var smsSent = !string.IsNullOrWhiteSpace(scholar.ContactNumber) && await sms.SendAsync(scholar.ContactNumber,
-            $"ScholarAid: Welcome {dto.FirstName}! Account created. Login: {studentId} | Password: {password} -LCC");
+            $"IskolarAid: Welcome {dto.FirstName}! Account created. Login: {studentId} | Password: {password} -LCC");
         if (emailSent) await log.LogCreate("notifications", 0, $"Welcome email sent to {fullName} ({scholar.Email})");
 
         return new ScholarCreatedDto(scholar.Id, number, studentId, fullName, scholar.Email!, studentId, password, emailSent, smsSent);

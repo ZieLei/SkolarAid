@@ -1,8 +1,11 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
+import { ToastService } from '../../core/toast';
 import { DatePipeShort, DateTimePipe, NOTIFICATION_COLORS, PesoPipe, relativeTime, statusColor } from '../../core/format';
 import { ComposeResult, NotificationItem, NotificationStats, Option, RegistrationApproved, RegistrationDetail, RegistrationListItem } from '../../core/models';
 import { Modal } from '../../shared/modal';
@@ -15,17 +18,17 @@ import { ScrollCue } from '../../shared/scroll-cue';
   template: `
     <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5">
       @for (c of cards(); track c.label) {
-        <div class="card flex h-[110px] items-center gap-4 px-4" [title]="c.hint">
+        <div class="card flex h-[88px] items-center gap-4 px-4" [title]="c.hint">
           <app-icon [name]="c.icon" class="card-icon h-[48px] w-[45px]"></app-icon>
-          <div><p class="text-[11pt] font-bold">{{ c.label }}</p><p class="text-[30px] font-bold" [style.color]="c.color">{{ c.value }}</p></div>
+          <div><p class="text-[11pt] font-bold">{{ c.label }}</p><p class="text-[26px] font-bold" [style.color]="c.color">{{ c.value }}</p></div>
         </div>
       }
     </div>
 
     <div class="mb-4 flex gap-1 border-b-2 border-[#d9d9d9]">
       @for (t of tabs; track t.id) {
-        <button class="rounded-t-lg px-5 py-2 text-[14px] font-bold" [class.bg-accent]="tab() === t.id" [class.text-white]="tab() === t.id" [class.text-label]="tab() !== t.id" (click)="tab.set(t.id)">
-          {{ t.label }}@if (t.id === 'reg' && (stats()?.pendingRegistrations ?? 0) > 0) { <span class="ml-2 rounded-full bg-danger px-2 text-[11px] text-white">{{ stats()?.pendingRegistrations }}</span> }
+        <button class="rounded-t-lg px-5 py-2 text-[14px] font-bold" [class.bg-accent]="tab() === t.id" [class.text-white]="tab() === t.id" [class.text-label]="tab() !== t.id" (click)="goTab(t.id)">
+          {{ t.label }}@if (t.id === 'reg' && (stats()?.pendingRegistrations ?? 0) > 0) { <span class="ml-2 rounded-full bg-danger px-2 text-[12px] text-white">{{ stats()?.pendingRegistrations }}</span> }
         </button>
       }
     </div>
@@ -39,11 +42,12 @@ import { ScrollCue } from '../../shared/scroll-cue';
           <select class="input !w-[150px]" [ngModel]="typeFilter()" (ngModelChange)="typeFilter.set($event); loadList()"><option>All Types</option>@for (t of types; track t) { <option>{{ t }}</option> }</select></div>
         <div><label class="field-label-b">Method</label><select class="input !w-[130px]" disabled><option>In-App</option></select></div>
         <label class="flex items-center gap-2 pb-1 text-[13px]"><input type="checkbox" [ngModel]="unreadOnly()" (ngModelChange)="unreadOnly.set($event); loadList()" /> Unread only</label>
-        <div class="ml-auto flex gap-2">
+        <div class="ml-auto flex flex-wrap items-center gap-2">
           <button class="btn btn-accent" (click)="refresh()">Refresh</button>
-          <button class="btn btn-gray" (click)="clearFilters()">Clear</button>
+          <button class="btn btn-gray" (click)="clearFilters()">Clear filters</button>
           <button class="btn btn-brand" (click)="markAllRead()">Mark All Read</button>
-          <button class="btn btn-danger" (click)="deleteRead()">Delete All Read</button>
+          <span class="mx-2 h-[28px] w-px bg-[#c9c9c9]" aria-hidden="true"></span>
+          <button class="btn btn-danger-outline" (click)="deleteRead()">Delete All Read…</button>
         </div>
       </div>
 
@@ -57,13 +61,13 @@ import { ScrollCue } from '../../shared/scroll-cue';
           </div>
           <div class="my-3 flex gap-6 text-[13px]">
             <label class="flex items-center gap-2"><input type="checkbox" checked disabled /> Send In-App</label>
-            <label class="flex items-center gap-2"><input type="checkbox" [(ngModel)]="c.sendEmail" /> Send In email</label>
+            <label class="flex items-center gap-2"><input type="checkbox" [(ngModel)]="c.sendEmail" /> Send email</label>
             <label class="flex items-center gap-2"><input type="checkbox" [(ngModel)]="c.sendSms" /> Send SMS</label>
           </div>
           <label class="field-label-b">Notification Title</label><input class="input mb-3" [(ngModel)]="c.title" maxlength="200" />
           <label class="field-label-b">Message</label><textarea class="input mb-4" rows="8" [(ngModel)]="c.message" maxlength="4000"></textarea>
           <div class="flex justify-between">
-            <button class="btn !h-[50px] w-[120px]" style="background:gray" (click)="clearCompose()">Clear Form</button>
+            <button class="btn btn-gray !h-[50px] w-[120px]" (click)="clearCompose()">Clear Form</button>
             <button class="btn btn-ok !h-[50px] w-[200px] !text-[14px]" [disabled]="busy()" (click)="send()"><app-icon name="bell" class="h-5 w-5"></app-icon>Send Notification</button>
           </div>
         </section>
@@ -75,10 +79,10 @@ import { ScrollCue } from '../../shared/scroll-cue';
               <tbody>
                 @for (n of list(); track n.id; let i = $index) {
                   <tr class="cursor-pointer" [class.alt]="i % 2 === 1" [class.sel]="sel()?.id === n.id" [class.font-bold]="!n.isRead" (click)="show(n)">
-                    <td>{{ n.id }}</td><td class="whitespace-nowrap">{{ rel(n.dateCreated) }}</td><td>{{ n.recipientName }}</td><td class="wrap">{{ n.title }}</td>
+                    <td>{{ n.id }}</td><td class="whitespace-nowrap" [title]="n.dateCreated | dt">{{ rel(n.dateCreated) }}</td><td>{{ n.recipientName }}</td><td class="wrap">{{ n.title }}</td>
                     <td><span [style.color]="tcolor(n.type)">{{ n.type }}</span></td><td>{{ n.isRead ? 'Read' : 'Unread' }}</td>
                   </tr>
-                } @empty { <tr><td colspan="6" class="!py-8 text-center text-[#969696]">No notifications</td></tr> }
+                } @empty { <tr><td colspan="6" class="!py-8 text-center text-[#595959]">No notifications</td></tr> }
               </tbody>
             </table>
           </div>
@@ -103,9 +107,9 @@ import { ScrollCue } from '../../shared/scroll-cue';
             <button class="mb-2 w-full rounded-lg border p-3 text-left transition hover:bg-[#f0f7f8]" [class.border-accent]="regSel()?.id === r.id" [class.border-[#e6e6e6]]="regSel()?.id !== r.id" (click)="openReg(r.id)">
               <div class="flex items-center"><b class="text-[14px] text-brand">{{ r.fullName }}</b><span class="ml-auto text-[12px] font-bold" [style.color]="color(r.status)">{{ r.status }}</span></div>
               <p class="text-[12px] text-muted">{{ r.email }} · {{ r.contactNumber }}</p>
-              <p class="truncate text-[12px]">{{ r.course }} — {{ r.yearLevel }}</p><p class="text-[11px] text-[#969696]">Submitted {{ rel(r.createdAt) }}</p>
+              <p class="truncate text-[12px]">{{ r.course }} — {{ r.yearLevel }}</p><p class="text-[12px] text-[#595959]">Submitted {{ rel(r.createdAt) }}</p>
             </button>
-          } @empty { <p class="p-6 text-center text-[13px] text-[#969696]">No registrations</p> }
+          } @empty { <p class="p-6 text-center text-[13px] text-[#595959]">No registrations</p> }
         </section>
 
         <section class="card p-5">
@@ -126,7 +130,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
             </dl>
             <h3 class="section-title mt-4">Attached Documents</h3>
             <div class="mb-4 flex flex-wrap gap-2">
-              @for (k of r.files; track k) { <button class="btn btn-brand" (click)="openFile(r.id, k)">📎 {{ fileLabel(k) }}</button> } @empty { <span class="text-[13px] text-muted">No files</span> }
+              @for (k of r.files; track k) { <button class="btn btn-brand" (click)="openFile(r.id, k)"><app-icon name="attachment" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>{{ fileLabel(k) }}</button> } @empty { <span class="text-[13px] text-muted">No files</span> }
             </div>
             @if (r.status === 'Pending') {
               <div class="flex gap-3"><button class="btn btn-ok !h-[40px]" [disabled]="busy()" (click)="approve(r)"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Approve</button><button class="btn btn-danger !h-[40px]" [disabled]="busy()" (click)="rejectOpen.set(true)">✗ Reject</button></div>
@@ -147,9 +151,14 @@ import { ScrollCue } from '../../shared/scroll-cue';
     }
   `,
 })
-export class NotificationsPage implements OnInit {
+export class NotificationsPage implements OnInit, OnDestroy {
   private api = inject(Api);
   private dlg = inject(DialogService);
+  private toast = inject(ToastService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  goTab(id: 'notifs' | 'reg'): void { void this.router.navigate([], { queryParams: { tab: id === 'reg' ? 'reg' : null }, queryParamsHandling: 'merge' }); }
+  constructor() { this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.tab.set(q.get('tab') === 'reg' ? 'reg' : 'notifs')); }
   tabs = [{ id: 'notifs', label: 'Notifications' }, { id: 'reg', label: 'Registrations' }] as const;
   tab = signal<'notifs' | 'reg'>('notifs');
   stats = signal<NotificationStats | null>(null);
@@ -171,9 +180,9 @@ export class NotificationsPage implements OnInit {
     const s = this.stats();
     return [
       { label: 'Total Sent', value: s?.total ?? 0, icon: 'bell', color: '#0a5c5c', hint: 'All in-app notifications sent (not affected by the filters below)' },
-      { label: 'Unread', value: s?.unread ?? 0, icon: 'wall-clock', color: '#ffaa00', hint: 'In-app notifications scholars have not opened yet' },
-      { label: 'Read', value: s?.read ?? 0, icon: 'checked', color: '#28a745', hint: 'In-app notifications scholars have opened' },
-      { label: 'Awaiting Approval', value: s?.pendingRegistrations ?? 0, icon: 'file', color: '#fb2c36', hint: 'New scholar registrations waiting for review' },
+      { label: 'Unread', value: s?.unread ?? 0, icon: 'wall-clock', color: '#8a5300', hint: 'In-app notifications scholars have not opened yet' },
+      { label: 'Read', value: s?.read ?? 0, icon: 'checked', color: '#17692c', hint: 'In-app notifications scholars have opened' },
+      { label: 'Awaiting Approval', value: s?.pendingRegistrations ?? 0, icon: 'file', color: '#b42318', hint: 'New scholar registrations waiting for review' },
     ];
   });
 
@@ -212,16 +221,43 @@ export class NotificationsPage implements OnInit {
 
   resend(n: NotificationItem): void { this.c.title = n.title; this.c.message = n.message; this.c.type = n.type; this.c.recipientId = 0; void this.dlg.info('The notification was copied into the compose form. Choose a recipient and send.'); }
 
-  async remove(n: NotificationItem): Promise<void> {
-    if (!(await this.dlg.confirm('Delete this notification?'))) return;
-    await firstValueFrom(this.api.delete(`/admin/notifications/${n.id}`)); this.sel.set(null); await this.refresh();
+  // Deletes are applied after a short grace period so they can be undone (the API delete is permanent).
+  private pending: { timer: ReturnType<typeof setTimeout>; commit: () => Promise<void> } | null = null;
+  private async flush(): Promise<void> {
+    const p = this.pending; if (!p) return;
+    this.pending = null; clearTimeout(p.timer); await p.commit();
+  }
+  private deferDelete(message: string, hide: () => () => void, commit: () => Promise<unknown>): void {
+    void this.flush();
+    const restore = hide();
+    const timer = setTimeout(() => void this.flush(), 8000);
+    this.pending = { timer, commit: async () => {
+      try { await commit(); } catch (e) { restore(); void this.dlg.error(errorMessage(e)); }
+      await this.refresh();
+    } };
+    this.toast.show(message, { actionLabel: 'Undo', durationMs: 8000, onAction: () => { clearTimeout(timer); this.pending = null; restore(); } });
+  }
+  ngOnDestroy(): void { void this.flush(); }
+
+  remove(n: NotificationItem): void {
+    const before = this.list(); const wasSel = this.sel();
+    this.deferDelete(`Notification “${n.title}” deleted.`, () => { this.list.set(before.filter((x) => x.id !== n.id)); this.sel.set(null); return () => { this.list.set(before); this.sel.set(wasSel); }; },
+      () => firstValueFrom(this.api.delete(`/admin/notifications/${n.id}`)));
   }
   async deleteRead(): Promise<void> {
-    if (!(await this.dlg.confirm('Delete all read notifications?'))) return;
-    const r = await firstValueFrom(this.api.delete<{ deleted: number }>('/admin/notifications/read')); await this.refresh();
-    void this.dlg.info(`${r.deleted} read notification(s) deleted.`);
+    const count = this.stats()?.read ?? 0;
+    if (!count) { void this.dlg.info('There are no read notifications to delete.'); return; }
+    if (!(await this.dlg.confirm(`Permanently delete ${count} read notification${count === 1 ? '' : 's'}?\n\nYou can undo for a few seconds afterwards.`, 'Delete read notifications', `Delete ${count}`, 'Keep them', true))) return;
+    const before = this.list();
+    this.deferDelete(`${count} read notification${count === 1 ? '' : 's'} deleted.`, () => { this.list.set(before.filter((x) => !x.isRead)); return () => this.list.set(before); },
+      () => firstValueFrom(this.api.delete<{ deleted: number }>('/admin/notifications/read')));
   }
-  async markAllRead(): Promise<void> { await firstValueFrom(this.api.post('/admin/notifications/read-all')); await this.refresh(); }
+  async markAllRead(): Promise<void> {
+    const n = this.stats()?.unread ?? 0;
+    if (!n) { void this.dlg.info('Everything is already marked as read.'); return; }
+    if (!(await this.dlg.confirm(`Mark ${n} unread notification${n === 1 ? '' : 's'} as read for all scholars?\n\nThis can't be reversed.`, 'Mark all as read', 'Mark as read', 'Cancel'))) return;
+    await firstValueFrom(this.api.post('/admin/notifications/read-all')); await this.refresh();
+  }
 
   async openReg(id: number): Promise<void> {
     try { this.regSel.set(await firstValueFrom(this.api.get<RegistrationDetail>(`/admin/registrations/${id}`))); } catch (e) { void this.dlg.error(errorMessage(e)); }

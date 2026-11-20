@@ -99,7 +99,7 @@ public class PayrollService(SkolarDbContext db, ActivityLogService log, ICurrent
             var (subject, body) = MessageTemplates.PaymentProcessed(s.FullName, period, p.Amount, req.Method, s.ScholarNumber, p.ReferenceNumber!, p.ReleaseDate!.Value);
             if (!string.IsNullOrEmpty(s.Email) && await email.SendAsync(s.Email, s.FullName, subject, body)) emails++;
             if (!string.IsNullOrEmpty(s.ContactNumber) && await sms.SendAsync(s.ContactNumber,
-                    $"ScholarAid: Your stipend for {period} (P{p.Amount:N2}) has been processed. Ref: {p.ReferenceNumber}. -LCC")) texts++;
+                    $"IskolarAid: Your stipend for {period} (P{p.Amount:N2}) has been processed. Ref: {p.ReferenceNumber}. -LCC")) texts++;
         }
         return new PayrollResultDto(period, req.Method, processed.Count, skipped, total, emails, texts);
     }
