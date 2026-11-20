@@ -7,6 +7,7 @@ import { DialogService } from '../../core/dialog';
 import { DatePipeShort, PesoPipe, dateInput, statusColor } from '../../core/format';
 import { ComplianceItem, Paged, ScholarCreated, ScholarDetail, ScholarFilters, ScholarListItem, ScholarSave, ScholarshipType } from '../../core/models';
 import { Modal } from '../../shared/modal';
+import { ErrorSummary, FieldError, FormErrors, focusField } from '../../shared/form-errors';
 import { BANKS, COURSES, GENDERS, YEAR_LEVELS } from '../register';
 import { ComplianceTab } from './compliance-tab';
 import { ScholarshipTypesDialog } from './scholarship-types';
@@ -35,7 +36,7 @@ const blank = (): Form => ({
 
 @Component({
   selector: 'app-scholars',
-  imports: [ScrollCue, AppIcon, ScrollingModule, FormsModule, Modal, PesoPipe, DatePipeShort, ComplianceTab, ScholarshipTypesDialog],
+  imports: [ErrorSummary, ScrollCue, AppIcon, ScrollingModule, FormsModule, Modal, PesoPipe, DatePipeShort, ComplianceTab, ScholarshipTypesDialog],
   template: `
     <h1 class="page-title mb-4">Scholar Management</h1>
 
@@ -94,17 +95,19 @@ const blank = (): Form => ({
 
     @if (formOpen()) {
       <app-modal [title]="selectedId() ? 'Edit ' + f.firstName + ' ' + f.lastName : 'Add a new scholar'" [width]="920" (closed)="closeForm()">
-                  <p class="mb-1 text-[12px] text-[#555]"><span class="font-bold text-[#c62828]">*</span> required.</p>
+                  <app-error-summary [errors]="errs.list()" (pick)="goTo($event)" />
+        <p class="mb-1 text-[12px] text-[#555]"><span class="font-bold text-[#c62828]">*</span> required.</p>
 
+                <div (input)="recheck()" (change)="recheck()">
         <h3 class="section-title">Basic Information</h3>
         <div class="grid grid-cols-3 gap-x-3 gap-y-2">
-          <div><label class="field-label req">First Name</label><input class="input" [(ngModel)]="f.firstName" maxlength="100" /></div>
-          <div><label class="field-label req">Last Name</label><input class="input" [(ngModel)]="f.lastName" maxlength="100" /></div>
+          <div><label class="field-label req">First Name</label><input id="sf-fn" class="input" [class.input-invalid]="errs.has('sf-fn')" [attr.aria-invalid]="errs.has('sf-fn')" [(ngModel)]="f.firstName" maxlength="100" />@if (errs.get('sf-fn'); as m) { <p class="field-err">{{ m }}</p> }</div>
+          <div><label class="field-label req">Last Name</label><input id="sf-ln" class="input" [class.input-invalid]="errs.has('sf-ln')" [attr.aria-invalid]="errs.has('sf-ln')" [(ngModel)]="f.lastName" maxlength="100" />@if (errs.get('sf-ln'); as m) { <p class="field-err">{{ m }}</p> }</div>
           <div><label class="field-label">Middle Name</label><input class="input" [(ngModel)]="f.middleName" maxlength="100" /></div>
-          <div class="col-span-2"><label class="field-label req">Email</label><input class="input" type="email" [(ngModel)]="f.email" maxlength="150" /></div>
+          <div class="col-span-2"><label class="field-label req">Email</label><input id="sf-em" class="input" [class.input-invalid]="errs.has('sf-em')" [attr.aria-invalid]="errs.has('sf-em')" type="email" [(ngModel)]="f.email" maxlength="150" />@if (errs.get('sf-em'); as m) { <p class="field-err">{{ m }}</p> }</div>
           <div><label class="field-label">Contact Number</label><input class="input" [(ngModel)]="f.contactNumber" maxlength="30" /></div>
           <div><label class="field-label">Date of Birth</label><input class="input" type="date" [(ngModel)]="f.dateOfBirth" [max]="todayIso" /></div>
-          <div><label class="field-label req">Gender</label><select class="input" [(ngModel)]="f.gender"><option value="">Select…</option>@for (g of genders; track g) { <option>{{ g }}</option> }</select></div>
+          <div><label class="field-label req">Gender</label><select id="sf-gd" class="input" [class.input-invalid]="errs.has('sf-gd')" [attr.aria-invalid]="errs.has('sf-gd')" [(ngModel)]="f.gender"><option value="">Select…</option>@for (g of genders; track g) { <option>{{ g }}</option> }</select>@if (errs.get('sf-gd'); as m) { <p class="field-err">{{ m }}</p> }</div>
           @if (!selectedId()) { <div><label class="field-label">Suffixes</label><input class="input" [(ngModel)]="f.suffix" maxlength="30" /></div> } @else { <div></div> }
           <div class="col-span-2"><label class="field-label">Address</label><input class="input" [(ngModel)]="f.address" maxlength="500" /></div>
           <div><label class="field-label">Student ID #</label><input class="input" [(ngModel)]="f.studentId" maxlength="50" placeholder="auto if blank" /></div>
@@ -112,14 +115,14 @@ const blank = (): Form => ({
 
         <h3 class="section-title">Academic Details</h3>
         <div class="grid grid-cols-[1fr_90px] gap-x-3">
-          <div><label class="field-label req">Course</label><select class="input" [(ngModel)]="f.course"><option value="">Select...</option>@for (c of courses; track c) { <option>{{ c }}</option> }</select></div>
-          <div><label class="field-label req">Year Level</label><select class="input" [(ngModel)]="f.yearLevel"><option value="">-</option>@for (y of years; track y) { <option>{{ y }}</option> }</select></div>
+          <div><label class="field-label req">Course</label><select id="sf-co" class="input" [class.input-invalid]="errs.has('sf-co')" [attr.aria-invalid]="errs.has('sf-co')" [(ngModel)]="f.course"><option value="">Select...</option>@for (c of courses; track c) { <option>{{ c }}</option> }</select>@if (errs.get('sf-co'); as m) { <p class="field-err">{{ m }}</p> }</div>
+          <div><label class="field-label req">Year Level</label><select id="sf-yl" class="input" [class.input-invalid]="errs.has('sf-yl')" [attr.aria-invalid]="errs.has('sf-yl')" [(ngModel)]="f.yearLevel"><option value="">-</option>@for (y of years; track y) { <option>{{ y }}</option> }</select>@if (errs.get('sf-yl'); as m) { <p class="field-err">{{ m }}</p> }</div>
         </div>
 
         <h3 class="section-title">Scholarship Details</h3>
         <div class="grid grid-cols-2 gap-x-3 gap-y-2">
           <div><label class="field-label req">Scholarship Type</label>
-            <select class="input" [ngModel]="f.scholarshipTypeId" (ngModelChange)="onTypeChange($event)"><option [ngValue]="0">Select...</option>@for (t of types(); track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }</select></div>
+            <select id="sf-st" class="input" [class.input-invalid]="errs.has('sf-st')" [attr.aria-invalid]="errs.has('sf-st')" [ngModel]="f.scholarshipTypeId" (ngModelChange)="onTypeChange($event)"><option [ngValue]="0">Select...</option>@for (t of types(); track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }</select>@if (errs.get('sf-st'); as m) { <p class="field-err">{{ m }}</p> }</div>
           <div><label class="field-label">Stipend Amount</label><input class="input" type="number" min="0" step="0.01" [(ngModel)]="f.stipendAmount" placeholder="Set by scholarship type" /></div>
           <div><label class="field-label">Stipend Frequency</label><select class="input" [(ngModel)]="f.stipendFrequency">@for (x of freqs; track x) { <option>{{ x }}</option> }</select></div>
           <div><label class="field-label">Scholarship Fund Source</label><select class="input" [(ngModel)]="f.scholarshipFundSource">@for (x of funds; track x) { <option>{{ x }}</option> }</select></div>
@@ -159,6 +162,7 @@ const blank = (): Form => ({
           }
         </div>
 
+        </div>
         <div class="sticky -bottom-5 -mx-5 -mb-5 mt-5 flex flex-wrap gap-2 rounded-b-xl border-t border-[#e0e0e0] bg-white px-5 py-3">
           @if (!selectedId()) {
             <button class="btn btn-brand" [disabled]="busy()" (click)="save()">Add Scholar</button>
@@ -253,7 +257,7 @@ export class ScholarsPage implements OnInit {
   formOpen = signal(false);
   openAdd(): void { this.clear(); this.formOpen.set(true); }
   async openEdit(id: number): Promise<void> { await this.select(id); if (this.selectedId() === id) this.formOpen.set(true); }
-  closeForm(): void { this.formOpen.set(false); this.clear(); }
+  closeForm(): void { this.formOpen.set(false); this.clear(); this.errs.clear(); }
   details = signal<ScholarDetail | null>(null);
   detailItems = signal<ComplianceItem[]>([]);
   f: Form = blank();
@@ -310,16 +314,19 @@ export class ScholarsPage implements OnInit {
 
   pickPending(key: string, ev: Event): void { this.pending[key] = (ev.target as HTMLInputElement).files?.[0] ?? undefined; }
 
-  private validate(): string | null {
-    const f = this.f;
-    if (!f.firstName.trim()) return 'First Name is required.';
-    if (!f.lastName.trim()) return 'Last Name is required.';
-    if (!f.email.trim()) return 'Email is required.';
-    if (!f.gender) return 'Please select a gender.';
-    if (!f.course) return 'Please select a course.';
-    if (!f.yearLevel) return 'Please select a year level.';
-    if (!f.scholarshipTypeId) return 'Please select a scholarship type.';
-    return null;
+  errs = new FormErrors();
+  goTo(id: string): void { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); focusField(id); }
+  recheck(): void { if (this.errs.attempted) this.errs.set(this.validate()); }
+  private validate(): FieldError[] {
+    const f = this.f; const e: FieldError[] = [];
+    if (!f.firstName.trim()) e.push({ id: 'sf-fn', message: 'First Name is required.' });
+    if (!f.lastName.trim()) e.push({ id: 'sf-ln', message: 'Last Name is required.' });
+    if (!f.email.trim()) e.push({ id: 'sf-em', message: 'Email is required.' });
+    if (!f.gender) e.push({ id: 'sf-gd', message: 'Please select a gender.' });
+    if (!f.course) e.push({ id: 'sf-co', message: 'Please select a course.' });
+    if (!f.yearLevel) e.push({ id: 'sf-yl', message: 'Please select a year level.' });
+    if (!f.scholarshipTypeId) e.push({ id: 'sf-st', message: 'Please select a scholarship type.' });
+    return e;
   }
 
   private payload(): ScholarSave {
@@ -334,8 +341,13 @@ export class ScholarsPage implements OnInit {
   }
 
   async save(): Promise<void> {
-    const problem = this.validate();
-    if (problem) { void this.dlg.warning(problem); return; }
+    const problems = this.validate();
+    if (problems.length) {
+      this.errs.attempted = true; this.errs.set(problems);
+      setTimeout(() => { document.getElementById('error-summary')?.scrollIntoView({ block: 'center' }); focusField(problems[0].id); });
+      return;
+    }
+    this.errs.clear();
     this.busy.set(true);
     try {
       if (!this.selectedId()) {

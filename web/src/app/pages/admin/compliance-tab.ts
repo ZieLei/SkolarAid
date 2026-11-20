@@ -11,14 +11,14 @@ import { ScrollCue } from '../../shared/scroll-cue';
 /** Compliance Management tab of Scholar Management. */
 @Component({
   selector: 'app-compliance-tab',
+  host: { '(document:click)': 'closeAll()' },
   imports: [RequirementNamePipe, ScrollCue, FormsModule, Modal, DatePipeShort],
   template: `
     <div class="card mb-4 flex flex-wrap items-center gap-3 p-4">
       <label class="text-[13px] font-bold text-label" for="cs">Scholar:</label>
-      <select id="cs" class="input !w-[320px]" [ngModel]="scholarId()" (ngModelChange)="select($event)">
-        <option [ngValue]="0">Select a scholar...</option>
-        @for (s of options(); track s.id) { <option [ngValue]="s.id">{{ s.label }}</option> }
-      </select>
+      <input id="cs" class="input !w-[360px]" list="scholar-options" placeholder="Type a name or scholar number…" autocomplete="off"
+             [ngModel]="pickText()" (ngModelChange)="onPick($event)" aria-label="Scholar" />
+      <datalist id="scholar-options">@for (s of options(); track s.id) { <option [value]="s.label"></option> }</datalist>
       @if (info(); as i) {
         <div class="ml-4 text-[13px]"><b class="text-brand">{{ i.fullName }}</b> · {{ i.scholarNumber }} · {{ i.course || '-' }} · {{ i.yearLevel || '-' }} · {{ i.scholarship || 'No scholarship' }}
           <span class="ml-2 rounded-full bg-[#f0f7f8] px-2 py-[2px] text-[12px] font-bold text-brand">{{ i.overall }}</span></div>
@@ -27,26 +27,36 @@ import { ScrollCue } from '../../shared/scroll-cue';
 
     @if (info(); as i) {
       <div class="card p-4">
-        <div class="mb-3 flex flex-wrap gap-2">
-          <button class="btn btn-brand" [disabled]="!sel()" (click)="openStatus()">Update Status</button>
-          <label class="btn btn-info" [class.opacity-50]="!sel()">Upload File<input type="file" class="hidden" [disabled]="!sel()" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="upload($event)" /></label>
-          <button class="btn btn-brand" [disabled]="!sel()?.fileCount" (click)="view()">View File</button>
-          <button class="btn btn-danger-outline" [disabled]="!sel()?.fileCount" (click)="deleteFile()">Delete File</button>
-          <button class="btn btn-warn" [disabled]="!sel()" (click)="markMissing()">Mark Missing</button>
-          <button class="btn btn-ok" (click)="remind()">Remind Scholar</button>
-          <button class="btn btn-accent" (click)="addOpen.set(true)">Add Requirement</button>
-          <button class="btn btn-danger" [disabled]="!sel()" (click)="deleteReq()">Delete Requirement</button>
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+          <button class="btn btn-brand" (click)="addOpen.set(true)">Add requirement</button>
+          <button class="btn btn-outline" (click)="remind()">Remind scholar</button>
+          <p class="ml-2 text-[13px] text-[#4b5563]">Use the buttons on each row to review, upload or view a document.</p>
         </div>
         <div scrollCue class="grid-wrap max-h-[480px] rounded border border-[#e6e6e6]">
           <table class="dgrid">
-            <thead><tr><th>ID</th><th>Requirement</th><th>Description</th><th>Due Date</th><th>Submitted</th><th>Status</th><th>Files</th><th>Remarks</th></tr></thead>
+            <thead><tr><th>Requirement</th><th>Description</th><th>Due Date</th><th>Submitted</th><th>Status</th><th>File</th><th>Remarks</th><th>Actions</th></tr></thead>
             <tbody>
               @for (r of i.items; track r.id; let k = $index) {
                 <tr [class.alt]="k % 2 === 1" [class.sel]="sel()?.id === r.id" (click)="selected.set(r.id)" (dblclick)="view()" class="cursor-pointer">
-                  <td>{{ r.id }}</td><td class="wrap font-bold">{{ r.requirementType | reqName }}</td><td>{{ r.description }}</td>
-                  <td>{{ r.dueDate | dmy }}</td><td>{{ r.dateSubmitted | dmy }}</td>
+                  <td class="wrap font-bold">{{ r.requirementType | reqName }}</td><td class="wrap">{{ r.description }}</td>
+                  <td>{{ r.dueDate | dmy }}</td><td>{{ r.dateSubmitted | dmy: '—' }}</td>
                   <td><span class="font-bold" [style.color]="color(r.status)">{{ r.status }}</span></td>
-                  <td>{{ r.fileCount ? (r.fileName || r.fileCount) : '—' }}</td><td>{{ r.remarks }}</td>
+                  <td class="wrap">{{ r.fileCount ? (r.fileName || r.fileCount) : '—' }}</td><td class="wrap">{{ r.remarks || '—' }}</td>
+                  <td class="whitespace-nowrap">
+                    <div class="flex items-center gap-1">
+                      <button class="btn btn-brand !h-[28px] !px-3 !text-[12px]" (click)="$event.stopPropagation(); selected.set(r.id); openStatus()">Review</button>
+                      <label class="btn btn-outline !h-[28px] !px-3 !text-[12px]" (click)="$event.stopPropagation(); selected.set(r.id)">{{ r.fileCount ? 'Replace' : 'Upload' }}<input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="upload($event)" /></label>
+                      @if (r.fileCount) { <button class="btn btn-outline !h-[28px] !px-3 !text-[12px]" (click)="$event.stopPropagation(); selected.set(r.id); view()">View</button> }
+                      <details class="relative" (click)="$event.stopPropagation()" (toggle)="placeMenu($event)">
+                        <summary class="btn btn-outline !h-[28px] !px-3 !text-[12px] cursor-pointer list-none" aria-label="More actions">More</summary>
+                        <div class="absolute right-0 z-10 mt-1 w-[190px] rounded-lg border border-[#d4d4d4] bg-white py-1 text-left shadow-lg">
+                          @if (r.status !== 'Overdue') { <button class="block w-full px-3 py-2 text-left text-[13px] hover:bg-[#f3f4f6]" (click)="closeMenu($event); selected.set(r.id); markMissing()">Mark as missing</button> }
+                          @if (r.fileCount) { <button class="block w-full px-3 py-2 text-left text-[13px] hover:bg-[#f3f4f6]" (click)="closeMenu($event); selected.set(r.id); deleteFile()">Delete attached file</button> }
+                          <button class="block w-full px-3 py-2 text-left text-[13px] font-bold text-[#b42318] hover:bg-[#fdecea]" (click)="closeMenu($event); selected.set(r.id); deleteReq()">Delete requirement</button>
+                        </div>
+                      </details>
+                    </div>
+                  </td>
                 </tr>
               } @empty { <tr><td colspan="8" class="!py-6 text-center text-[#595959]">No requirements</td></tr> }
             </tbody>
@@ -61,7 +71,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
         <select class="input mb-3" [(ngModel)]="newStatus">@for (s of statuses; track s) { <option>{{ s }}</option> }</select>
         <label class="field-label-b">Remarks:</label>
         <textarea class="input mb-4" rows="3" [(ngModel)]="remarks" maxlength="1000"></textarea>
-        <button class="btn btn-brand w-full" (click)="saveStatus()">Update Status</button>
+        <div class="mt-5 flex justify-end gap-2"><button class="btn btn-gray" (click)="statusOpen.set(false)">Cancel</button><button class="btn btn-brand" (click)="saveStatus()">Update status</button></div>
       </app-modal>
     }
 
@@ -76,7 +86,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
         <textarea class="input mb-3" rows="3" [(ngModel)]="reqDesc" maxlength="1000" placeholder="Enter description for this requirement"></textarea>
         <label class="field-label-b">Due Date:</label>
         <input class="input mb-4" type="date" [(ngModel)]="reqDue" />
-        <button class="btn btn-brand w-full" (click)="addReq()">Add Requirement</button>
+        <div class="mt-5 flex justify-end gap-2"><button class="btn btn-gray" (click)="addOpen.set(false)">Cancel</button><button class="btn btn-brand" (click)="addReq()">Add requirement</button></div>
       </app-modal>
     }
   `,
@@ -110,8 +120,25 @@ export class ComplianceTab {
     try { this.options.set(await firstValueFrom(this.api.get<ComplianceScholarOption[]>('/admin/compliance/scholars'))); } catch (e) { void this.dlg.error(errorMessage(e)); }
   }
 
+  pickText = signal('');
+  /** The row menu would be clipped by the scrolling table, so it is positioned against the viewport. */
+  placeMenu(ev: Event): void {
+    const d = ev.target as HTMLDetailsElement; if (!d.open) return;
+    const menu = d.querySelector('div') as HTMLElement; const r = d.querySelector('summary')!.getBoundingClientRect();
+    menu.style.position = 'fixed'; menu.style.top = r.bottom + 4 + 'px'; menu.style.left = Math.max(8, r.right - 190) + 'px'; menu.style.right = 'auto';
+  }
+  closeAll(): void { document.querySelectorAll('app-compliance-tab details[open]').forEach((d) => d.removeAttribute('open')); }
+  closeMenu(ev: Event): void { (ev.target as HTMLElement).closest('details')?.removeAttribute('open'); }
+  onPick(text: string): void {
+    this.pickText.set(text);
+    const t = text.trim().toLowerCase();
+    const hit = this.options().find((o) => o.label.toLowerCase() === t);
+    if (hit) void this.select(hit.id); else if (!t) void this.select(0);
+  }
+
   async select(id: number): Promise<void> {
     this.scholarId.set(id || 0); this.selected.set(null);
+    this.pickText.set(this.options().find((o) => o.id === id)?.label ?? '');
     if (!id) { this.info.set(null); return; }
     await this.reload();
   }

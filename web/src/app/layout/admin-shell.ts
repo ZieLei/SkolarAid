@@ -30,9 +30,9 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
         <a [routerLink]="n.link" [queryParams]="n.query" routerLinkActive="!bg-brand-hover font-bold"
            [routerLinkActiveOptions]="{ paths: 'subset', queryParams: 'exact', fragment: 'ignored', matrixParams: 'ignored' }"
            [attr.title]="collapsed() ? n.label : null" [attr.aria-label]="n.label"
-           class="flex h-[55px] w-full items-center gap-3 whitespace-nowrap bg-brand px-5 text-[15px] text-white transition-colors hover:bg-brand-hover">
+           class="relative flex h-[55px] w-full items-center gap-3 whitespace-nowrap bg-brand px-5 text-[15px] text-white transition-colors hover:bg-brand-hover">
           <app-icon [name]="n.icon" class="h-[28px] w-[28px]"></app-icon>@if (!collapsed()) { {{ n.label }} }
-          @if (n.badge && pendingRegs() > 0) { <span class="ml-auto rounded-full bg-white px-2 text-[12px] font-bold text-brand" [attr.aria-label]="pendingRegs() + ' waiting'">{{ pendingRegs() }}</span> }
+          @if (n.badge && pendingRegs() > 0) { <span class="rounded-full bg-white px-2 text-[12px] font-bold text-brand" [class.ml-auto]="!collapsed()" [class.absolute]="collapsed()" [class.right-1]="collapsed()" [class.top-1]="collapsed()" [attr.aria-label]="pendingRegs() + ' waiting'">{{ pendingRegs() }}</span> }
         </a>
       }
     </aside>

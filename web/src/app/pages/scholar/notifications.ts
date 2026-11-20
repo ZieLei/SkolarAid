@@ -37,7 +37,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
               <button class="flex w-full gap-3 rounded-lg border-l-4 px-4 py-3 text-left transition hover:bg-[#eef8f8]" [class.bg-[#fafafa]]="n.isRead" [class.bg-white]="!n.isRead"
                       [class.ring-1]="sel()?.id === n.id" [class.ring-brand]="sel()?.id === n.id" [style.border-color]="n.isRead ? '#e0e0e0' : color(n.type)" (click)="open(n)">
                 <app-icon name="bell" class="h-[36px] w-[36px]"></app-icon>
-                <div class="min-w-0 flex-1"><p class="text-[14px] text-brand" [class.font-bold]="!n.isRead">{{ n.title }}</p><p class="line-clamp-2 text-[13px] text-[#4b5563]">{{ n.message }}</p></div>
+                <div class="min-w-0 flex-1"><p class="text-[14px] text-brand" [class.font-bold]="!n.isRead">{{ n.title }}</p><p class="line-clamp-2 whitespace-pre-line text-[13px] text-[#4b5563]">{{ n.message }}</p></div>
                 <span class="whitespace-nowrap text-[13px] text-[#4b5563]" [title]="n.dateCreated | dt">{{ rel(n.dateCreated) }}</span>
               </button>
             } @empty { <p class="p-8 text-center text-[13px] text-[#4b5563]">No notifications</p> }

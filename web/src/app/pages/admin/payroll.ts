@@ -53,12 +53,12 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
           <thead><tr><th class="w-[40px]"></th><th>Scholar #</th><th>Name</th><th>Course</th><th>Year</th><th>Scholarship</th><th>Stipend</th><th>Compliance</th><th>Eligible</th></tr></thead>
           <tbody>
             @for (c of rows(); track c.id; let i = $index) {
-              <tr [class.alt]="i % 2 === 1" [style.opacity]="c.isEligible ? 1 : .65">
+              <tr [class.alt]="i % 2 === 1">
                 <td><input type="checkbox" [disabled]="!c.isEligible" [checked]="selected().has(c.id)" (change)="toggle(c.id)" [attr.aria-label]="'Select ' + c.fullName" /></td>
                 <td>{{ c.scholarNumber }}</td><td class="font-bold">{{ c.fullName }}</td><td class="wrap">{{ c.course }}</td><td>{{ c.yearLevel }}</td>
                 <td class="wrap">{{ c.scholarshipType }}</td><td>{{ c.stipendAmount | peso }}</td>
                 <td><span class="font-bold" [style.color]="color(c.complianceStatus)">{{ c.complianceStatus }}</span></td>
-                <td>@if (c.paymentStatus === 'Already Paid') { <span class="font-bold text-[#8a5300]"><app-icon name="alert" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Already Paid</span> } @else if (c.isEligible) { <span class="font-bold text-ok"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Yes</span> } @else { <span class="font-bold text-[#4b5563]">No</span><span class="block whitespace-normal text-[12px] leading-tight text-[#4b5563]">{{ reason(c) }}</span> }</td>
+                <td class="whitespace-nowrap">@if (c.paymentStatus === 'Already Paid') { <span class="font-bold text-[#4b5563]"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Already paid</span> } @else if (c.isEligible) { <span class="font-bold text-ok"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Yes</span> } @else { <span class="font-bold text-[#4b5563]">No</span> <span class="text-[#4b5563]">&nbsp;· {{ reason(c) }}</span> }</td>
               </tr>
             } @empty { <tr><td colspan="9" class="!py-8 text-center text-[#595959]">No scholars found</td></tr> }
           </tbody>
@@ -186,9 +186,9 @@ export class PayrollPage implements OnInit {
   total = computed(() => this.rows().filter((r) => this.selected().has(r.id)).reduce((s, r) => s + r.stipendAmount, 0));
   /** Why a scholar can't be selected, so "No" is never a dead end. */
   reason(c: PayrollCandidate): string {
-    if (c.stipendAmount <= 0) return 'No stipend amount set';
-    if (c.complianceStatus !== 'Complete') return `Compliance: ${c.complianceStatus}`;
-    return 'Scholar not active';
+    if (c.stipendAmount <= 0) return 'no stipend set';
+    if (c.complianceStatus !== 'Complete') return 'compliance ' + (c.complianceStatus === 'Pending Approval' ? 'awaiting approval' : c.complianceStatus.toLowerCase());
+    return 'scholar not active';
   }
   cards = computed<{ label: string; value: string; icon: string; small: boolean; hint?: string }[]>(() => [
     { label: 'Eligible Scholars', value: String(this.rows().filter((r) => r.isEligible).length), icon: 'user-groups', small: false, hint: `of ${this.rows().length} listed · rest already paid or need compliance approved` },

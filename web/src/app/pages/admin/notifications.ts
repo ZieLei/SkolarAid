@@ -38,7 +38,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
         </div>
       </div>
 
-      <div class="grid items-start gap-4" [class]="sel() ? 'xl:grid-cols-[400px_1fr_260px]' : 'xl:grid-cols-[400px_1fr]'">
+      <div class="grid items-start gap-4" [class]="sel() ? 'xl:grid-cols-[360px_1fr_260px]' : 'xl:grid-cols-[360px_1fr]'">
         <section class="card p-5">
           <h2 class="mb-3 text-[14pt] font-bold text-accent">Compose Notification</h2>
           <div class="grid grid-cols-2 gap-3">
@@ -105,20 +105,26 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
               <span class="ml-3 text-[13px] font-bold" [style.color]="color(r.status)">{{ r.status }}</span></div>
             <dl class="grid grid-cols-[160px_1fr] gap-y-1 text-[13px]">
               <dt class="text-muted">Student ID</dt><dd>{{ r.studentId || '(will be generated)' }}</dd>
-              <dt class="text-muted">Email</dt><dd>{{ r.email }}</dd><dt class="text-muted">Contact</dt><dd>{{ r.contactNumber }}</dd>
-              <dt class="text-muted">Date of Birth</dt><dd>{{ r.dateOfBirth | dmy }}</dd><dt class="text-muted">Gender</dt><dd>{{ r.gender }}</dd>
-              <dt class="text-muted">Address</dt><dd>{{ r.address }}</dd><dt class="text-muted">Program / HEI</dt><dd>{{ r.program }} · {{ r.hei }}</dd>
-              <dt class="text-muted">Degree Program</dt><dd>{{ r.degreeProgram }}</dd><dt class="text-muted">Year Level</dt><dd>{{ r.yearLevel }}</dd>
+              <dt class="text-muted">Email</dt><dd>{{ r.email || '—' }}</dd><dt class="text-muted">Contact</dt><dd>{{ r.contactNumber || '—' }}</dd>
+              <dt class="text-muted">Date of Birth</dt><dd>{{ r.dateOfBirth | dmy: '—' }}</dd><dt class="text-muted">Gender</dt><dd>{{ r.gender || '—' }}</dd>
+              <dt class="text-muted">Address</dt><dd>{{ r.address || '—' }}</dd><dt class="text-muted">Program / HEI</dt><dd>{{ r.program || '—' }} · {{ r.hei || '—' }}</dd>
+              <dt class="text-muted">Degree Program</dt><dd>{{ r.degreeProgram || '—' }}</dd><dt class="text-muted">Year Level</dt><dd>{{ r.yearLevel || '—' }}</dd>
               <dt class="text-muted">Scholarship</dt><dd>{{ r.scholarshipName }} — {{ r.stipendAmount | peso }} / {{ r.stipendFrequency }}</dd>
-              <dt class="text-muted">Fund Source</dt><dd>{{ r.scholarshipFundSource }}</dd><dt class="text-muted">Renewal</dt><dd>{{ r.renewalConditions }}</dd>
-              <dt class="text-muted">Enrollment / Graduation</dt><dd>{{ r.enrollmentDate | dmy }} to {{ r.expectedGraduation | dmy }}</dd>
-              <dt class="text-muted">Bank</dt><dd>{{ r.bankName }} {{ r.bankAccountNumber }}</dd><dt class="text-muted">Notes</dt><dd>{{ r.notes }}</dd>
+              <dt class="text-muted">Fund Source</dt><dd>{{ r.scholarshipFundSource || '—' }}</dd><dt class="text-muted">Renewal</dt><dd>{{ r.renewalConditions || '—' }}</dd>
+              <dt class="text-muted">Enrollment / Graduation</dt><dd>{{ r.enrollmentDate || r.expectedGraduation ? (r.enrollmentDate | dmy: '—') + ' to ' + (r.expectedGraduation | dmy: '—') : '—' }}</dd>
+              <dt class="text-muted">Bank</dt><dd>{{ r.bankName || r.bankAccountNumber ? (r.bankName ?? '') + ' ' + (r.bankAccountNumber ?? '') : '—' }}</dd><dt class="text-muted">Notes</dt><dd>{{ r.notes || '—' }}</dd>
               @if (r.rejectionReason) { <dt class="text-muted">Rejection reason</dt><dd class="text-danger">{{ r.rejectionReason }}</dd> }
             </dl>
             <h3 class="section-title mt-4">Attached Documents</h3>
             <div class="mb-4 flex flex-wrap gap-2">
-              @for (k of r.files; track k) { <button class="btn btn-brand" (click)="openFile(r.id, k)"><app-icon name="attachment" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>{{ fileLabel(k) }}</button> } @empty { <span class="text-[13px] text-muted">No files</span> }
+              @for (k of r.files; track k) { <button class="btn btn-brand" (click)="openFile(r.id, k)"><app-icon name="attachment" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>{{ fileLabel(k) }}</button> } @empty { <span class="text-[13px] text-[#4b5563]">No documents attached.</span> }
             </div>
+            @if (r.status === 'Pending' && missingDocs(r).length) {
+              <div class="mb-4 flex items-start gap-3 rounded-lg border-l-4 border-warn bg-[#fff8e6] px-4 py-3" role="alert">
+                <app-icon name="alert" class="mt-[2px] h-5 w-5 shrink-0 text-[#8a5300]"></app-icon>
+                <p class="text-[13px] text-[#333]">Required documents missing: <b>{{ missingDocs(r).join(', ') }}</b>. You can still approve, but the scholar will have these requirements marked as not submitted.</p>
+              </div>
+            }
             @if (r.status === 'Pending') {
               <div class="flex gap-3"><button class="btn btn-ok !h-[40px]" [disabled]="busy()" (click)="approve(r)"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Approve</button><button class="btn btn-danger !h-[40px]" [disabled]="busy()" (click)="rejectOpen.set(true)"><app-icon name="reject" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Reject</button></div>
             }
@@ -128,12 +134,14 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
     }
 
     @if (rejectOpen()) {
-      <app-modal title="Rejection Reason" [width]="520" (closed)="rejectOpen.set(false)">
-        <p class="mb-2 text-[13px]">Please provide a reason for rejection. This will be sent to the applicant via email:</p>
-        <p class="mb-2 text-[13px] font-bold text-brand">{{ regSel()?.email }}</p>
-        <textarea class="input mb-3" rows="5" [(ngModel)]="rejectReason" maxlength="1000"></textarea>
-        <label class="mb-4 flex items-center gap-2 text-[13px]"><input type="checkbox" [(ngModel)]="rejectEmail" /> Send rejection email to applicant</label>
-        <button class="btn btn-danger ml-auto" (click)="reject()">Submit Rejection</button>
+      <app-modal title="Reject this application" [width]="520" (closed)="rejectOpen.set(false); rejectErr.set('')">
+        <p class="mb-2 text-[14px]">Tell the applicant why. The reason is saved with the application and can be emailed to:</p>
+        <p class="mb-3 text-[14px] font-bold text-brand">{{ regSel()?.email }}</p>
+        <label class="field-label-b" for="rej-reason">Reason <span class="text-[#c62828]">*</span></label>
+        <textarea id="rej-reason" class="input" [class.input-invalid]="!!rejectErr()" rows="5" [(ngModel)]="rejectReason" (ngModelChange)="rejectErr.set('')" maxlength="1000"></textarea>
+        @if (rejectErr()) { <p class="field-err">{{ rejectErr() }}</p> }
+        <label class="mt-3 flex items-center gap-2 text-[14px]"><input type="checkbox" [(ngModel)]="rejectEmail" /> Send the reason to the applicant by email</label>
+        <div class="mt-5 flex justify-end gap-2"><button class="btn btn-gray" (click)="rejectOpen.set(false); rejectErr.set('')">Cancel</button><button class="btn btn-danger" (click)="reject()">Reject application</button></div>
       </app-modal>
     }
 
@@ -276,6 +284,9 @@ export class NotificationsPage implements OnInit, OnDestroy {
   fileLabel(k: string): string { return ({ PSA: 'PSA Birth Certificate', COE: 'Certificate of Enrollment', COR: 'Certificate of Registration', Grades: 'Latest Grades/TOR', Contract: 'Scholarship Contract' } as Record<string, string>)[k] ?? k; }
   async openFile(id: number, key: string): Promise<void> { try { await this.api.open(`/admin/registrations/${id}/files/${key}`); } catch (e) { void this.dlg.error(errorMessage(e)); } }
 
+  /** PSA, COE and COR are required at registration; list any that are not attached. */
+  missingDocs(r: RegistrationDetail): string[] { return ['PSA', 'COE', 'COR'].filter((k) => !r.files.includes(k)).map((k) => this.fileLabel(k)); }
+  rejectErr = signal('');
   approvedDlg = signal<{ a: RegistrationApproved; email: string } | null>(null);
   rejectedDlg = signal<{ name: string; email: string; asked: boolean; sent: boolean } | null>(null);
   private rejectEmailAsked = false;
@@ -285,7 +296,8 @@ export class NotificationsPage implements OnInit, OnDestroy {
   }
 
   async approve(r: RegistrationDetail): Promise<void> {
-    if (!(await this.dlg.confirm(`Approve registration for ${r.firstName} ${r.lastName}?\n\nThis will create a scholar account and send welcome email.`, 'Confirm Approval'))) return;
+    const missing = this.missingDocs(r);
+    if (!(await this.dlg.confirm(`Approve registration for ${r.firstName} ${r.lastName}?\n\nThis will create a scholar account and send a welcome email.${missing.length ? `\n\nMissing required documents: ${missing.join(', ')}.` : ''}`, 'Confirm Approval'))) return;
     this.busy.set(true);
     try {
       const a = await firstValueFrom(this.api.post<RegistrationApproved>(`/admin/registrations/${r.id}/approve`));
@@ -297,7 +309,7 @@ export class NotificationsPage implements OnInit, OnDestroy {
   async reject(): Promise<void> {
     const r = this.regSel(); if (!r) return;
     this.rejectEmailAsked = this.rejectEmail;
-    if (!this.rejectReason.trim()) { void this.dlg.warning('Please enter a rejection reason.'); return; }
+    if (!this.rejectReason.trim()) { this.rejectErr.set('Please enter a reason for the rejection.'); document.getElementById('rej-reason')?.focus(); return; }
     try {
       const res = await firstValueFrom(this.api.post<{ emailSent: boolean }>(`/admin/registrations/${r.id}/reject`, { reason: this.rejectReason.trim(), sendEmail: this.rejectEmail }));
       this.rejectOpen.set(false); this.rejectReason = ''; this.regSel.set(null); await this.refresh();

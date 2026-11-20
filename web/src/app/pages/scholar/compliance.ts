@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
-import { DatePipeShort, statusColor, RequirementNamePipe } from '../../core/format';
+import { DatePipeShort, statusColor, RequirementNamePipe, requirementName } from '../../core/format';
 import { ComplianceItem, ScholarCompliance } from '../../core/models';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
@@ -16,10 +16,9 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
     <app-stat-strip [items]="stats()" />
 
     @if (toDo() > 0) {
-      <div class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border-l-4 border-warn bg-[#fff8e6] px-5 py-3" role="status">
-        <p class="flex-1 text-[14px] font-bold text-brand">{{ toDo() }} {{ toDo() === 1 ? 'requirement still needs' : 'requirements still need' }} your document.
-          <span class="font-normal text-[#4b5563]">Use the Upload button in the Action column.</span></p>
-        <button class="btn btn-brand !h-[32px]" (click)="status = 'All'; type = 'All Types'; showToDo()">Show what to upload</button>
+      <div class="flex items-start gap-3 rounded-lg border-l-4 border-warn bg-[#fff8e6] px-5 py-3" role="status">
+        <app-icon name="alert" class="mt-[2px] h-5 w-5 shrink-0 text-[#8a5300]"></app-icon>
+        <p class="text-[14px] text-ink"><b class="text-brand">{{ toDo() }} {{ toDo() === 1 ? 'document is' : 'documents are' }} still needed:</b> {{ todoNames() }}. Press <b>Upload</b> on its row to send each one.</p>
       </div>
     }
 
@@ -34,10 +33,10 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
     <div class="grid items-start gap-5" [class]="sel() ? 'xl:grid-cols-[1fr_360px]' : ''">
       <section class="card overflow-hidden">
         <div scrollCue class="grid-wrap max-h-[520px]"><table class="dgrid">
-          <thead><tr><th>ID</th><th>Requirement Type</th><th>Due Date</th><th>Date Submitted</th><th>Status</th><th>Action</th></tr></thead>
+          <thead><tr><th>Requirement</th><th>Due Date</th><th>Date Submitted</th><th>Status</th><th>Action</th></tr></thead>
           <tbody>@for (c of filtered(); track c.id; let i = $index) {
             <tr class="cursor-pointer" [class.alt]="i % 2 === 1" [class.sel]="sel()?.id === c.id" (click)="sel.set(c)">
-              <td>{{ c.id }}</td><td class="wrap font-bold">{{ c.requirementType | reqName }}</td><td>{{ c.dueDate | dmy }}</td><td>{{ c.dateSubmitted | dmy }}</td>
+              <td class="wrap font-bold">{{ c.requirementType | reqName }}</td><td>{{ c.dueDate | dmy }}</td><td>{{ c.dateSubmitted | dmy }}</td>
               <td><span class="font-bold" [style.color]="color(c.status)">{{ c.status }}</span></td>
               <td class="whitespace-nowrap">
                 @if (canUpload(c)) {
@@ -45,7 +44,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
                     <input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" [disabled]="busy()" (change)="upload($event, c)" /></label>
                 } @else if (c.fileCount) { <button class="btn btn-accent !h-[26px] !px-3 !text-[12px]" (click)="$event.stopPropagation(); view(c)">View file</button> }
               </td></tr>
-          } @empty { <tr><td colspan="6" class="!py-8 text-center text-[#4b5563]">No requirements found</td></tr> }</tbody></table></div>
+          } @empty { <tr><td colspan="5" class="!py-8 text-center text-[#4b5563]">No requirements found</td></tr> }</tbody></table></div>
         <p class="px-3 py-2 text-[12px] text-[#4b5563]">Showing {{ filtered().length }} {{ filtered().length === 1 ? 'record' : 'records' }}</p>
       </section>
 
@@ -97,8 +96,8 @@ export class ScholarCompliancePage implements OnInit {
     ];
   });
   canUpload = (c: ComplianceItem): boolean => c.status === 'Pending' || c.status === 'Rejected' || c.status === 'Overdue';
+  todoNames = computed(() => (this.data()?.items ?? []).filter((i) => this.canUpload(i)).map((i) => requirementName(i.requirementType)).join(', '));
   toDo = computed(() => (this.data()?.items ?? []).filter((i) => this.canUpload(i)).length);
-  showToDo(): void { const first = (this.data()?.items ?? []).find((i) => this.canUpload(i)); if (first) this.sel.set(first); }
 
   ngOnInit(): void { void this.load(); }
 

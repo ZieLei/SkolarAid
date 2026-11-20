@@ -192,7 +192,7 @@ public record ActivityFiltersDto(IReadOnlyList<string> Users, IReadOnlyList<stri
 // ---- Dashboard / reports ----
 public record DashboardStatsDto(int TotalScholars, int ActiveScholarships, decimal TotalDisbursed, int PendingPayments, decimal QueuedAmount = 0);
 public record RecentActivityDto(string UserName, string Details, DateTime CreatedAt);
-public record UpcomingPaymentDto(string ScholarName, string ScholarNumber, decimal Amount, DateTime? ReleaseDate, string Status);
+public record UpcomingPaymentDto(string ScholarName, string ScholarNumber, decimal Amount, DateTime? ReleaseDate, string Status, string Period = "");
 public record ChartPointDto(string Label, decimal Value);
 public record AnalyticsDto(DashboardStatsDto Stats, IReadOnlyList<ChartPointDto> ByScholarship, IReadOnlyList<ChartPointDto> ByCourse,
     IReadOnlyList<ChartPointDto> MonthlyDisbursement);

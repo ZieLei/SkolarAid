@@ -20,7 +20,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
       <div><label class="field-label-b">From</label><input class="input !w-[140px]" type="date" [(ngModel)]="from" (change)="apply()" /></div>
       <div><label class="field-label-b">To</label><input class="input !w-[140px]" type="date" [(ngModel)]="to" (change)="apply()" /></div>
       <div><label class="field-label-b">Action Type</label>
-        <select class="input !w-[160px]" [(ngModel)]="action" (change)="apply()"><option>All Actions</option>@for (a of filters()?.actions ?? []; track a) { <option>{{ a }}</option> }</select></div>
+        <select class="input !w-[160px]" [(ngModel)]="action" (change)="apply()"><option>Hide sign-ins</option><option>All Actions</option>@for (a of filters()?.actions ?? []; track a) { <option>{{ a }}</option> }</select></div>
       <div><label class="field-label-b">User</label>
         <select class="input !w-[160px]" [(ngModel)]="user" (change)="apply()"><option>All Users</option>@for (u of filters()?.users ?? []; track u) { <option>{{ u }}</option> }</select></div>
       <div class="ml-auto flex gap-2">
@@ -73,13 +73,13 @@ export class ActivityLogsPage implements OnInit {
   stats = signal<ActivityStats | null>(null);
   filters = signal<ActivityFilters | null>(null);
   sel = signal<ActivityLog | null>(null);
-  search = ''; from = daysAgo(30); to = today(); action = 'All Actions'; user = 'All Users';
+  search = ''; from = daysAgo(30); to = today(); action = 'Hide sign-ins'; user = 'All Users';
   pageNo = computed(() => this.page()?.page ?? 1);
   totalPages = computed(() => Math.max(1, Math.ceil((this.page()?.total ?? 0) / (this.page()?.pageSize ?? 25))));
   cards = computed(() => [
-    { label: 'Total Logs', value: this.stats()?.total ?? 0, icon: 'file' },
-    { label: "Today's Activities", value: this.stats()?.today ?? 0, icon: 'checked' },
-    { label: 'Active Users', value: this.stats()?.activeUsers ?? 0, icon: 'user' },
+    { label: 'All entries', value: this.stats()?.total ?? 0, icon: 'file' },
+    { label: 'Entries today', value: this.stats()?.today ?? 0, icon: 'checked' },
+    { label: 'People active today', value: this.stats()?.activeUsers ?? 0, icon: 'user', hint: 'Admins and scholars with at least one logged action today' },
   ]);
 
   async ngOnInit(): Promise<void> {
@@ -94,7 +94,7 @@ export class ActivityLogsPage implements OnInit {
     try { this.page.set(await firstValueFrom(this.api.get<Paged<ActivityLog>>('/admin/activity-logs', this.query(p)))); this.sel.set(null); } catch (e) { void this.dlg.error(errorMessage(e)); }
   }
   async refresh(): Promise<void> { this.stats.set(await firstValueFrom(this.api.get<ActivityStats>('/admin/activity-logs/stats'))); await this.go(1); }
-  async clearFilters(): Promise<void> { this.search = ''; this.from = daysAgo(30); this.to = today(); this.action = 'All Actions'; this.user = 'All Users'; await this.go(1); }
+  async clearFilters(): Promise<void> { this.search = ''; this.from = daysAgo(30); this.to = today(); this.action = 'Hide sign-ins'; this.user = 'All Users'; await this.go(1); }
 
   async exportCsv(): Promise<void> {
     try { const { page: _page, ...q } = this.query(); await this.api.download('/admin/activity-logs/csv', q, 'ActivityLogs.csv'); } catch (e) { void this.dlg.error(errorMessage(e), 'Export error'); }

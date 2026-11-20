@@ -58,7 +58,7 @@ export interface ActivityFilters { users: string[]; actions: string[]; }
 
 export interface DashboardStats { totalScholars: number; activeScholarships: number; totalDisbursed: number; pendingPayments: number; queuedAmount: number; }
 export interface RecentActivity { userName: string; details: string; createdAt: string; }
-export interface UpcomingPayment { scholarName: string; scholarNumber: string; amount: number; releaseDate: string | null; status: string; }
+export interface UpcomingPayment { scholarName: string; scholarNumber: string; amount: number; releaseDate: string | null; status: string; period: string; }
 export interface ChartPoint { label: string; value: number; }
 export interface Analytics { stats: DashboardStats; byScholarship: ChartPoint[]; byCourse: ChartPoint[]; monthlyDisbursement: ChartPoint[]; }
 export interface ReportResult { title: string; columns: string[]; rows: (string | null)[][]; }

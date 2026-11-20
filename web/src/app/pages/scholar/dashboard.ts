@@ -52,7 +52,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
           @for (n of d.notifications; track n.id) {
             <div class="mb-3 flex gap-3 rounded-lg bg-[#fafafa] px-4 py-3" [class.border-l-4]="!n.isRead" [style.border-color]="tcolor(n.type)">
               <app-icon name="bell" class="card-icon h-[40px] w-[40px]"></app-icon>
-              <div class="min-w-0 flex-1"><p class="text-[14px] font-bold text-brand">{{ n.title }}</p><p class="line-clamp-2 text-[13px] text-[#4b5563]">{{ n.message }}</p></div>
+              <div class="min-w-0 flex-1"><p class="text-[14px] font-bold text-brand">{{ n.title }}</p><p class="line-clamp-2 whitespace-pre-line text-[13px] text-[#4b5563]">{{ n.message }}</p></div>
               <span class="whitespace-nowrap text-[12px] text-[#4b5563]">{{ rel(n.dateCreated) }}</span></div>
           } @empty { <p class="py-4 text-center text-[13px] text-[#4b5563]">No notifications</p> }
           <a routerLink="/scholar/notifications" class="btn btn-brand mt-2 !h-[30px] !text-[12px]">View All</a>

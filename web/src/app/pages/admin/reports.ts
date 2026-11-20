@@ -11,10 +11,11 @@ import { barConfig, lineConfig, makeChart, pieConfig } from '../../shared/charts
 import { TEMPLATE_ICONS, TEMPLATE_LIST, printHtml, receiptHtml, reportHtml, templateHtml } from '../../shared/print';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
+import { StatItem, StatStrip } from '../../shared/stat-strip';
 
 @Component({
   selector: 'app-reports',
-  imports: [ScrollCue, AppIcon, FormsModule, Modal, PesoPipe, DatePipeShort],
+  imports: [StatStrip, ScrollCue, AppIcon, FormsModule, Modal, PesoPipe, DatePipeShort],
   template: `
     <div class="mb-4 flex gap-1 border-b-2 border-[#d9d9d9]">
       @for (t of tabs; track t.id) {
@@ -61,17 +62,9 @@ import { ScrollCue } from '../../shared/scroll-cue';
         </aside>
       </div>
     } @else {
-      <div class="card mb-4 flex flex-wrap items-center gap-5 p-5">
-        @for (c of statCards(); track c.label) {
-          <div class="flex min-w-[220px] flex-1 items-center gap-3 rounded-lg border border-[#eee] p-3">
-            <app-icon [name]="c.icon" class="card-icon h-[50px] w-[50px]"></app-icon>
-            <div><p class="text-[28px] font-bold leading-none" [style.color]="c.color">{{ c.value }}</p><p class="mt-1 text-[10pt] font-bold text-gray-500">{{ c.label }}</p></div>
-          </div>
-        }
-        <button class="btn btn-accent self-end" (click)="loadAnalytics()">Refresh</button>
-      </div>
+      <app-stat-strip [items]="statCards()" />
       <section class="card p-5">
-        <h2 class="mb-3 text-[16pt] font-bold text-accent">Analytics Charts</h2>
+        <div class="mb-3 flex items-center"><h2 class="text-[16pt] font-bold text-accent">Analytics Charts</h2><button class="btn btn-outline ml-auto" (click)="loadAnalytics()">Refresh</button></div>
         <div class="grid gap-5 lg:grid-cols-3">
           <div class="rounded-lg border border-[#eee] p-3"><h3 class="mb-2 text-[12pt] font-bold">Scholars by Scholarship Type</h3><div class="h-[320px]"><canvas #c1></canvas></div></div>
           <div class="rounded-lg border border-[#eee] p-3"><h3 class="mb-2 text-[12pt] font-bold">Scholars by Course</h3><div class="h-[320px]"><canvas #c2></canvas></div></div>
@@ -113,13 +106,12 @@ export class ReportsPage implements OnInit, OnDestroy {
   templates = TEMPLATE_LIST; icons = TEMPLATE_ICONS;
   q = { type: 'Scholar Census Report', from: daysAgo(365), to: today(), course: 'All Courses', scholarship: 'All Scholarships', status: 'All Status' };
 
-  statCards = computed(() => {
+  statCards = computed<StatItem[]>(() => {
     const s = this.analytics()?.stats;
     return [
-      { label: 'Total Scholars', value: String(s?.totalScholars ?? 0), icon: 'user-groups', color: '#0a5c5c' },
-      { label: 'Active Scholars', value: String(s?.totalScholars ?? 0), icon: 'checked', color: '#17692c' },
-      { label: 'Total Disbursed', value: formatPeso(s?.totalDisbursed), icon: 'wallet', color: '#ffc107' },
-      { label: 'Pending Payments', value: String(s?.pendingPayments ?? 0), icon: 'wall-clock', color: '#b42318' },
+      { label: 'Active scholars', value: s?.totalScholars ?? 0 },
+      { label: 'Total disbursed', value: formatPeso(s?.totalDisbursed), sub: 'Released payments only', tone: 'ok' },
+      { label: 'Pending payments', value: s?.pendingPayments ?? 0, tone: 'pending', sub: 'Processed, not yet released' },
     ];
   });
 

@@ -51,7 +51,7 @@ public class DashboardService(SkolarDbContext db)
         var rows = await db.Payments.AsNoTracking().Include(p => p.Scholar).Where(p => p.Status == "Processed" || p.Status == "Pending")
             .OrderBy(p => p.ComputationDate).Take(10).ToListAsync();
         return rows.Select(p => new UpcomingPaymentDto(p.Scholar!.FullName, p.Scholar.ScholarNumber, p.Amount,
-            p.ReleaseDate ?? p.ComputationDate, p.Status)).ToList();
+            p.ReleaseDate ?? p.ComputationDate, p.Status, p.PaymentPeriod)).ToList();
     }
 
     public async Task<List<ChartPointDto>> ByScholarshipAsync()
@@ -92,7 +92,8 @@ public class ActivityLogQueryService(SkolarDbContext db, ActivityLogService log)
         var start = from.Date;
         var end = to.Date.AddDays(1);
         var q = db.ActivityLogs.AsNoTracking().Include(a => a.User).Where(a => a.CreatedAt >= start && a.CreatedAt < end);
-        if (!string.IsNullOrWhiteSpace(action) && !action.StartsWith("All")) q = q.Where(a => a.ActionType == action.ToUpper());
+        if (action == "Hide sign-ins") q = q.Where(a => a.ActionType != "LOGIN" && a.ActionType != "LOGOUT");
+        else if (!string.IsNullOrWhiteSpace(action) && !action.StartsWith("All")) q = q.Where(a => a.ActionType == action.ToUpper());
         if (!string.IsNullOrWhiteSpace(user) && !user.StartsWith("All")) q = q.Where(a => a.UserName == user);
         if (!string.IsNullOrWhiteSpace(search))
         {

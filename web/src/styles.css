@@ -55,6 +55,8 @@
   .reg-l { @apply mb-1 block text-[14px] text-[#1e1e1e]; }
   .reg-hint { @apply mt-1 text-[12px] text-[#555]; }
   .opt::after { content: " (optional)"; color: #555; font-size: 12px; }
+  .input-invalid { @apply !border-[#b42318] !border-2 bg-[#fff8f7]; }
+  .field-err { @apply mt-1 flex items-center gap-1 text-[13px] font-bold text-[#8c1d13]; }
   .req::after { content: " *"; color: #c62828; font-weight: 700; }
   .field-label-b { @apply block text-[13px] font-bold text-label mb-1; }
   .input { @apply w-full h-[30px] px-2 border border-gray-300 rounded bg-white text-[14px] outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:bg-gray-100; }
