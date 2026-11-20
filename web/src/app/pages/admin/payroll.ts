@@ -48,8 +48,8 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
     </div>
 
     <section class="card overflow-hidden">
-      <div scrollCue class="grid-wrap max-h-[470px]">
-        <table class="dgrid">
+      <div scrollCue class="grid-wrap max-h-[620px]">
+        <table class="dgrid roomy">
           <thead><tr><th class="w-[40px]"></th><th>Scholar #</th><th>Name</th><th>Course</th><th>Year</th><th>Scholarship</th><th>Stipend</th><th>Compliance</th><th>Eligible</th></tr></thead>
           <tbody>
             @for (c of rows(); track c.id; let i = $index) {
@@ -70,7 +70,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
     <section class="card overflow-hidden">
       <h2 class="px-4 pt-3 text-[14pt] font-bold text-accent">Disbursement History — {{ periodLabel() }}</h2>
       <div scrollCue class="grid-wrap max-h-[300px] p-2">
-        <table class="dgrid">
+        <table class="dgrid roomy">
           <thead><tr><th>Scholar</th><th>Period</th><th>Amount</th><th>Status</th><th>Release Date</th><th>Method</th><th>Reference</th></tr></thead>
           <tbody>
             @for (h of history(); track h.id) {
@@ -95,7 +95,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
         }
         <h3 class="section-title mt-4">Scholars in this batch</h3>
         <div scrollCue class="grid-wrap max-h-[280px] rounded border border-[#e6e6e6]">
-          <table class="dgrid"><thead><tr><th>Scholar</th><th class="text-right">Amount</th><th>Result</th></tr></thead>
+          <table class="dgrid roomy"><thead><tr><th>Scholar</th><th class="text-right">Amount</th><th>Result</th></tr></thead>
             <tbody>@for (l of v.p.lines; track l.scholarId; let i = $index) {
               <tr [class.alt]="i % 2 === 1"><td class="font-bold">{{ l.fullName }}</td><td class="text-right">{{ l.amount | peso }}</td>
                 <td>@if (l.alreadyPaid) { <span class="font-bold text-[#8a5300]"><app-icon name="alert" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Skipped, already paid</span> }
@@ -128,7 +128,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
           <p class="text-[13px] text-[#333]">Releasing marks these payments as Released, sets today as the release date and notifies each scholar. This can't be undone.</p>
         </div>
         <div scrollCue class="grid-wrap mt-4 max-h-[260px] rounded border border-[#e6e6e6]">
-          <table class="dgrid"><thead><tr><th>Scholar</th><th>Period</th><th class="text-right">Amount</th><th>Method</th></tr></thead>
+          <table class="dgrid roomy"><thead><tr><th>Scholar</th><th>Period</th><th class="text-right">Amount</th><th>Method</th></tr></thead>
             <tbody>@for (x of v.ready; track x.paymentId; let i = $index) {
               <tr [class.alt]="i % 2 === 1"><td class="font-bold">{{ x.scholarName }}</td><td>{{ x.period }}</td><td class="text-right">{{ x.amount | peso }}</td><td>{{ x.paymentMethod }}</td></tr>
             }</tbody></table>

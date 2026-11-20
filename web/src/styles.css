@@ -74,8 +74,8 @@
   table.dgrid thead th { @apply sticky top-0 z-[2] bg-brand text-white font-bold text-[13px] text-left px-3 h-[35px] whitespace-nowrap; }
   table.dgrid tbody td { @apply px-3 h-[30px] border-b border-[#e6e6e6] bg-white whitespace-nowrap; }
   /* Roomier rows for short lists that are read, not scanned (e.g. Upcoming Payments). */
-  table.dgrid.roomy tbody td { height: 56px; padding-top: 10px; padding-bottom: 10px; line-height: 1.4; vertical-align: middle; }
-  table.dgrid.roomy thead th { height: 40px; }
+  table.dgrid.roomy tbody td { height: 52px; padding: 10px 14px; line-height: 1.4; vertical-align: middle; }
+  table.dgrid.roomy thead th { height: 42px; padding-left: 14px; padding-right: 14px; }
   table.dgrid tbody tr.alt td { background: #f5fafa; }
   table.dgrid tbody tr.sel td { background: #e6f5f5; }
   table.dgrid tbody tr:hover td { background: #eef8f8; }

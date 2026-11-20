@@ -14,6 +14,9 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Roomier Payroll tables
+- Payroll's scholar table, history table and the preview/release tables now use the `roomy` row style (52px rows, 14px side padding, taller header); the main table can grow to 620px before scrolling. The shared `roomy` style was eased from 56px to 52px.
+
 ### 2026-11-20 — Roomier Upcoming Payments list
 - `web/src/styles.css`: new `table.dgrid.roomy` variant (56px rows, 10px vertical padding, taller header). Applied to the dashboard's Upcoming Payments table so the scholar name and number no longer sit cramped on top of each other.
 
