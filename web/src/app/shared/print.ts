@@ -30,8 +30,15 @@ export function printHtml(title: string, body: string): void {
   doc.open();
   doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${STYLE}</style></head><body>${header()}${body}</body></html>`);
   doc.close();
-  frame.onload = () => { frame.contentWindow?.focus(); frame.contentWindow?.print(); setTimeout(() => frame.remove(), 2000); };
-  setTimeout(() => { try { frame.contentWindow?.focus(); frame.contentWindow?.print(); } catch { /* already printed */ } }, 400);
+  // Print exactly once: whichever of onload / the fallback timer fires first wins.
+  let printed = false;
+  const run = (): void => {
+    if (printed) return;
+    printed = true;
+    try { frame.contentWindow?.focus(); frame.contentWindow?.print(); } finally { setTimeout(() => frame.remove(), 2000); }
+  };
+  frame.onload = run;
+  setTimeout(run, 400);
 }
 
 export function reportHtml(title: string, columns: string[], rows: (string | null)[][]): string {
