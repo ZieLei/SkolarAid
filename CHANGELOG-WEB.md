@@ -14,6 +14,10 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Comfortable rows in every table
+- `web/src/styles.css`: the roomy row style is now the default for all `table.dgrid` tables (52px rows, 14px side padding, 42px header, vertical centring, 1.4 line height), so Activity Log, Notifications, Compliance, Reports and the dialogs' tables match Payroll. Wrapped text columns lost their tight 5px padding.
+- Scholar Management's virtual list rows went from 44px to 56px with matching padding and header height.
+
 ### 2026-11-20 — Roomier Payroll tables
 - Payroll's scholar table, history table and the preview/release tables now use the `roomy` row style (52px rows, 14px side padding, taller header); the main table can grow to 620px before scrolling. The shared `roomy` style was eased from 56px to 52px.
 

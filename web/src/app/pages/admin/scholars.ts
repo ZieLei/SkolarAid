@@ -71,7 +71,7 @@ const blank = (): Form => ({
           <div scrollCue class="grid-wrap">
             <div class="min-w-[900px]" role="table" aria-label="Scholars">
               <div role="row" class="grid overflow-hidden bg-brand text-left text-[13px] font-bold text-white [scrollbar-gutter:stable]" [style.grid-template-columns]="cols">
-                @for (h of heads; track h) { <div role="columnheader" class="h-[35px] truncate px-3 leading-[35px]">{{ h }}</div> }
+                @for (h of heads; track h) { <div role="columnheader" class="h-[42px] truncate px-[14px] leading-[42px]">{{ h }}</div> }
               </div>
               @if (!list().length) { <div class="py-8 text-center text-[12px] text-[#595959]">No scholars found</div> }
               <cdk-virtual-scroll-viewport [itemSize]="rowH" [style.height.px]="viewportH()" class="max-h-[max(260px,calc(100vh-330px))] [scrollbar-gutter:stable]">
@@ -231,7 +231,7 @@ export class ScholarsPage implements OnInit {
   tab = signal<'info' | 'compliance'>('info');
   list = signal<ScholarListItem[]>([]);
   // Virtual list: only the rows in view are rendered; height hugs the content up to MAX_ROWS.
-  readonly rowH = 44;
+  readonly rowH = 56;
   readonly heads = ['Scholar #', 'Student ID', 'Full Name', 'Course', 'Year', 'Scholarship', 'Status', ''];
   readonly cols = '112px 108px minmax(150px,1.3fr) minmax(190px,1.7fr) 78px minmax(140px,1.2fr) 92px 84px';
   viewportH = computed(() => Math.min(this.list().length, 24) * this.rowH);

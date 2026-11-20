@@ -69,17 +69,18 @@
   .grid-wrap.cue-l:not(.cue-r) { mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
   .grid-wrap.cue-l.cue-r { mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
   /* Long text columns wrap instead of being cut mid-word. */
-  table.dgrid tbody td.wrap { white-space: normal; min-width: 130px; overflow-wrap: anywhere; line-height: 1.35; padding-top: 5px; padding-bottom: 5px; }
+  table.dgrid tbody td.wrap { white-space: normal; min-width: 130px; overflow-wrap: anywhere; line-height: 1.4; }
   table.dgrid { @apply w-full border-collapse text-[13px]; }
-  table.dgrid thead th { @apply sticky top-0 z-[2] bg-brand text-white font-bold text-[13px] text-left px-3 h-[35px] whitespace-nowrap; }
-  table.dgrid tbody td { @apply px-3 h-[30px] border-b border-[#e6e6e6] bg-white whitespace-nowrap; }
+  table.dgrid thead th { @apply sticky top-0 z-[2] bg-brand text-white font-bold text-[13px] text-left px-[14px] h-[42px] whitespace-nowrap; }
+  /* Every table gets comfortable rows by default: 52px, 14px side padding. */
+  table.dgrid tbody td { @apply px-[14px] py-[10px] h-[52px] border-b border-[#e6e6e6] bg-white whitespace-nowrap align-middle leading-[1.4]; }
   /* Roomier rows for short lists that are read, not scanned (e.g. Upcoming Payments). */
   table.dgrid.roomy tbody td { height: 52px; padding: 10px 14px; line-height: 1.4; vertical-align: middle; }
   table.dgrid.roomy thead th { height: 42px; padding-left: 14px; padding-right: 14px; }
   table.dgrid tbody tr.alt td { background: #f5fafa; }
   table.dgrid tbody tr.sel td { background: #e6f5f5; }
   table.dgrid tbody tr:hover td { background: #eef8f8; }
-  .cell { @apply flex items-center overflow-hidden border-b border-[#e6e6e6] px-3 leading-[1.25]; }
+  .cell { @apply flex items-center overflow-hidden border-b border-[#e6e6e6] px-[14px] leading-[1.3]; }
   .badge { @apply inline-block rounded-full px-2 py-[1px] text-[11px] font-bold; }
 }
 
