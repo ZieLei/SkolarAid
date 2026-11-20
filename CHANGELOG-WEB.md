@@ -14,6 +14,9 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Roomier Upcoming Payments list
+- `web/src/styles.css`: new `table.dgrid.roomy` variant (56px rows, 10px vertical padding, taller header). Applied to the dashboard's Upcoming Payments table so the scholar name and number no longer sit cramped on top of each other.
+
 ### 2026-11-20 — Review round: validation, compliance toolbar, status colours, charts, polish
 **1. Validation next to the fields.** New `shared/form-errors.ts` (error summary + `FormErrors`). Register and Add Scholar now show a red summary at the top listing every problem (each links to its field), mark every invalid field with a red border and a message under it, focus/scroll to the first one, and re-check as you type. The blocking "Warning" pop-up is gone.
 **2. Compliance Management.** The 8 coloured toolbar buttons are replaced by two (Add requirement, Remind scholar) plus per-row actions: Review, Upload/Replace, View and a "More" menu (Mark as missing, Delete attached file, Delete requirement in red). The scholar picker is a type-to-search box instead of a 60-item dropdown. Modal footers are right-aligned Cancel + primary.

@@ -36,12 +36,12 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
       <section class="card p-4">
         <h2 class="border-b-2 border-[#e6e6e6] pb-2 text-[14pt] font-bold text-brand">Upcoming Payments</h2>
         <div scrollCue class="grid-wrap mt-2 max-h-[260px]">
-          <table class="dgrid">
+          <table class="dgrid roomy">
             <thead><tr><th>Scholar</th><th>Period</th><th>Amount</th><th>Status</th><th>Releases On</th></tr></thead>
             <tbody>
               @for (p of upcoming(); track $index) {
                 <tr>
-                  <td><span class="font-bold">{{ p.scholarName }}</span><span class="block text-[12px] text-[#4b5563]">{{ p.scholarNumber }}</span></td><td>{{ p.period }}</td><td>{{ p.amount | peso }}</td><td><span class="font-bold" [style.color]="color(p.status)">{{ p.status }}</span></td><td>{{ p.releaseDate | dmy: 'Pending' }}</td>
+                  <td><span class="font-bold">{{ p.scholarName }}</span><span class="mt-[2px] block text-[12px] text-[#4b5563]">{{ p.scholarNumber }}</span></td><td>{{ p.period }}</td><td>{{ p.amount | peso }}</td><td><span class="font-bold" [style.color]="color(p.status)">{{ p.status }}</span></td><td>{{ p.releaseDate | dmy: 'Pending' }}</td>
                 </tr>
               } @empty { <tr><td colspan="5" class="!py-6 text-center text-[#595959]">No upcoming payments</td></tr> }
             </tbody>
