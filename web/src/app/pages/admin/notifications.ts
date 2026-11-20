@@ -33,7 +33,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
           <button class="btn btn-gray" (click)="clearFilters()">Clear</button>
           <button class="btn btn-brand" (click)="markAllRead()" title="Mark every unread notification as read">Mark all read</button>
           <span class="mx-2 h-[28px] w-px bg-[#c9c9c9]" aria-hidden="true"></span>
-          <button class="btn btn-danger-outline" (click)="deleteRead()" title="Permanently delete every notification that has been read">Delete read…</button>
+          <button class="btn btn-danger-outline" (click)="deleteRead()" title="Permanently delete every notification that has been read">Delete read</button>
         </div>
       </div>
 

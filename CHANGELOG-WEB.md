@@ -14,6 +14,9 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — "Delete read" without the ellipsis
+- An ellipsis on a button means "this opens a dialog that asks you for more input". "Delete read" only opens a yes/no confirmation (like "Mark all read", which has none), so the "…" came off. "Choose a payment to print…" on Reports keeps its ellipsis because it opens a picker.
+
 ### 2026-11-20 — Notifications toolbar fits on one row
 - `web/src/app/pages/admin/notifications.ts`: the action buttons (Refresh, Clear, Mark all read, Delete read…) wrapped onto a second line, with Delete stranded at the end. Removed the always-disabled "Method: In-App" filter (nothing to choose) and shortened the labels ("Clear filters" to "Clear", "Delete All Read…" to "Delete read…"); the full meaning moved into tooltips. Everything now sits on a single row.
 
