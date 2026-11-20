@@ -64,7 +64,7 @@ const blank = (): Form => ({
       <div class="grid gap-4 2xl:grid-cols-[1fr_569px]">
         <section class="card overflow-hidden">
           <div class="grid-wrap max-h-[720px]">
-            <table class="grid">
+            <table class="dgrid">
               <thead><tr><th>ID</th><th>Scholar #</th><th>Student ID</th><th>Full Name</th><th>Course</th><th>Year</th><th>Scholarship</th><th>Status</th></tr></thead>
               <tbody>
                 @for (s of list(); track s.id; let i = $index) {
@@ -197,7 +197,7 @@ const blank = (): Form => ({
         </dl>
         <h3 class="section-title mt-4">Compliance Documents</h3>
         <div class="grid-wrap rounded border border-[#e6e6e6]">
-          <table class="grid"><thead><tr><th>Requirement</th><th>Description</th><th>Status</th><th>Due</th><th>Files</th></tr></thead>
+          <table class="dgrid"><thead><tr><th>Requirement</th><th>Description</th><th>Status</th><th>Due</th><th>Files</th></tr></thead>
             <tbody>@for (r of detailItems(); track r.id; let i = $index) {
               <tr [class.alt]="i % 2 === 1"><td class="font-bold">{{ r.requirementType }}</td><td>{{ r.description }}</td>
                 <td><span class="font-bold" [style.color]="color(r.status)">{{ r.status }}</span></td><td>{{ r.dueDate | dmy }}</td><td>{{ r.fileCount }}</td></tr>

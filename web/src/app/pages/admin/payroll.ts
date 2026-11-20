@@ -14,7 +14,7 @@ import { YEAR_LEVELS } from '../register';
     <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
       @for (c of cards(); track c.label) {
         <div class="card flex h-[120px] items-center gap-4 px-5">
-          <img [src]="'assets/' + c.icon" alt="" class="h-[52px] w-[48px] object-contain" />
+          <img [src]="'assets/' + c.icon" alt="" class="card-icon h-[52px] w-[48px] object-contain" />
           <div><p class="text-[12pt] font-bold">{{ c.label }}</p><p class="font-bold text-accent" [class.text-[30px]]="!c.small" [class.text-[24px]]="c.small">{{ c.value }}</p></div>
         </div>
       }
@@ -43,7 +43,7 @@ import { YEAR_LEVELS } from '../register';
     <div class="grid gap-4 xl:grid-cols-[1fr_364px]">
       <section class="card overflow-hidden">
         <div class="grid-wrap max-h-[470px]">
-          <table class="grid">
+          <table class="dgrid">
             <thead><tr><th class="w-[40px]"></th><th>Scholar #</th><th>Name</th><th>Course</th><th>Year</th><th>Scholarship</th><th>Stipend</th><th>Compliance</th><th>Eligible</th></tr></thead>
             <tbody>
               @for (c of rows(); track c.id; let i = $index) {
@@ -72,7 +72,7 @@ import { YEAR_LEVELS } from '../register';
     <section class="card mt-4 overflow-hidden">
       <h2 class="px-4 pt-3 text-[14pt] font-bold text-accent">Disbursement History — {{ periodLabel() }}</h2>
       <div class="grid-wrap max-h-[300px] p-2">
-        <table class="grid">
+        <table class="dgrid">
           <thead><tr><th>Scholar</th><th>Period</th><th>Amount</th><th>Status</th><th>Release Date</th><th>Method</th><th>Reference</th></tr></thead>
           <tbody>
             @for (h of history(); track h.id) {

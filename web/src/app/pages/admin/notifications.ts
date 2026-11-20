@@ -14,7 +14,7 @@ import { Modal } from '../../shared/modal';
     <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5">
       @for (c of cards(); track c.label) {
         <div class="card flex h-[110px] items-center gap-4 px-4" [title]="c.hint">
-          <img [src]="'assets/' + c.icon" alt="" class="h-[48px] w-[45px] object-contain" />
+          <img [src]="'assets/' + c.icon" alt="" class="card-icon h-[48px] w-[45px] object-contain" />
           <div><p class="text-[11pt] font-bold">{{ c.label }}</p><p class="text-[30px] font-bold" [style.color]="c.color">{{ c.value }}</p></div>
         </div>
       }
@@ -68,7 +68,7 @@ import { Modal } from '../../shared/modal';
 
         <section class="card overflow-hidden">
           <div class="grid-wrap max-h-[560px]">
-            <table class="grid">
+            <table class="dgrid">
               <thead><tr><th>ID</th><th>Date</th><th>Recipient</th><th>Title</th><th>Type</th><th>Status</th></tr></thead>
               <tbody>
                 @for (n of list(); track n.id; let i = $index) {

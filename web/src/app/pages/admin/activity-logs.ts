@@ -13,7 +13,7 @@ import { ActivityFilters, ActivityLog, ActivityStats, Paged } from '../../core/m
     <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
       @for (c of cards(); track c.label) {
         <div class="card flex h-[120px] items-center gap-4 px-5">
-          <img [src]="'assets/' + c.icon" alt="" class="h-[52px] w-[48px] object-contain" />
+          <img [src]="'assets/' + c.icon" alt="" class="card-icon h-[52px] w-[48px] object-contain" />
           <div><p class="text-[12pt] font-bold">{{ c.label }}</p><p class="text-[30px] font-bold text-accent">{{ c.value }}</p></div>
         </div>
       }
@@ -37,7 +37,7 @@ import { ActivityFilters, ActivityLog, ActivityStats, Paged } from '../../core/m
     <div class="grid gap-4 xl:grid-cols-[1fr_337px]">
       <section class="card overflow-hidden">
         <div class="grid-wrap max-h-[520px]">
-          <table class="grid">
+          <table class="dgrid">
             <thead><tr><th>ID</th><th>Timestamp</th><th>User</th><th>Role</th><th>Action</th><th>Table</th><th>Details</th><th>IP Address</th></tr></thead>
             <tbody>
               @for (l of page()?.items ?? []; track l.id; let i = $index) {

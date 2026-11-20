@@ -18,7 +18,7 @@ import { lineConfig, makeChart, pieConfig } from '../../shared/charts';
     <div class="mb-6 grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-6">
       @for (c of cards(); track c.label) {
         <div class="card flex h-[130px] items-center gap-4 px-5">
-          <img [src]="'assets/' + c.icon" alt="" class="h-[55px] w-[50px] object-contain" />
+          <img [src]="'assets/' + c.icon" alt="" class="card-icon h-[55px] w-[50px] object-contain" />
           <div>
             <p class="text-[12pt] font-bold text-label">{{ c.label }}</p>
             <p class="font-bold" [class.text-brand]="!c.danger" [class.text-danger]="c.danger" [class.text-[32px]]="!c.money" [class.text-[28px]]="c.money">{{ c.value }}</p>
@@ -44,7 +44,7 @@ import { lineConfig, makeChart, pieConfig } from '../../shared/charts';
       <section class="card p-4">
         <h2 class="border-b-2 border-[#e6e6e6] pb-2 text-[14pt] font-bold text-brand">Upcoming Payments</h2>
         <div class="grid-wrap mt-2 max-h-[260px]">
-          <table class="grid">
+          <table class="dgrid">
             <thead><tr><th>Scholar</th><th>Period</th><th>Amount</th><th>Status</th><th>Release Date</th></tr></thead>
             <tbody>
               @for (p of upcoming(); track $index) {

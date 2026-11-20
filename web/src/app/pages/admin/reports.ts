@@ -41,7 +41,7 @@ import { TEMPLATE_ICONS, TEMPLATE_LIST, printHtml, receiptHtml, reportHtml, temp
           </div>
           <div class="grid-wrap max-h-[560px] rounded border border-[#e6e6e6]">
             @if (report(); as r) {
-              <table class="grid">
+              <table class="dgrid">
                 <thead><tr>@for (c of r.columns; track c) { <th>{{ c }}</th> }</tr></thead>
                 <tbody>@for (row of r.rows; track $index; let i = $index) { <tr [class.alt]="i % 2 === 1">@for (cell of row; track $index) { <td>{{ cell }}</td> }</tr> } @empty { <tr><td [attr.colspan]="r.columns.length" class="!py-8 text-center text-[#969696]">No records found</td></tr> }</tbody>
               </table>
@@ -62,7 +62,7 @@ import { TEMPLATE_ICONS, TEMPLATE_LIST, printHtml, receiptHtml, reportHtml, temp
       <div class="card mb-4 flex flex-wrap items-center gap-5 p-5">
         @for (c of statCards(); track c.label) {
           <div class="flex min-w-[220px] flex-1 items-center gap-3 rounded-lg border border-[#eee] p-3">
-            <img [src]="'assets/' + c.icon" alt="" class="h-[50px] w-[50px] object-contain" />
+            <img [src]="'assets/' + c.icon" alt="" class="card-icon h-[50px] w-[50px] object-contain" />
             <div><p class="text-[28px] font-bold leading-none" [style.color]="c.color">{{ c.value }}</p><p class="mt-1 text-[10pt] font-bold text-gray-500">{{ c.label }}</p></div>
           </div>
         }
@@ -81,7 +81,7 @@ import { TEMPLATE_ICONS, TEMPLATE_LIST, printHtml, receiptHtml, reportHtml, temp
     @if (receiptsOpen()) {
       <app-modal title="🧾 Select Payment to Print" [width]="760" (closed)="receiptsOpen.set(false)">
         <div class="grid-wrap max-h-[420px] rounded border border-[#e6e6e6]">
-          <table class="grid"><thead><tr><th>ID</th><th>Scholar #</th><th>Scholar Name</th><th>Period</th><th>Amount</th><th>Release Date</th><th></th></tr></thead>
+          <table class="dgrid"><thead><tr><th>ID</th><th>Scholar #</th><th>Scholar Name</th><th>Period</th><th>Amount</th><th>Release Date</th><th></th></tr></thead>
             <tbody>@for (p of released(); track p.id; let i = $index) {
               <tr [class.alt]="i % 2 === 1"><td>{{ p.id }}</td><td>{{ p.scholarNumber }}</td><td>{{ p.scholarName }}</td><td>{{ p.period }}</td><td>{{ p.amount | peso }}</td><td>{{ p.releaseDate | dmy }}</td>
                 <td><button class="btn btn-ok !h-[26px] !px-3 !text-[11px]" (click)="printReceipt(p.id)">Print</button></td></tr>

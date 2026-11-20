@@ -14,7 +14,7 @@ import { Modal } from '../../shared/modal';
   template: `
     <app-modal title="Scholarship Management" [width]="860" (closed)="closed.emit()">
       <div class="grid-wrap max-h-[300px] rounded border border-[#e6e6e6]">
-        <table class="grid">
+        <table class="dgrid">
           <thead><tr><th>Name</th><th>Stipend</th><th>Frequency</th><th>Scholars</th><th>Status</th><th class="w-[120px]"></th></tr></thead>
           <tbody>
             @for (t of types(); track t.id; let i = $index) {

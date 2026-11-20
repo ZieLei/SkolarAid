@@ -44,11 +44,17 @@
   .section-title { @apply text-brand font-bold text-[14px] mt-3 mb-1; }
   /* DataGridView look: teal header, white rows, light teal selection */
   .grid-wrap { @apply overflow-auto; }
-  table.grid { @apply w-full border-collapse text-[12px]; }
-  table.grid thead th { @apply sticky top-0 bg-brand text-white font-bold text-[13px] text-left px-3 h-[35px] whitespace-nowrap; }
-  table.grid tbody td { @apply px-3 h-[30px] border-b border-[#e6e6e6] bg-white; }
-  table.grid tbody tr.alt td { background: #f5fafa; }
-  table.grid tbody tr.sel td { background: #e6f5f5; }
-  table.grid tbody tr:hover td { background: #eef8f8; }
+  table.dgrid { @apply w-full border-collapse text-[12px]; }
+  table.dgrid thead th { @apply sticky top-0 bg-brand text-white font-bold text-[13px] text-left px-3 h-[35px] whitespace-nowrap; }
+  table.dgrid tbody td { @apply px-3 h-[30px] border-b border-[#e6e6e6] bg-white whitespace-nowrap; }
+  table.dgrid tbody tr.alt td { background: #f5fafa; }
+  table.dgrid tbody tr.sel td { background: #e6f5f5; }
+  table.dgrid tbody tr:hover td { background: #eef8f8; }
   .badge { @apply inline-block rounded-full px-2 py-[1px] text-[11px] font-bold; }
+}
+
+/* The original card icons are white PNGs; give them the brand-coloured tile they need to be visible on white cards. */
+.card-icon[src$="/dollar.png"], .card-icon[src$="/scholar.png"], .card-icon[src$="/file.png"],
+.card-icon[src$="/bell.png"], .card-icon[src$="/reject.png"], .card-icon[src$="/analysis.png"] {
+  background: #00444f; border-radius: 12px; padding: 9px; box-sizing: border-box;
 }

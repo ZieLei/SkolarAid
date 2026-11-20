@@ -11,10 +11,10 @@ import { ScholarNotification, ScholarNotifications } from '../../core/models';
   imports: [FormsModule, DateTimePipe],
   template: `
     <div class="mb-5 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/bell.png" alt="" class="h-[45px] w-[45px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Total Notifications</p><p class="text-[30px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/wall-clock.png" alt="" class="h-[45px] w-[45px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Unread Count</p><p class="text-[30px] font-bold text-warn">{{ data()?.unread ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/dollar.png" alt="" class="h-[45px] w-[45px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Payment Notifications</p><p class="text-[30px] font-bold text-ok">{{ data()?.payment ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/reject.png" alt="" class="h-[45px] w-[45px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Alert Notifications</p><p class="text-[30px] font-bold text-danger">{{ data()?.alert ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/bell.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Total Notifications</p><p class="text-[30px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/wall-clock.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Unread Count</p><p class="text-[30px] font-bold text-warn">{{ data()?.unread ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/dollar.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Payment Notifications</p><p class="text-[30px] font-bold text-ok">{{ data()?.payment ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/reject.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Alert Notifications</p><p class="text-[30px] font-bold text-danger">{{ data()?.alert ?? 0 }}</p></div></div>
     </div>
 
     <div class="card mb-4 flex flex-wrap items-center gap-3 p-4">

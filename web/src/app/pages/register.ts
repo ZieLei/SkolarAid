@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -29,7 +29,7 @@ interface DocSlot { key: string; label: string; required: boolean; icon: string;
   selector: 'app-register',
   imports: [FormsModule, RouterLink, PesoPipe],
   template: `
-    <div class="min-h-screen bg-cover bg-center px-4 py-8 font-['Segoe_UI','Microsoft_Sans_Serif',Arial,sans-serif]"
+    <div class="min-h-screen bg-cover bg-center px-4 pb-10 pt-[17vh] font-['Segoe_UI','Microsoft_Sans_Serif',Arial,sans-serif]"
          style="background-image: url('assets/login-bg.png'); background-color: #0b3d44">
       <div class="mx-auto mb-4 text-center text-[snow]">
         <p class="text-[20px]">Hello there,</p>
@@ -124,7 +124,8 @@ export class RegisterPage implements OnInit {
     { key: 'grades', label: 'Latest Grades/TOR', required: false, icon: '📊', file: null },
     { key: 'contract', label: 'Scholarship Contract', required: false, icon: '📄', file: null },
   ]);
-  selected = computed(() => this.types().find((t) => t.id === this.m.scholarshipTypeId) ?? null);
+  /** Plain method (not computed): the form model is not a signal, so this must be re-evaluated on every change detection. */
+  selected(): ScholarshipType | null { return this.types().find((t) => t.id === this.m.scholarshipTypeId) ?? null; }
 
   async ngOnInit(): Promise<void> {
     try { this.types.set(await firstValueFrom(this.api.get<ScholarshipType[]>('/scholarship-types/active'))); } catch (e) { this.error.set(errorMessage(e)); }

@@ -11,10 +11,10 @@ import { ComplianceItem, ScholarCompliance } from '../../core/models';
   imports: [FormsModule, DatePipeShort],
   template: `
     <div class="mb-5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5">
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/file.png" alt="" class="h-[45px] w-[45px] object-contain" /><div><p class="text-[11pt] font-bold text-label">Total Requirements</p><p class="text-[30px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/checked.png" alt="" class="h-[45px] w-[45px] object-contain" /><div><p class="text-[11pt] font-bold text-label">Completed</p><p class="text-[30px] font-bold text-ok">{{ data()?.completed ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/wall-clock.png" alt="" class="h-[45px] w-[45px] object-contain" /><div><p class="text-[11pt] font-bold text-label">Pending</p><p class="text-[30px] font-bold text-warn">{{ data()?.pending ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/reject.png" alt="" class="h-[45px] w-[45px] object-contain" /><div><p class="text-[11pt] font-bold text-label">Overdue</p><p class="text-[30px] font-bold text-danger">{{ data()?.overdue ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/file.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[11pt] font-bold text-label">Total Requirements</p><p class="text-[30px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/checked.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[11pt] font-bold text-label">Completed</p><p class="text-[30px] font-bold text-ok">{{ data()?.completed ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/wall-clock.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[11pt] font-bold text-label">Pending</p><p class="text-[30px] font-bold text-warn">{{ data()?.pending ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/reject.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[11pt] font-bold text-label">Overdue</p><p class="text-[30px] font-bold text-danger">{{ data()?.overdue ?? 0 }}</p></div></div>
       <div class="card flex h-[110px] flex-col justify-center px-5"><p class="text-[12pt] font-bold text-label">Compliance Rate</p><p class="text-[28px] font-bold text-brand">{{ data()?.rate ?? 0 }}%</p>
         <div class="h-[10px] w-full overflow-hidden rounded bg-[#e6e6e6]"><div class="h-full bg-ok" [style.width.%]="data()?.rate ?? 0"></div></div></div>
     </div>
@@ -29,7 +29,7 @@ import { ComplianceItem, ScholarCompliance } from '../../core/models';
 
     <div class="grid gap-5 xl:grid-cols-[1fr_360px]">
       <section class="card overflow-hidden">
-        <div class="grid-wrap max-h-[520px]"><table class="grid">
+        <div class="grid-wrap max-h-[520px]"><table class="dgrid">
           <thead><tr><th>ID</th><th>Requirement Type</th><th>Due Date</th><th>Date Submitted</th><th>Status</th></tr></thead>
           <tbody>@for (c of filtered(); track c.id; let i = $index) {
             <tr class="cursor-pointer" [class.alt]="i % 2 === 1" [class.sel]="sel()?.id === c.id" (click)="sel.set(c)">

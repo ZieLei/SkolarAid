@@ -37,7 +37,7 @@ import { Modal } from '../../shared/modal';
           <button class="btn btn-danger" [disabled]="!sel()" (click)="deleteReq()">Delete Requirement</button>
         </div>
         <div class="grid-wrap max-h-[480px] rounded border border-[#e6e6e6]">
-          <table class="grid">
+          <table class="dgrid">
             <thead><tr><th>ID</th><th>Requirement</th><th>Description</th><th>Due Date</th><th>Submitted</th><th>Status</th><th>Files</th><th>Remarks</th></tr></thead>
             <tbody>
               @for (r of i.items; track r.id; let k = $index) {

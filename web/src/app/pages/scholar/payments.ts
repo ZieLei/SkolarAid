@@ -11,10 +11,10 @@ import { PaymentItem, ScholarPayments } from '../../core/models';
   imports: [FormsModule, PesoPipe, DatePipeShort],
   template: `
     <div class="mb-5 grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-5">
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/dollar.png" alt="" class="h-[50px] w-[50px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Total Received</p><p class="text-[24px] font-bold text-brand">{{ data()?.totalReceived | peso: 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/wall-clock.png" alt="" class="h-[50px] w-[50px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Pending Amount</p><p class="text-[24px] font-bold text-warn">{{ data()?.pendingAmount | peso: 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/wallet.png" alt="" class="h-[50px] w-[50px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Last Payment</p><p class="text-[24px] font-bold text-brand">{{ data()?.lastPayment | peso: 0 }}</p><p class="text-[9pt] text-muted">{{ data()?.lastPaymentDate | dmy: '' }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/file.png" alt="" class="h-[50px] w-[50px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Total Payments</p><p class="text-[30px] font-bold text-brand">{{ data()?.totalPayments ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/dollar.png" alt="" class="card-icon h-[50px] w-[50px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Total Received</p><p class="text-[24px] font-bold text-brand">{{ data()?.totalReceived | peso: 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/wall-clock.png" alt="" class="card-icon h-[50px] w-[50px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Pending Amount</p><p class="text-[24px] font-bold text-warn">{{ data()?.pendingAmount | peso: 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/wallet.png" alt="" class="card-icon h-[50px] w-[50px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Last Payment</p><p class="text-[24px] font-bold text-brand">{{ data()?.lastPayment | peso: 0 }}</p><p class="text-[9pt] text-muted">{{ data()?.lastPaymentDate | dmy: '' }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/file.png" alt="" class="card-icon h-[50px] w-[50px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Total Payments</p><p class="text-[30px] font-bold text-brand">{{ data()?.totalPayments ?? 0 }}</p></div></div>
     </div>
 
     <div class="card mb-4 flex flex-wrap items-center gap-3 p-4">
@@ -28,7 +28,7 @@ import { PaymentItem, ScholarPayments } from '../../core/models';
 
     <div class="grid gap-5 xl:grid-cols-[1fr_340px]">
       <section class="card overflow-hidden">
-        <div class="grid-wrap max-h-[520px]"><table class="grid">
+        <div class="grid-wrap max-h-[520px]"><table class="dgrid">
           <thead><tr><th>ID</th><th>Period</th><th>Amount</th><th>Status</th><th>Release Date</th><th>Method</th></tr></thead>
           <tbody>@for (p of filtered(); track p.id; let i = $index) {
             <tr class="cursor-pointer" [class.alt]="i % 2 === 1" [class.sel]="sel()?.id === p.id" (click)="sel.set(p)">
