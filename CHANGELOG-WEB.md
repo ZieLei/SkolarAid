@@ -14,6 +14,9 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Page description and theme colour
+- `web/src/index.html`: added a meta description and a teal `theme-color` (colours the browser bar on phones).
+
 ### 2026-11-20 — README rewrite and repo description
 - README rewritten in a plainer voice: headings and sentences start with verbs (Try it, Run with Docker, Fill a dev database with fake data, Configure, Build and test...), inline comments that only restated the command are gone, and stale facts are fixed (74 API / 17 web tests, shared shell layout, demo logins and the history-seed switches, MariaDB `Database__ServerType`).
 - GitHub repository description changed from "Skolar Managment using WinForms and mysql..." (typos, old name) to a verb-led one.
