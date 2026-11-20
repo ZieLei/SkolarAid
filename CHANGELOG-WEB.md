@@ -14,6 +14,9 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Fix: table header overlapped by rows while scrolling
+- `web/src/styles.css`: payroll rows that can't be selected are dimmed with `opacity`, which makes each such row its own stacking layer; those rows painted over the sticky header when scrolled under it, so the header looked washed out and the text bled through. The sticky header now has `z-index: 2` (applies to every table).
+
 ### 2026-11-20 — Made-up documents for file attachments
 - New `api/src/SkolarAid.Api/Infrastructure/SampleDocuments.cs`: five generated, valid one-page PDFs (PSA Birth Certificate, Certificate of Enrollment, Certificate of Registration, Report of Grades, Scholarship Contract), each stamped "SAMPLE DOCUMENT". Runs with `SEED_HISTORICAL_DATA=true`.
 - Every compliance record that is Submitted / Approved / Rejected now has the matching file attached, for everyone in the database (the original 5 scholars included): same 5 files shared by all, 66/66/66/55/55 attachments. Pending/Overdue records stay empty on purpose. Replaces the tiny placeholder PDFs from the history seeder (which no longer creates files). Anything a real user uploaded is left alone; re-running does nothing.
