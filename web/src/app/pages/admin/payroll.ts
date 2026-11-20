@@ -7,16 +7,17 @@ import { DatePipeShort, PesoPipe, statusColor } from '../../core/format';
 import { DisbursementHistory, Option, PayrollCandidate, PayrollPreview, PayrollResult, PayrollStats, ProcessedPayment, ReleaseResult, ScholarFilters } from '../../core/models';
 import { YEAR_LEVELS } from '../register';
 import { AppIcon } from '../../shared/icon';
+import { ScrollCue } from '../../shared/scroll-cue';
 
 @Component({
   selector: 'app-payroll',
-  imports: [AppIcon, FormsModule, PesoPipe, DatePipeShort],
+  imports: [ScrollCue, AppIcon, FormsModule, PesoPipe, DatePipeShort],
   template: `
     <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
       @for (c of cards(); track c.label) {
         <div class="card flex h-[120px] items-center gap-4 px-5">
           <app-icon [name]="c.icon" class="card-icon h-[52px] w-[48px]"></app-icon>
-          <div><p class="text-[12pt] font-bold">{{ c.label }}</p><p class="font-bold text-accent" [class.text-[30px]]="!c.small" [class.text-[24px]]="c.small">{{ c.value }}</p></div>
+          <div><p class="text-[12pt] font-bold">{{ c.label }}</p><p class="font-bold text-accent" [class.text-[30px]]="!c.small" [class.text-[24px]]="c.small">{{ c.value }}</p>@if (c.hint) { <p class="text-[11px] leading-tight text-muted">{{ c.hint }}</p> }</div>
         </div>
       }
     </div>
@@ -41,19 +42,19 @@ import { AppIcon } from '../../shared/icon';
       </div>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[1fr_364px]">
+    <div class="grid gap-4 min-[1800px]:grid-cols-[1fr_364px]">
       <section class="card overflow-hidden">
-        <div class="grid-wrap max-h-[470px]">
+        <div scrollCue class="grid-wrap max-h-[470px]">
           <table class="dgrid">
             <thead><tr><th class="w-[40px]"></th><th>Scholar #</th><th>Name</th><th>Course</th><th>Year</th><th>Scholarship</th><th>Stipend</th><th>Compliance</th><th>Eligible</th></tr></thead>
             <tbody>
               @for (c of rows(); track c.id; let i = $index) {
                 <tr [class.alt]="i % 2 === 1" [style.opacity]="c.isEligible ? 1 : .65">
                   <td><input type="checkbox" [disabled]="!c.isEligible" [checked]="selected().has(c.id)" (change)="toggle(c.id)" [attr.aria-label]="'Select ' + c.fullName" /></td>
-                  <td>{{ c.scholarNumber }}</td><td class="font-bold">{{ c.fullName }}</td><td class="max-w-[220px] truncate" [title]="c.course ?? ''">{{ c.course }}</td><td>{{ c.yearLevel }}</td>
-                  <td>{{ c.scholarshipType }}</td><td>{{ c.stipendAmount | peso }}</td>
+                  <td>{{ c.scholarNumber }}</td><td class="font-bold">{{ c.fullName }}</td><td class="wrap">{{ c.course }}</td><td>{{ c.yearLevel }}</td>
+                  <td class="wrap">{{ c.scholarshipType }}</td><td>{{ c.stipendAmount | peso }}</td>
                   <td><span class="font-bold" [style.color]="color(c.complianceStatus)">{{ c.complianceStatus }}</span></td>
-                  <td>@if (c.paymentStatus === 'Already Paid') { <span class="font-bold text-[#d98f00]"><app-icon name="alert" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Already Paid</span> } @else if (c.isEligible) { <span class="font-bold text-ok">✓ Yes</span> } @else { <span class="text-[#969696]">✗ No</span> }</td>
+                  <td>@if (c.paymentStatus === 'Already Paid') { <span class="font-bold text-[#d98f00]"><app-icon name="alert" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Already Paid</span> } @else if (c.isEligible) { <span class="font-bold text-ok">✓ Yes</span> } @else { <span class="text-[#969696]">✗ No</span><span class="block whitespace-normal text-[11px] leading-tight text-[#969696]">{{ reason(c) }}</span> }</td>
                 </tr>
               } @empty { <tr><td colspan="9" class="!py-8 text-center text-[#969696]">No scholars found</td></tr> }
             </tbody>
@@ -72,7 +73,7 @@ import { AppIcon } from '../../shared/icon';
 
     <section class="card mt-4 overflow-hidden">
       <h2 class="px-4 pt-3 text-[14pt] font-bold text-accent">Disbursement History — {{ periodLabel() }}</h2>
-      <div class="grid-wrap max-h-[300px] p-2">
+      <div scrollCue class="grid-wrap max-h-[300px] p-2">
         <table class="dgrid">
           <thead><tr><th>Scholar</th><th>Period</th><th>Amount</th><th>Status</th><th>Release Date</th><th>Method</th><th>Reference</th></tr></thead>
           <tbody>
@@ -107,11 +108,17 @@ export class PayrollPage implements OnInit {
   periodDate = computed(() => `${this.periodMonth() || new Date().toISOString().slice(0, 7)}-01`);
   periodLabel = computed(() => new Date(this.periodDate() + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
   total = computed(() => this.rows().filter((r) => this.selected().has(r.id)).reduce((s, r) => s + r.stipendAmount, 0));
-  cards = computed(() => [
-    { label: 'Eligible Scholars', value: String(this.rows().filter((r) => r.isEligible).length), icon: 'user-groups', small: false },
+  /** Why a scholar can't be selected, so "No" is never a dead end. */
+  reason(c: PayrollCandidate): string {
+    if (c.stipendAmount <= 0) return 'No stipend amount set';
+    if (c.complianceStatus !== 'Complete') return `Compliance: ${c.complianceStatus}`;
+    return 'Scholar not active';
+  }
+  cards = computed<{ label: string; value: string; icon: string; small: boolean; hint?: string }[]>(() => [
+    { label: 'Eligible Scholars', value: String(this.rows().filter((r) => r.isEligible).length), icon: 'user-groups', small: false, hint: `of ${this.rows().length} listed · rest already paid or need compliance approved` },
     { label: `Selected (${this.selected().size})`, value: String(this.selected().size), icon: 'checked', small: false },
     { label: 'Total Amount', value: '₱' + this.total().toLocaleString('en-US', { maximumFractionDigits: 0 }), icon: 'wallet', small: true },
-    { label: 'Processed Today', value: String(this.stats()?.processedToday ?? 0), icon: 'dollar', small: false },
+    { label: 'Processed Today', value: String(this.stats()?.processedToday ?? 0), icon: 'dollar', small: false, hint: 'Payments processed today' },
   ]);
 
   async ngOnInit(): Promise<void> {

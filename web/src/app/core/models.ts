@@ -56,7 +56,7 @@ export interface ActivityLog { id: number; createdAt: string; userName: string |
 export interface ActivityStats { total: number; today: number; activeUsers: number; }
 export interface ActivityFilters { users: string[]; actions: string[]; }
 
-export interface DashboardStats { totalScholars: number; activeScholarships: number; totalDisbursed: number; pendingPayments: number; }
+export interface DashboardStats { totalScholars: number; activeScholarships: number; totalDisbursed: number; pendingPayments: number; queuedAmount: number; }
 export interface RecentActivity { userName: string; details: string; createdAt: string; }
 export interface UpcomingPayment { scholarName: string; scholarNumber: string; amount: number; releaseDate: string | null; status: string; }
 export interface ChartPoint { label: string; value: number; }
@@ -67,6 +67,6 @@ export interface Receipt { paymentId: number; scholarName: string; scholarNumber
 
 export interface PaymentItem { id: number; period: string; amount: number; status: string; releaseDate: string | null; paymentMethod: string | null; referenceNumber: string | null; processedBy: string | null; }
 export interface ScholarPayments { items: PaymentItem[]; totalReceived: number; pendingAmount: number; lastPayment: number; lastPaymentDate: string | null; totalPayments: number; }
-export interface ScholarDashboard { scholarName: string; scholarNumber: string; scholarshipName: string; scholarshipStipend: number; nextPaymentDate: string; totalStipend: number; complianceRate: number; recentPayments: PaymentItem[]; compliance: ComplianceItem[]; notifications: ScholarNotification[]; }
+export interface ScholarDashboard { scholarName: string; scholarNumber: string; scholarshipName: string; scholarshipStipend: number; nextPaymentDate: string; totalStipend: number; complianceRate: number; recentPayments: PaymentItem[]; compliance: ComplianceItem[]; notifications: ScholarNotification[]; nextPaymentNote: string; nextPaymentAmount: number | null; documentsDue: number; documentsDueDate: string | null; }
 export interface ScholarProfile { firstName: string; middleName: string | null; lastName: string; email: string | null; contactNumber: string | null; address: string | null; dateOfBirth: string | null; gender: string | null; bankName: string | null; bankAccountNumber: string | null; studentId: string | null; hei: string | null; course: string | null; yearLevel: string | null; scholarNumber: string; scholarshipType: string | null; enrollmentDate: string | null; expectedGraduation: string | null; status: string; stipendAmount: number; fundSource: string | null; renewalConditions: string | null; }
 export interface ScholarCompliance { items: ComplianceItem[]; total: number; completed: number; pending: number; overdue: number; rate: number; }

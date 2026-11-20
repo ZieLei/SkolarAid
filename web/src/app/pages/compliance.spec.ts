@@ -21,8 +21,10 @@ describe('ScholarCompliancePage', () => {
     const { fx, c, el } = await setup();
     for (const [id, shows] of [[1, true], [2, false], [3, true]] as const) {
       c.sel.set(c.data()!.items.find((i) => i.id === id)!); fx.detectChanges();
-      expect(!!el.querySelector('input[type=file]')).toBe(shows);
+      expect(!!el.querySelector('aside input[type=file]')).toBe(shows);
     }
+    // The list also offers an inline Upload button, only on rows that can still be uploaded.
+    expect(el.querySelectorAll('tbody input[type=file]').length).toBe(2);
   });
 
   it('filters by status', async () => {

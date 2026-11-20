@@ -8,10 +8,11 @@ import { DatePipeShort, PesoPipe, relativeTime, statusColor } from '../../core/f
 import { ChartPoint, DashboardStats, RecentActivity, UpcomingPayment } from '../../core/models';
 import { lineConfig, makeChart, pieConfig } from '../../shared/charts';
 import { AppIcon } from '../../shared/icon';
+import { ScrollCue } from '../../shared/scroll-cue';
 
 @Component({
   selector: 'app-admin-dashboard',
-  imports: [AppIcon, PesoPipe, DatePipeShort],
+  imports: [ScrollCue, AppIcon, PesoPipe, DatePipeShort],
   template: `
     <h1 class="text-[20pt] font-bold text-ink">Welcome back, {{ auth.user()?.name || 'Administrator' }}! 👋</h1>
     <p class="mb-5 text-[12pt] text-[#646464]">{{ today }}</p>
@@ -23,6 +24,7 @@ import { AppIcon } from '../../shared/icon';
           <div>
             <p class="text-[12pt] font-bold text-label">{{ c.label }}</p>
             <p class="font-bold" [class.text-brand]="!c.danger" [class.text-danger]="c.danger" [class.text-[32px]]="!c.money" [class.text-[28px]]="c.money">{{ c.value }}</p>
+            @if (c.hint) { <p class="text-[11px] leading-tight text-muted">{{ c.hint }}</p> }
           </div>
         </div>
       }
@@ -35,7 +37,7 @@ import { AppIcon } from '../../shared/icon';
           @for (a of recent(); track $index) {
             <li class="py-2" [class.bg-[#f8fafc]]="$index % 2 === 0">
               <p class="text-[13px] font-bold text-brand">{{ a.userName }}</p>
-              <p class="truncate text-[12px] text-[#646464]" [title]="a.details">{{ a.details }}</p>
+              <p class="line-clamp-2 text-[12px] text-[#646464]" [title]="a.details">{{ a.details }}</p>
               <p class="text-[11px] text-[#969696]">{{ rel(a.createdAt) }}</p>
             </li>
           } @empty { <li class="py-6 text-center text-[13px] text-[#969696]">No recent activity</li> }
@@ -44,9 +46,9 @@ import { AppIcon } from '../../shared/icon';
 
       <section class="card p-4">
         <h2 class="border-b-2 border-[#e6e6e6] pb-2 text-[14pt] font-bold text-brand">Upcoming Payments</h2>
-        <div class="grid-wrap mt-2 max-h-[260px]">
+        <div scrollCue class="grid-wrap mt-2 max-h-[260px]">
           <table class="dgrid">
-            <thead><tr><th>Scholar</th><th>Period</th><th>Amount</th><th>Status</th><th>Release Date</th></tr></thead>
+            <thead><tr><th>Scholar</th><th>Period</th><th>Amount</th><th>Status</th><th>Releases On</th></tr></thead>
             <tbody>
               @for (p of upcoming(); track $index) {
                 <tr [style.color]="color(p.status)">
@@ -74,7 +76,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   private charts: Chart[] = [];
 
   today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  cards = signal<{ label: string; value: string; icon: string; danger?: boolean; money?: boolean }[]>([]);
+  cards = signal<{ label: string; value: string; icon: string; danger?: boolean; money?: boolean; hint?: string }[]>([]);
   recent = signal<RecentActivity[]>([]);
   upcoming = signal<UpcomingPayment[]>([]);
   color = statusColor;
@@ -91,9 +93,10 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       ]);
       this.cards.set([
         { label: 'Total Scholars', value: String(s.totalScholars), icon: 'user-groups' },
-        { label: 'Active Scholarships', value: String(s.activeScholarships), icon: 'checked' },
-        { label: 'Total Disbursed', value: '₱' + s.totalDisbursed.toLocaleString('en-US', { maximumFractionDigits: 0 }), icon: 'wallet', money: true },
-        { label: 'Pending Payments', value: String(s.pendingPayments), icon: 'wall-clock', danger: true },
+        { label: 'Active Scholarships', value: String(s.activeScholarships), icon: 'checked', hint: 'Scholarship programs in use' },
+        { label: 'Total Disbursed', value: '₱' + s.totalDisbursed.toLocaleString('en-US', { maximumFractionDigits: 0 }), icon: 'wallet', money: true,
+          hint: s.queuedAmount > 0 ? `Released only · ₱${s.queuedAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })} processed, awaiting release` : 'Released to scholars' },
+        { label: 'Pending Payments', value: String(s.pendingPayments), icon: 'wall-clock', danger: true, hint: 'Processed, not yet released' },
       ]);
       this.recent.set(r); this.upcoming.set(u);
       setTimeout(async () => {

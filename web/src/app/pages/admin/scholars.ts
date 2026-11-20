@@ -11,6 +11,7 @@ import { COURSES, GENDERS, YEAR_LEVELS } from '../register';
 import { ComplianceTab } from './compliance-tab';
 import { ScholarshipTypesDialog } from './scholarship-types';
 import { AppIcon } from '../../shared/icon';
+import { ScrollCue } from '../../shared/scroll-cue';
 
 const DOCS = [
   { key: 'PSA', label: 'PSA Birth Certificate' }, { key: 'COE', label: 'COE (current sem)' }, { key: 'COR', label: 'COR' },
@@ -34,7 +35,7 @@ const blank = (): Form => ({
 
 @Component({
   selector: 'app-scholars',
-  imports: [AppIcon, ScrollingModule, FormsModule, Modal, PesoPipe, DatePipeShort, ComplianceTab, ScholarshipTypesDialog],
+  imports: [ScrollCue, AppIcon, ScrollingModule, FormsModule, Modal, PesoPipe, DatePipeShort, ComplianceTab, ScholarshipTypesDialog],
   template: `
     <h1 class="page-title mb-4">Scholar Management</h1>
 
@@ -63,10 +64,10 @@ const blank = (): Form => ({
         </select>
       </div>
 
-      <div class="grid items-start gap-4 2xl:grid-cols-[1fr_569px]">
+      <div class="grid items-start gap-4 min-[1800px]:grid-cols-[1fr_569px]">
         <section class="card overflow-hidden">
-          <div class="overflow-x-auto">
-            <div class="min-w-[900px]" role="table" aria-label="Scholars">
+          <div scrollCue class="grid-wrap">
+            <div class="min-w-[980px]" role="table" aria-label="Scholars">
               <div role="row" class="grid overflow-hidden bg-brand text-left text-[13px] font-bold text-white [scrollbar-gutter:stable]" [style.grid-template-columns]="cols">
                 @for (h of heads; track h) { <div role="columnheader" class="h-[35px] truncate px-3 leading-[35px]">{{ h }}</div> }
               </div>
@@ -77,8 +78,9 @@ const blank = (): Form => ({
                      [style.background]="rowBg(i, s.id)"
                      (click)="select(s.id)" (dblclick)="openDetails(s.id)">
                   <div role="cell" class="cell">{{ s.id }}</div><div role="cell" class="cell">{{ s.scholarNumber }}</div><div role="cell" class="cell">{{ s.studentId }}</div>
-                  <div role="cell" class="cell font-bold" [title]="s.fullName">{{ s.fullName }}</div>
-                  <div role="cell" class="cell" [title]="s.course ?? ''">{{ s.course }}</div><div role="cell" class="cell">{{ s.yearLevel }}</div><div role="cell" class="cell" [title]="s.scholarship ?? ''">{{ s.scholarship }}</div>
+                  <div role="cell" class="cell font-bold" [title]="s.fullName"><span class="line-clamp-2 break-words">{{ s.fullName }}</span></div>
+                  <div role="cell" class="cell" [title]="s.course ?? ''"><span class="line-clamp-2 break-words">{{ s.course }}</span></div><div role="cell" class="cell">{{ s.yearLevel }}</div>
+                  <div role="cell" class="cell" [title]="s.scholarship ?? ''"><span class="line-clamp-2 break-words">{{ s.scholarship || '—' }}</span></div>
                   <div role="cell" class="cell"><span class="font-bold" [style.color]="color(s.status)">{{ s.status }}</span></div>
                 </div>
               </cdk-virtual-scroll-viewport>
@@ -203,7 +205,7 @@ const blank = (): Form => ({
           <dt class="text-muted">Address</dt><dd class="col-span-3">{{ d.address }}</dd>
         </dl>
         <h3 class="section-title mt-4">Compliance Documents</h3>
-        <div class="grid-wrap rounded border border-[#e6e6e6]">
+        <div scrollCue class="grid-wrap rounded border border-[#e6e6e6]">
           <table class="dgrid"><thead><tr><th>Requirement</th><th>Description</th><th>Status</th><th>Due</th><th>Files</th></tr></thead>
             <tbody>@for (r of detailItems(); track r.id; let i = $index) {
               <tr [class.alt]="i % 2 === 1"><td class="font-bold">{{ r.requirementType }}</td><td>{{ r.description }}</td>
@@ -221,9 +223,9 @@ export class ScholarsPage implements OnInit {
   tab = signal<'info' | 'compliance'>('info');
   list = signal<ScholarListItem[]>([]);
   // Virtual list: only the rows in view are rendered; height hugs the content up to MAX_ROWS.
-  readonly rowH = 30;
+  readonly rowH = 44;
   readonly heads = ['ID', 'Scholar #', 'Student ID', 'Full Name', 'Course', 'Year', 'Scholarship', 'Status'];
-  readonly cols = '60px 110px 120px minmax(150px,1.5fr) minmax(140px,1.4fr) 90px minmax(120px,1fr) 100px';
+  readonly cols = '52px 112px 112px minmax(150px,1.3fr) minmax(200px,1.8fr) 84px minmax(150px,1.3fr) 92px';
   viewportH = computed(() => Math.min(this.list().length, 24) * this.rowH);
   rowBg = (i: number, id: number) => (id === this.selectedId() ? '#e6f5f5' : i % 2 ? '#f5fafa' : '#fff');
   trackId = (_: number, s: ScholarListItem) => s.id;

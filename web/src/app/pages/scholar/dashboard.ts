@@ -6,22 +6,33 @@ import { DialogService } from '../../core/dialog';
 import { DatePipeShort, NOTIFICATION_COLORS, PesoPipe, relativeTime, statusColor } from '../../core/format';
 import { ScholarDashboard } from '../../core/models';
 import { AppIcon } from '../../shared/icon';
+import { ScrollCue } from '../../shared/scroll-cue';
 
 @Component({
   selector: 'app-scholar-dashboard',
-  imports: [AppIcon, RouterLink, PesoPipe, DatePipeShort],
+  imports: [ScrollCue, AppIcon, RouterLink, PesoPipe, DatePipeShort],
   template: `
     <h1 class="text-[22pt] font-bold text-brand">Welcome back! 👋</h1>
     <p class="mb-5 text-[13pt] text-[#646464]">{{ today }}</p>
 
     @if (d(); as d) {
+      @if (d.documentsDue > 0) {
+        <div class="mb-6 flex flex-wrap items-center gap-4 rounded-lg border-l-4 border-warn bg-[#fff8e6] px-5 py-4" role="status">
+          <app-icon name="alert" class="h-[32px] w-[32px] text-[#d98f00]"></app-icon>
+          <div class="min-w-[220px] flex-1">
+            <p class="text-[13pt] font-bold text-brand">{{ d.documentsDue }} {{ d.documentsDue === 1 ? 'document needs' : 'documents need' }} to be submitted{{ d.documentsDueDate ? ' by ' + (d.documentsDueDate | dmy) : '' }}</p>
+            <p class="text-[10pt] text-[#646464]">Your stipend can only be released once your requirements are complete.</p>
+          </div>
+          <a routerLink="/scholar/compliance" class="btn btn-ok !h-[40px] !px-5">Upload documents</a>
+        </div>
+      }
       <div class="mb-6 grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-6">
         <div class="card flex h-[140px] items-center gap-4 px-5"><app-icon name="wallet" class="card-icon h-[60px] w-[55px]"></app-icon>
           <div><p class="text-[13pt] font-bold text-label">Total Stipend Received</p><p class="text-[30px] font-bold text-brand">{{ d.totalStipend | peso: 0 }}</p></div></div>
         <div class="card flex h-[140px] items-center gap-4 px-5"><app-icon name="dollar" class="card-icon h-[60px] w-[55px]"></app-icon>
-          <div><p class="text-[13pt] font-bold text-label">Next Payment</p><p class="text-[30px] font-bold text-brand">{{ d.scholarshipStipend | peso: 0 }}</p><p class="text-[10pt] text-[#646464]">{{ d.nextPaymentDate }}</p></div></div>
+          <div><p class="text-[13pt] font-bold text-label">Next Payment</p><p class="text-[30px] font-bold text-brand">{{ d.nextPaymentAmount ?? d.scholarshipStipend | peso: 0 }}</p><p class="text-[10pt] font-bold text-[#646464]">{{ d.nextPaymentDate }}</p><p class="text-[9pt] leading-tight text-[#646464]">{{ d.nextPaymentNote }}</p></div></div>
         <div class="card flex h-[140px] items-center gap-4 px-5"><app-icon name="scholar" class="card-icon h-[60px] w-[55px]"></app-icon>
-          <div><p class="text-[13pt] font-bold text-label">Scholarship Type</p><p class="text-[18pt] font-bold text-brand" [title]="d.scholarshipName">{{ d.scholarshipName.length > 20 ? d.scholarshipName.slice(0, 18) + '...' : d.scholarshipName }}</p></div></div>
+          <div><p class="text-[13pt] font-bold text-label">Scholarship Type</p><p class="text-[15pt] font-bold leading-tight text-brand" [title]="d.scholarshipName">{{ d.scholarshipName }}</p></div></div>
         <div class="card flex h-[140px] items-center gap-4 px-5"><app-icon name="file" class="card-icon h-[60px] w-[55px]"></app-icon>
           <div class="flex-1"><p class="text-[13pt] font-bold text-label">Compliance Rate</p><p class="text-[30px] font-bold text-brand">{{ d.complianceRate }}%</p>
             <div class="h-[10px] w-full max-w-[200px] overflow-hidden rounded bg-[#e6e6e6]"><div class="h-full bg-ok" [style.width.%]="d.complianceRate"></div></div></div></div>
@@ -31,7 +42,7 @@ import { AppIcon } from '../../shared/icon';
         <div class="space-y-6">
           <section class="card p-5">
             <div class="mb-3 flex items-center"><h2 class="text-[16pt] font-bold text-brand">Recent Payments</h2><a routerLink="/scholar/payments" class="btn btn-brand ml-auto !h-[30px] !text-[12px]">View All</a></div>
-            <div class="grid-wrap max-h-[270px]"><table class="dgrid"><thead><tr><th>Period</th><th>Amount</th><th>Status</th><th>Release Date</th></tr></thead>
+            <div scrollCue class="grid-wrap max-h-[270px]"><table class="dgrid"><thead><tr><th>Period</th><th>Amount</th><th>Status</th><th>Release Date</th></tr></thead>
               <tbody>@for (p of d.recentPayments; track p.id; let i = $index) { <tr [class.alt]="i % 2 === 1"><td>{{ p.period }}</td><td>{{ p.amount | peso }}</td>
                 <td><span class="font-bold" [style.color]="color(p.status)">{{ p.status }}</span></td><td>{{ p.releaseDate | dmy: 'Pending' }}</td></tr>
               } @empty { <tr><td colspan="4" class="!py-6 text-center text-[#969696]">No payments yet</td></tr> }</tbody></table></div>

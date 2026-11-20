@@ -49,13 +49,19 @@
   .section-title { @apply text-brand font-bold text-[14px] mt-3 mb-1; }
   /* DataGridView look: teal header, white rows, light teal selection */
   .grid-wrap { @apply overflow-auto; }
+  /* Fade the edge that has more columns hidden, so clipped tables read as scrollable. */
+  .grid-wrap.cue-r:not(.cue-l) { mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+  .grid-wrap.cue-l:not(.cue-r) { mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
+  .grid-wrap.cue-l.cue-r { mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
+  /* Long text columns wrap instead of being cut mid-word. */
+  table.dgrid tbody td.wrap { white-space: normal; min-width: 130px; overflow-wrap: anywhere; line-height: 1.35; padding-top: 5px; padding-bottom: 5px; }
   table.dgrid { @apply w-full border-collapse text-[12px]; }
   table.dgrid thead th { @apply sticky top-0 bg-brand text-white font-bold text-[13px] text-left px-3 h-[35px] whitespace-nowrap; }
   table.dgrid tbody td { @apply px-3 h-[30px] border-b border-[#e6e6e6] bg-white whitespace-nowrap; }
   table.dgrid tbody tr.alt td { background: #f5fafa; }
   table.dgrid tbody tr.sel td { background: #e6f5f5; }
   table.dgrid tbody tr:hover td { background: #eef8f8; }
-  .cell { @apply block truncate border-b border-[#e6e6e6] px-3 leading-[29px] whitespace-nowrap; }
+  .cell { @apply flex items-center overflow-hidden border-b border-[#e6e6e6] px-3 leading-[1.25]; }
   .badge { @apply inline-block rounded-full px-2 py-[1px] text-[11px] font-bold; }
 }
 

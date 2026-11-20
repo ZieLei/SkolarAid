@@ -34,8 +34,9 @@ public class DashboardService(SkolarDbContext db)
         var scholars = await db.Scholars.CountAsync(s => s.Status == "Active");
         var types = await db.ScholarshipTypes.CountAsync(t => t.IsActive);
         var disbursed = (await db.Payments.Where(p => p.Status == "Released").Select(p => p.Amount).ToListAsync()).Sum();
-        var pending = await db.Payments.CountAsync(p => p.Status == "Pending" || p.Status == "Processed");
-        return new DashboardStatsDto(scholars, types, disbursed, pending);
+        // "Pending" = processed/queued but not yet released; those peso amounts are not part of Total Disbursed until released.
+        var queued = await db.Payments.Where(p => p.Status == "Pending" || p.Status == "Processed").Select(p => p.Amount).ToListAsync();
+        return new DashboardStatsDto(scholars, types, disbursed, queued.Count, queued.Sum());
     }
 
     public async Task<List<RecentActivityDto>> RecentActivityAsync()
@@ -49,7 +50,7 @@ public class DashboardService(SkolarDbContext db)
         var rows = await db.Payments.AsNoTracking().Include(p => p.Scholar).Where(p => p.Status == "Processed" || p.Status == "Pending")
             .OrderBy(p => p.ComputationDate).Take(10).ToListAsync();
         return rows.Select(p => new UpcomingPaymentDto(p.Scholar!.FullName, p.Scholar.ScholarNumber, p.Amount,
-            p.ReleaseDate ?? p.ComputationDate, p.Status == "Processed" ? "Processing" : p.Status)).ToList();
+            p.ReleaseDate ?? p.ComputationDate, p.Status)).ToList();
     }
 
     public async Task<List<ChartPointDto>> ByScholarshipAsync()
@@ -238,9 +239,17 @@ public class ScholarPortalService(SkolarDbContext db, ComplianceService complian
         var payments = await PaymentsAsync(scholarId);
         var comp = await compliance.ListForSelfAsync(scholarId);
         var notifs = await notifications.ListForScholarAsync(scholarId, null, false);
+        // Prefer the real queued payment (same release date the admin sees); only fall back to the frequency-based estimate.
+        var queued = payments.Items.Where(p => p.Status is "Processed" or "Pending").OrderBy(p => p.ReleaseDate ?? DateTime.MaxValue).FirstOrDefault();
+        var nextDate = queued is { ReleaseDate: not null }
+            ? queued.ReleaseDate.Value.ToString("MMM dd, yyyy", CultureInfo.InvariantCulture)
+            : ScholarRules.NextPaymentDate(s.StipendFrequency, DateTime.Now);
+        var nextNote = queued is { ReleaseDate: not null } ? $"{queued.Period} stipend · {queued.Status}, releases on this date" : "Estimated · no payment processed yet";
+        var due = comp.Items.Where(i => i.Status is "Pending" or "Rejected" or "Overdue").ToList();
         return new ScholarDashboardDto(s.FullName, s.ScholarNumber, s.ScholarshipType?.Name ?? "N/A", s.ScholarshipType?.StipendAmount ?? 0,
-            ScholarRules.NextPaymentDate(s.StipendFrequency, DateTime.Now), payments.TotalReceived, comp.Rate,
-            payments.Items.Take(5).ToList(), comp.Items.Take(3).ToList(), notifs.Items.Take(3).ToList());
+            nextDate, payments.TotalReceived, comp.Rate,
+            payments.Items.Take(5).ToList(), comp.Items.Take(3).ToList(), notifs.Items.Take(3).ToList(),
+            nextNote, queued?.Amount, due.Count, due.Count == 0 ? null : due.Min(i => i.DueDate));
     }
 
     public async Task<ScholarProfileDto> ProfileAsync(int scholarId)

@@ -6,10 +6,11 @@ import { DialogService } from '../../core/dialog';
 import { DateTimePipe, daysAgo, today } from '../../core/format';
 import { ActivityFilters, ActivityLog, ActivityStats, Paged } from '../../core/models';
 import { AppIcon } from '../../shared/icon';
+import { ScrollCue } from '../../shared/scroll-cue';
 
 @Component({
   selector: 'app-activity-logs',
-  imports: [AppIcon, FormsModule, DateTimePipe],
+  imports: [ScrollCue, AppIcon, FormsModule, DateTimePipe],
   template: `
     <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
       @for (c of cards(); track c.label) {
@@ -37,14 +38,14 @@ import { AppIcon } from '../../shared/icon';
 
     <div class="grid gap-4 xl:grid-cols-[1fr_337px]">
       <section class="card overflow-hidden">
-        <div class="grid-wrap max-h-[520px]">
+        <div scrollCue class="grid-wrap max-h-[520px]">
           <table class="dgrid">
             <thead><tr><th>ID</th><th>Timestamp</th><th>User</th><th>Role</th><th>Action</th><th>Table</th><th>Details</th><th>IP Address</th></tr></thead>
             <tbody>
               @for (l of page()?.items ?? []; track l.id; let i = $index) {
                 <tr class="cursor-pointer" [class.alt]="i % 2 === 1" [class.sel]="sel()?.id === l.id" (click)="sel.set(l)">
                   <td>{{ l.id }}</td><td class="whitespace-nowrap">{{ l.createdAt | dt }}</td><td>{{ l.userName }}</td><td>{{ l.role }}</td><td class="font-bold">{{ l.actionType }}</td>
-                  <td>{{ l.tableAffected }}</td><td class="max-w-[320px] truncate" [title]="l.details ?? ''">{{ l.details }}</td><td>{{ l.ipAddress }}</td>
+                  <td>{{ l.tableAffected }}</td><td class="wrap !min-w-[220px]">{{ l.details }}</td><td>{{ l.ipAddress }}</td>
                 </tr>
               } @empty { <tr><td colspan="8" class="!py-8 text-center text-[#969696]">No activity found</td></tr> }
             </tbody>

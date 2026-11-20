@@ -80,6 +80,7 @@ interface DocSlot { key: string; label: string; required: boolean; icon: string;
           }
           <div>
             <p class="mb-2 text-[14px] font-bold text-brand">Required Documents:*</p>
+            <p class="mb-3 text-[12px] leading-snug text-muted">Upload these once. When your application is approved they are saved to your scholar account, so you won't be asked for them again. Optional documents can be added later from the Compliance page.</p>
             @for (d of docs(); track d.key) {
               <div class="mb-2">
                 <label class="block cursor-pointer rounded px-3 py-[7px] text-center text-[13px] text-white transition-colors"

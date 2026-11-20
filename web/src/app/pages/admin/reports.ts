@@ -10,10 +10,11 @@ import { Modal } from '../../shared/modal';
 import { barConfig, lineConfig, makeChart, pieConfig } from '../../shared/charts';
 import { TEMPLATE_ICONS, TEMPLATE_LIST, printHtml, receiptHtml, reportHtml, templateHtml } from '../../shared/print';
 import { AppIcon } from '../../shared/icon';
+import { ScrollCue } from '../../shared/scroll-cue';
 
 @Component({
   selector: 'app-reports',
-  imports: [AppIcon, FormsModule, Modal, PesoPipe, DatePipeShort],
+  imports: [ScrollCue, AppIcon, FormsModule, Modal, PesoPipe, DatePipeShort],
   template: `
     <div class="mb-4 flex gap-1 border-b-2 border-[#d9d9d9]">
       @for (t of tabs; track t.id) {
@@ -40,7 +41,7 @@ import { AppIcon } from '../../shared/icon';
               <button class="btn" style="background:#646464" (click)="exportPdf()">Print</button>
             </div>
           </div>
-          <div class="grid-wrap max-h-[560px] rounded border border-[#e6e6e6]">
+          <div scrollCue class="grid-wrap max-h-[560px] rounded border border-[#e6e6e6]">
             @if (report(); as r) {
               <table class="dgrid">
                 <thead><tr>@for (c of r.columns; track c) { <th>{{ c }}</th> }</tr></thead>
@@ -81,7 +82,7 @@ import { AppIcon } from '../../shared/icon';
 
     @if (receiptsOpen()) {
       <app-modal title="🧾 Select Payment to Print" [width]="760" (closed)="receiptsOpen.set(false)">
-        <div class="grid-wrap max-h-[420px] rounded border border-[#e6e6e6]">
+        <div scrollCue class="grid-wrap max-h-[420px] rounded border border-[#e6e6e6]">
           <table class="dgrid"><thead><tr><th>ID</th><th>Scholar #</th><th>Scholar Name</th><th>Period</th><th>Amount</th><th>Release Date</th><th></th></tr></thead>
             <tbody>@for (p of released(); track p.id; let i = $index) {
               <tr [class.alt]="i % 2 === 1"><td>{{ p.id }}</td><td>{{ p.scholarNumber }}</td><td>{{ p.scholarName }}</td><td>{{ p.period }}</td><td>{{ p.amount | peso }}</td><td>{{ p.releaseDate | dmy }}</td>

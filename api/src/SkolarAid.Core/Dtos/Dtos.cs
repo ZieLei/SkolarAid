@@ -190,7 +190,7 @@ public record ActivityStatsDto(int Total, int Today, int ActiveUsers);
 public record ActivityFiltersDto(IReadOnlyList<string> Users, IReadOnlyList<string> Actions);
 
 // ---- Dashboard / reports ----
-public record DashboardStatsDto(int TotalScholars, int ActiveScholarships, decimal TotalDisbursed, int PendingPayments);
+public record DashboardStatsDto(int TotalScholars, int ActiveScholarships, decimal TotalDisbursed, int PendingPayments, decimal QueuedAmount = 0);
 public record RecentActivityDto(string UserName, string Details, DateTime CreatedAt);
 public record UpcomingPaymentDto(string ScholarName, string ScholarNumber, decimal Amount, DateTime? ReleaseDate, string Status);
 public record ChartPointDto(string Label, decimal Value);
@@ -216,7 +216,8 @@ public record ReceiptDto(int PaymentId, string ScholarName, string ScholarNumber
 // ---- Scholar portal ----
 public record ScholarDashboardDto(string ScholarName, string ScholarNumber, string ScholarshipName, decimal ScholarshipStipend,
     string NextPaymentDate, decimal TotalStipend, int ComplianceRate, IReadOnlyList<PaymentItemDto> RecentPayments,
-    IReadOnlyList<ComplianceItemDto> Compliance, IReadOnlyList<ScholarNotificationDto> Notifications);
+    IReadOnlyList<ComplianceItemDto> Compliance, IReadOnlyList<ScholarNotificationDto> Notifications,
+    string NextPaymentNote = "", decimal? NextPaymentAmount = null, int DocumentsDue = 0, DateTime? DocumentsDueDate = null);
 public record PaymentItemDto(int Id, string Period, decimal Amount, string Status, DateTime? ReleaseDate, string? PaymentMethod,
     string? ReferenceNumber, string? ProcessedBy);
 public record ScholarPaymentsDto(IReadOnlyList<PaymentItemDto> Items, decimal TotalReceived, decimal PendingAmount,

@@ -6,10 +6,11 @@ import { DialogService } from '../../core/dialog';
 import { DatePipeShort, statusColor } from '../../core/format';
 import { ComplianceItem, ScholarCompliance } from '../../core/models';
 import { AppIcon } from '../../shared/icon';
+import { ScrollCue } from '../../shared/scroll-cue';
 
 @Component({
   selector: 'app-scholar-compliance',
-  imports: [AppIcon, FormsModule, DatePipeShort],
+  imports: [ScrollCue, AppIcon, FormsModule, DatePipeShort],
   template: `
     <div class="mb-5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5">
       <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="file" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Total Requirements</p><p class="text-[30px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
@@ -19,6 +20,14 @@ import { AppIcon } from '../../shared/icon';
       <div class="card flex h-[110px] flex-col justify-center px-5"><p class="text-[12pt] font-bold text-label">Compliance Rate</p><p class="text-[28px] font-bold text-brand">{{ data()?.rate ?? 0 }}%</p>
         <div class="h-[10px] w-full overflow-hidden rounded bg-[#e6e6e6]"><div class="h-full bg-ok" [style.width.%]="data()?.rate ?? 0"></div></div></div>
     </div>
+
+    @if (toDo() > 0) {
+      <div class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border-l-4 border-warn bg-[#fff8e6] px-5 py-3" role="status">
+        <p class="flex-1 text-[12pt] font-bold text-brand">{{ toDo() }} {{ toDo() === 1 ? 'requirement still needs' : 'requirements still need' }} your document.
+          <span class="font-normal text-[#646464]">Use the Upload button in the Action column.</span></p>
+        <button class="btn btn-brand !h-[32px]" (click)="status = 'All'; type = 'All Types'; showToDo()">Show what to upload</button>
+      </div>
+    }
 
     <div class="card mb-4 flex flex-wrap items-center gap-3 p-4">
       <label class="text-[11pt] font-bold text-label">Status:</label>
@@ -30,13 +39,19 @@ import { AppIcon } from '../../shared/icon';
 
     <div class="grid gap-5 xl:grid-cols-[1fr_360px]">
       <section class="card overflow-hidden">
-        <div class="grid-wrap max-h-[520px]"><table class="dgrid">
-          <thead><tr><th>ID</th><th>Requirement Type</th><th>Due Date</th><th>Date Submitted</th><th>Status</th></tr></thead>
+        <div scrollCue class="grid-wrap max-h-[520px]"><table class="dgrid">
+          <thead><tr><th>ID</th><th>Requirement Type</th><th>Due Date</th><th>Date Submitted</th><th>Status</th><th>Action</th></tr></thead>
           <tbody>@for (c of filtered(); track c.id; let i = $index) {
             <tr class="cursor-pointer" [class.alt]="i % 2 === 1" [class.sel]="sel()?.id === c.id" (click)="sel.set(c)">
-              <td>{{ c.id }}</td><td class="font-bold">{{ c.requirementType }}</td><td>{{ c.dueDate | dmy }}</td><td>{{ c.dateSubmitted | dmy }}</td>
-              <td><span class="font-bold" [style.color]="color(c.status)">{{ c.status }}</span></td></tr>
-          } @empty { <tr><td colspan="5" class="!py-8 text-center text-[#969696]">No requirements found</td></tr> }</tbody></table></div>
+              <td>{{ c.id }}</td><td class="wrap font-bold">{{ c.requirementType }}</td><td>{{ c.dueDate | dmy }}</td><td>{{ c.dateSubmitted | dmy }}</td>
+              <td><span class="font-bold" [style.color]="color(c.status)">{{ c.status }}</span></td>
+              <td class="whitespace-nowrap">
+                @if (canUpload(c)) {
+                  <label class="btn btn-ok !h-[26px] !px-3 !text-[12px]" [class.opacity-60]="busy()" (click)="$event.stopPropagation()">{{ c.status === 'Rejected' ? 'Re-upload' : 'Upload' }}
+                    <input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" [disabled]="busy()" (change)="upload($event, c)" /></label>
+                } @else if (c.fileCount) { <button class="btn btn-accent !h-[26px] !px-3 !text-[12px]" (click)="$event.stopPropagation(); view(c)">View file</button> }
+              </td></tr>
+          } @empty { <tr><td colspan="6" class="!py-8 text-center text-[#969696]">No requirements found</td></tr> }</tbody></table></div>
         <p class="px-3 py-2 text-[9pt] text-muted">Showing {{ filtered().length }} records</p>
       </section>
 
@@ -51,6 +66,7 @@ import { AppIcon } from '../../shared/icon';
           <p class="text-[10pt] font-bold text-label">Status:</p><p class="mb-2 text-[12pt] font-bold" [style.color]="color(c.status)">{{ c.status }}</p>
           <p class="text-[10pt] font-bold text-label">Remarks:</p><p class="mb-2 text-[11pt]">{{ c.remarks || '-' }}</p>
           <p class="text-[10pt] font-bold text-label">Checked By:</p><p class="mb-3 text-[12pt]">{{ c.checkedBy || '-' }}</p>
+          @if (c.status === 'Submitted') { <p class="mb-2 rounded bg-[#eef8f8] p-2 text-[11pt] text-label">Received. Waiting for the administrator to review it. If you registered online, this is the document you uploaded then.</p> }
           @if (c.fileCount) { <button class="btn btn-accent mb-2 w-full" (click)="view(c)">📎 {{ c.fileName || 'View uploaded file' }}</button> }
           @if (c.status === 'Pending' || c.status === 'Rejected' || c.status === 'Overdue') {
             <label class="btn btn-ok w-full !h-[40px]" [class.opacity-60]="busy()">⬆ Upload Document
@@ -75,6 +91,10 @@ export class ScholarCompliancePage implements OnInit {
   get type() { return this.typeSig(); } set type(v: string) { this.typeSig.set(v); }
   types = computed(() => [...new Set((this.data()?.items ?? []).map((i) => i.requirementType))]);
   filtered = computed(() => (this.data()?.items ?? []).filter((i) => (this.statusSig() === 'All' || i.status === this.statusSig()) && (this.typeSig() === 'All Types' || i.requirementType === this.typeSig())));
+
+  canUpload = (c: ComplianceItem): boolean => c.status === 'Pending' || c.status === 'Rejected' || c.status === 'Overdue';
+  toDo = computed(() => (this.data()?.items ?? []).filter((i) => this.canUpload(i)).length);
+  showToDo(): void { const first = (this.data()?.items ?? []).find((i) => this.canUpload(i)); if (first) this.sel.set(first); }
 
   ngOnInit(): void { void this.load(); }
 

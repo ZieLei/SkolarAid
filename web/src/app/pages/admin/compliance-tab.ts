@@ -6,11 +6,12 @@ import { DialogService } from '../../core/dialog';
 import { DatePipeShort, statusColor } from '../../core/format';
 import { ComplianceItem, ComplianceScholarInfo, ComplianceScholarOption } from '../../core/models';
 import { Modal } from '../../shared/modal';
+import { ScrollCue } from '../../shared/scroll-cue';
 
 /** Compliance Management tab of Scholar Management. */
 @Component({
   selector: 'app-compliance-tab',
-  imports: [FormsModule, Modal, DatePipeShort],
+  imports: [ScrollCue, FormsModule, Modal, DatePipeShort],
   template: `
     <div class="card mb-4 flex flex-wrap items-center gap-3 p-4">
       <label class="text-[13px] font-bold text-label" for="cs">Scholar:</label>
@@ -36,7 +37,7 @@ import { Modal } from '../../shared/modal';
           <button class="btn btn-accent" (click)="addOpen.set(true)">Add Requirement</button>
           <button class="btn btn-danger" [disabled]="!sel()" (click)="deleteReq()">Delete Requirement</button>
         </div>
-        <div class="grid-wrap max-h-[480px] rounded border border-[#e6e6e6]">
+        <div scrollCue class="grid-wrap max-h-[480px] rounded border border-[#e6e6e6]">
           <table class="dgrid">
             <thead><tr><th>ID</th><th>Requirement</th><th>Description</th><th>Due Date</th><th>Submitted</th><th>Status</th><th>Files</th><th>Remarks</th></tr></thead>
             <tbody>

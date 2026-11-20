@@ -6,14 +6,15 @@ import { DialogService } from '../../core/dialog';
 import { PesoPipe } from '../../core/format';
 import { ScholarshipType } from '../../core/models';
 import { Modal } from '../../shared/modal';
+import { ScrollCue } from '../../shared/scroll-cue';
 
 /** "View Scholarships Management" dialog: list, add, activate/deactivate (no edit/delete, as in the desktop app). */
 @Component({
   selector: 'app-scholarship-types',
-  imports: [Modal, FormsModule, PesoPipe],
+  imports: [ScrollCue, Modal, FormsModule, PesoPipe],
   template: `
     <app-modal title="Scholarship Management" [width]="860" (closed)="closed.emit()">
-      <div class="grid-wrap max-h-[300px] rounded border border-[#e6e6e6]">
+      <div scrollCue class="grid-wrap max-h-[300px] rounded border border-[#e6e6e6]">
         <table class="dgrid">
           <thead><tr><th>Name</th><th>Stipend</th><th>Frequency</th><th>Scholars</th><th>Status</th><th class="w-[120px]"></th></tr></thead>
           <tbody>

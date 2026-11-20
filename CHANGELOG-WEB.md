@@ -14,6 +14,22 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — UX fixes: consistent data, unclipped tables, visible scholar task
+**1. Data no longer contradicts itself**
+- Status wording unified: a queued payment is **Processed** everywhere (dashboard used to say "Processing"). Dashboard "Total Disbursed" now explains itself ("Released only · ₱8,500 processed, awaiting release"); API adds `queuedAmount` to dashboard stats. Pending Payments card says "Processed, not yet released".
+- Scholar dashboard "Next Payment" now uses the real queued payment (same release date and amount the admin sees) and says whether it's estimated; the frequency-based guess is only a fallback. API: `ScholarDashboardDto` gained `nextPaymentNote`, `nextPaymentAmount`, `documentsDue`, `documentsDueDate` (all optional/trailing).
+- Payroll: "Eligible Scholars" card shows "of N listed"; every non-eligible row now states why (compliance status, no stipend, already paid).
+- Admin Notifications cards were mislabeled (Pending SMS / Delivered / Failed SMS were really unread / read / pending registrations). Relabeled to Unread, Read, Awaiting Approval; hints say they ignore the filters.
+**2. Tables no longer clip**
+- Long text columns (course, scholarship, activity details, notification titles) wrap instead of cutting mid-word (`.wrap` in styles.css). Scholar list rows are 2 lines tall.
+- New `ScrollCue` directive (`shared/scroll-cue.ts`) fades the edge of any table that scrolls sideways so hidden columns are visible. Applied to every `.grid-wrap`.
+- Payroll and Scholar Management put the side panel beside the table only on screens ≥1800px wide; below that it stacks, so the table has room. Notifications panel widths tightened.
+**3. Scholar's main task is visible**
+- Compliance list has an Action column with an Upload / Re-upload button per row (View file once submitted), plus a banner "N requirements still need your document".
+- Scholar dashboard shows a banner "5 documents need to be submitted by Dec 20, 2026" with an Upload documents button.
+- Registration explains that documents are saved to the account once approved (approval already carries them into Compliance as Submitted); compliance details for Submitted items say it's awaiting review.
+- Tests updated for the new inline upload buttons; screenshots/ refreshed.
+
 ### 2026-11-20 — Refreshed screenshots/
 - `screenshots/` now holds only the 13 current UI screenshots (login, register, 6 admin pages, 5 scholar pages), 1600px wide, taken with headless Chromium against the running app using the Adachi/Shimamura demo logins. No console errors on any page.
 - Removed the `original/` folder (it only held a README) and the `web/` subfolder; the PNGs now sit directly in `screenshots/`.

@@ -6,10 +6,11 @@ import { DialogService } from '../../core/dialog';
 import { DatePipeShort, PesoPipe, statusColor } from '../../core/format';
 import { PaymentItem, ScholarPayments } from '../../core/models';
 import { AppIcon } from '../../shared/icon';
+import { ScrollCue } from '../../shared/scroll-cue';
 
 @Component({
   selector: 'app-scholar-payments',
-  imports: [AppIcon, FormsModule, PesoPipe, DatePipeShort],
+  imports: [ScrollCue, AppIcon, FormsModule, PesoPipe, DatePipeShort],
   template: `
     <div class="mb-5 grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-5">
       <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="dollar" class="card-icon h-[50px] w-[50px]"></app-icon><div><p class="text-[12pt] font-bold text-label">Total Received</p><p class="text-[24px] font-bold text-brand">{{ data()?.totalReceived | peso: 0 }}</p></div></div>
@@ -29,7 +30,7 @@ import { AppIcon } from '../../shared/icon';
 
     <div class="grid gap-5 xl:grid-cols-[1fr_340px]">
       <section class="card overflow-hidden">
-        <div class="grid-wrap max-h-[520px]"><table class="dgrid">
+        <div scrollCue class="grid-wrap max-h-[520px]"><table class="dgrid">
           <thead><tr><th>ID</th><th>Period</th><th>Amount</th><th>Status</th><th>Release Date</th><th>Method</th></tr></thead>
           <tbody>@for (p of filtered(); track p.id; let i = $index) {
             <tr class="cursor-pointer" [class.alt]="i % 2 === 1" [class.sel]="sel()?.id === p.id" (click)="sel.set(p)">

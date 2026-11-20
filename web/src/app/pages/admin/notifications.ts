@@ -7,10 +7,11 @@ import { DatePipeShort, DateTimePipe, NOTIFICATION_COLORS, PesoPipe, relativeTim
 import { ComposeResult, NotificationItem, NotificationStats, Option, RegistrationApproved, RegistrationDetail, RegistrationListItem } from '../../core/models';
 import { Modal } from '../../shared/modal';
 import { AppIcon } from '../../shared/icon';
+import { ScrollCue } from '../../shared/scroll-cue';
 
 @Component({
   selector: 'app-notifications',
-  imports: [AppIcon, FormsModule, DateTimePipe, DatePipeShort, PesoPipe, Modal],
+  imports: [ScrollCue, AppIcon, FormsModule, DateTimePipe, DatePipeShort, PesoPipe, Modal],
   template: `
     <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5">
       @for (c of cards(); track c.label) {
@@ -46,7 +47,7 @@ import { AppIcon } from '../../shared/icon';
         </div>
       </div>
 
-      <div class="grid gap-4 xl:grid-cols-[580px_1fr_263px]">
+      <div class="grid gap-4 xl:grid-cols-[400px_1fr_230px]">
         <section class="card p-5">
           <h2 class="mb-3 text-[14pt] font-bold text-accent">Compose Notification</h2>
           <div class="grid grid-cols-2 gap-3">
@@ -68,13 +69,13 @@ import { AppIcon } from '../../shared/icon';
         </section>
 
         <section class="card overflow-hidden">
-          <div class="grid-wrap max-h-[560px]">
+          <div scrollCue class="grid-wrap max-h-[560px]">
             <table class="dgrid">
               <thead><tr><th>ID</th><th>Date</th><th>Recipient</th><th>Title</th><th>Type</th><th>Status</th></tr></thead>
               <tbody>
                 @for (n of list(); track n.id; let i = $index) {
                   <tr class="cursor-pointer" [class.alt]="i % 2 === 1" [class.sel]="sel()?.id === n.id" [class.font-bold]="!n.isRead" (click)="show(n)">
-                    <td>{{ n.id }}</td><td class="whitespace-nowrap">{{ rel(n.dateCreated) }}</td><td>{{ n.recipientName }}</td><td class="max-w-[160px] truncate" [title]="n.title">{{ n.title }}</td>
+                    <td>{{ n.id }}</td><td class="whitespace-nowrap">{{ rel(n.dateCreated) }}</td><td>{{ n.recipientName }}</td><td class="wrap">{{ n.title }}</td>
                     <td><span [style.color]="tcolor(n.type)">{{ n.type }}</span></td><td>{{ n.isRead ? 'Read' : 'Unread' }}</td>
                   </tr>
                 } @empty { <tr><td colspan="6" class="!py-8 text-center text-[#969696]">No notifications</td></tr> }
@@ -169,10 +170,10 @@ export class NotificationsPage implements OnInit {
   cards = computed(() => {
     const s = this.stats();
     return [
-      { label: 'Total Sent', value: s?.total ?? 0, icon: 'bell', color: '#0a5c5c', hint: 'All notifications sent' },
-      { label: 'Pending SMS', value: s?.unread ?? 0, icon: 'wall-clock', color: '#ffaa00', hint: 'Notifications not yet read' },
-      { label: 'Delivered', value: s?.read ?? 0, icon: 'checked', color: '#28a745', hint: 'Notifications read by scholars' },
-      { label: 'Failed SMS', value: s?.pendingRegistrations ?? 0, icon: 'reject', color: '#fb2c36', hint: 'Registrations awaiting review' },
+      { label: 'Total Sent', value: s?.total ?? 0, icon: 'bell', color: '#0a5c5c', hint: 'All in-app notifications sent (not affected by the filters below)' },
+      { label: 'Unread', value: s?.unread ?? 0, icon: 'wall-clock', color: '#ffaa00', hint: 'In-app notifications scholars have not opened yet' },
+      { label: 'Read', value: s?.read ?? 0, icon: 'checked', color: '#28a745', hint: 'In-app notifications scholars have opened' },
+      { label: 'Awaiting Approval', value: s?.pendingRegistrations ?? 0, icon: 'file', color: '#fb2c36', hint: 'New scholar registrations waiting for review' },
     ];
   });
 
