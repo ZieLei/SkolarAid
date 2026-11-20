@@ -367,3 +367,4 @@ api/**/uploads/
 *.db
 web/dist/
 web/.angular/
+.run/

@@ -11,6 +11,18 @@ Scholarship management for Legacy College of Compostela. This repository started
 
 Docs: [MIGRATION_PLAN.md](MIGRATION_PLAN.md) (analysis, decisions, risks) · [PARITY_CHECKLIST.md](PARITY_CHECKLIST.md) (old feature → new location).
 
+## Run script
+
+```bash
+./run.sh demo     # API + web on a throw-away SQLite DB, no MySQL/Docker needed (admin / Admin#12345)
+./run.sh dev      # API + web against your local MySQL, configured from .env
+./run.sh docker   # docker compose up --build
+./run.sh test     # API + web test suites
+./run.sh stop     # stop anything started by the script
+```
+
+`demo` is for trying the UI only; MySQL is the supported database.
+
 ## Quick start with Docker
 
 ```bash
