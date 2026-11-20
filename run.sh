@@ -3,6 +3,7 @@
 #
 #   demo     API + web with a throw-away SQLite database (no MySQL/Docker needed). Admin: admin / Admin#12345
 #   dev      API + web against a local MySQL (reads .env, see .env.example)
+#   db       start a user-space MariaDB in .run/ (no sudo; creates the DB and app user from .env)
 #   docker   docker compose up --build (API + MySQL + web)
 #   test     run the API and web test suites
 #   stop     stop anything started by this script
@@ -34,6 +35,7 @@ stop_all() {
       rm -f "$f"
     fi
   done
+  if [[ -f "$RUN_DIR/mariadb.pid" && "${1:-}" == "--db" ]]; then kill "$(cat "$RUN_DIR/mariadb.pid")" 2>/dev/null || true; fi
   # fallback: anything still listening on our ports (dotnet/ng can outlive the wrapper process)
   for port in 5080 4200; do
     for pid in $(ss -ltnp "sport = :$port" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u); do
@@ -119,6 +121,21 @@ MSG
     export Uploads__Directory="$RUN_DIR/uploads"
     start_stack
     ;;
+  db)
+    need mariadbd "MariaDB server"; need mariadb-install-db "MariaDB server"; load_env
+    D="$RUN_DIR/mariadb"; SOCK="$RUN_DIR/mysql.sock"
+    if [[ ! -d $D/mysql ]]; then mkdir -p "$D"; mariadb-install-db --no-defaults --datadir="$D" --auth-root-authentication-method=normal --skip-test-db >/dev/null; fi
+    if ! mariadb --no-defaults -S "$SOCK" -uroot -e 'select 1' >/dev/null 2>&1; then
+      (setsid mariadbd --no-defaults --datadir="$D" --socket="$SOCK" --port="${MYSQL_PORT:-3306}" --bind-address=127.0.0.1 --pid-file="$RUN_DIR/mariadb.pid" >"$RUN_DIR/mariadb.log" 2>&1 &)
+      for _ in $(seq 1 30); do mariadb --no-defaults -S "$SOCK" -uroot -e 'select 1' >/dev/null 2>&1 && break; sleep 1; done
+    fi
+    : "${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}"
+    u="${MYSQL_USER:-skolaraid}"; d="${MYSQL_DATABASE:-iskolaraid}"
+    mariadb --no-defaults -S "$SOCK" -uroot -e "CREATE DATABASE IF NOT EXISTS \`$d\` CHARACTER SET utf8mb4;
+      CREATE USER IF NOT EXISTS '$u'@'localhost' IDENTIFIED BY '$MYSQL_PASSWORD'; CREATE USER IF NOT EXISTS '$u'@'127.0.0.1' IDENTIFIED BY '$MYSQL_PASSWORD';
+      GRANT ALL ON \`$d\`.* TO '$u'@'localhost'; GRANT ALL ON \`$d\`.* TO '$u'@'127.0.0.1'; FLUSH PRIVILEGES;"
+    echo "MariaDB running on 127.0.0.1:${MYSQL_PORT:-3306}; database '$d', user '$u'. Stop with: ./run.sh stop"
+    ;;
   docker)
     need docker "Docker with the compose plugin"
     [[ -f .env ]] || { echo "Create .env first: cp .env.example .env (set passwords and JWT_KEY)" >&2; exit 1; }
@@ -131,9 +148,9 @@ MSG
     (cd web && npm test -- --watch=false)
     ;;
   stop)
-    stop_all; echo "Stopped."
+    stop_all --db; echo "Stopped (including the local MariaDB if ./run.sh db started it)."
     ;;
   *)
-    sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
     ;;
 esac
