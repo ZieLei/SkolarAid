@@ -12,7 +12,7 @@ export async function makeChart(canvas: HTMLCanvasElement, config: ChartConfigur
 export const pieConfig = (labels: string[], data: number[]): ChartConfiguration => ({
   type: 'pie',
   data: { labels, datasets: [{ data, backgroundColor: CHART_COLORS, borderColor: '#fff', borderWidth: 2 }] },
-  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { family: 'Questrial, Century Gothic, sans-serif', size: 11 } } } } },
+  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { family: 'Nimbus Sans, Arial, sans-serif', size: 11 } } } } },
 });
 
 export const lineConfig = (labels: string[], data: number[], label = 'Disbursed (₱)'): ChartConfiguration => ({

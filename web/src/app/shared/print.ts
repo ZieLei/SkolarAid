@@ -3,8 +3,13 @@ import { Receipt } from '../core/models';
 export const esc = (s: unknown): string =>
   String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+const fontUrl = (f: string): string => new URL(`fonts/NimbusSans-${f}.otf`, document.baseURI).href;
+const fontFaces = (): string => `
+  @font-face{font-family:'Nimbus Sans';src:url('${fontUrl('Regular')}');font-weight:400}
+  @font-face{font-family:'Nimbus Sans';src:url('${fontUrl('Bold')}');font-weight:700}`;
+
 const STYLE = `
-  body{font-family:'Century Gothic',Questrial,Arial,sans-serif;color:#222;margin:28px}
+  body{font-family:'Nimbus Sans',Arial,sans-serif;color:#222;margin:28px}
   .head{text-align:center;border-bottom:3px solid #00444f;padding-bottom:10px;margin-bottom:18px}
   .head h1{margin:0;color:#00444f;font-size:22px}.head p{margin:2px 0;font-size:12px;color:#555}
   h2{color:#00444f;font-size:18px;margin:14px 0 6px}
@@ -28,7 +33,7 @@ export function printHtml(title: string, body: string): void {
   document.body.appendChild(frame);
   const doc = frame.contentDocument!;
   doc.open();
-  doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${STYLE}</style></head><body>${header()}${body}</body></html>`);
+  doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${fontFaces()}${STYLE}</style></head><body>${header()}${body}</body></html>`);
   doc.close();
   // Print exactly once: whichever of onload / the fallback timer fires first wins.
   let printed = false;
@@ -37,8 +42,9 @@ export function printHtml(title: string, body: string): void {
     printed = true;
     try { frame.contentWindow?.focus(); frame.contentWindow?.print(); } finally { setTimeout(() => frame.remove(), 2000); }
   };
-  frame.onload = run;
-  setTimeout(run, 400);
+  // Wait for the web font so the printout doesn't fall back to Arial; the timer is a safety net.
+  frame.onload = () => { void (frame.contentDocument?.fonts?.ready ?? Promise.resolve()).then(run); };
+  setTimeout(run, 1500);
 }
 
 export function reportHtml(title: string, columns: string[], rows: (string | null)[][]): string {

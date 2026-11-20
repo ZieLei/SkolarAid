@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@font-face { font-family: "Nimbus Sans"; src: url("/fonts/NimbusSans-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Nimbus Sans"; src: url("/fonts/NimbusSans-Bold.otf") format("opentype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Nimbus Sans"; src: url("/fonts/NimbusSans-Italic.otf") format("opentype"); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: "Nimbus Sans"; src: url("/fonts/NimbusSans-BoldItalic.otf") format("opentype"); font-weight: 700; font-style: italic; font-display: swap; }
+
 /* Palette taken from the WinForms designers (teal #00444F family, WhiteSmoke-ish content background). */
 @theme {
   --color-brand: #00444f;
@@ -15,7 +20,7 @@
   --color-ok: #28a745;
   --color-info: #007bff;
   --color-row-select: #e6f5f5;
-  --font-sans: "Century Gothic", "Questrial", "Apple SD Gothic Neo", Arial, sans-serif;
+  --font-sans: "Nimbus Sans", Arial, sans-serif; /* Arial after Nimbus supplies the ₱ sign, which Nimbus lacks */
 }
 
 @layer base {
