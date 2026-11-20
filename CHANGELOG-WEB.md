@@ -14,6 +14,10 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Remove duplicate Notifications/Registrations tabs
+- `web/src/app/pages/admin/notifications.ts`: the in-page "Notifications | Registrations" tab strip is gone. The sidebar already has both entries, so each is now reached one way only (`/admin/notifications` and `/admin/notifications?tab=reg`). The notification stat strip shows only on the Notifications view.
+- Removed an unused import warning in the admin dashboard.
+
 ### 2026-11-20 — Fix: scholar list rendered only a few rows
 - `web/src/app/pages/admin/scholars.ts`: the virtual-scroll viewport's height depends on the loaded data, but the CDK only measured it once (while empty), so it kept rendering rows for a tiny window. Now re-measures (`checkViewportSize`) whenever the height changes. The list is also capped to the visible screen height (`max-h`) and scrolls inside itself, so all rows are reachable.
 

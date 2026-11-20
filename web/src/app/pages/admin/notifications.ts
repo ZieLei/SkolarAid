@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
@@ -17,15 +17,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
   selector: 'app-notifications',
   imports: [StatStrip, ScrollCue, AppIcon, FormsModule, DateTimePipe, DatePipeShort, PesoPipe, Modal],
   template: `
-    <app-stat-strip [items]="cards()" />
-
-    <div class="mb-4 flex gap-1 border-b-2 border-[#d9d9d9]">
-      @for (t of tabs; track t.id) {
-        <button class="rounded-t-lg px-5 py-2 text-[14px] font-bold" [class.bg-accent]="tab() === t.id" [class.text-white]="tab() === t.id" [class.text-label]="tab() !== t.id" (click)="goTab(t.id)">
-          {{ t.label }}@if (t.id === 'reg' && (stats()?.pendingRegistrations ?? 0) > 0) { <span class="ml-2 rounded-full bg-danger px-2 text-[12px] text-white">{{ stats()?.pendingRegistrations }}</span> }
-        </button>
-      }
-    </div>
+    @if (tab() === 'notifs') { <app-stat-strip [items]="cards()" /> }
 
     @if (tab() === 'notifs') {
       <div class="card mb-4 flex flex-wrap items-end gap-3 p-4">
@@ -150,10 +142,7 @@ export class NotificationsPage implements OnInit, OnDestroy {
   private dlg = inject(DialogService);
   private toast = inject(ToastService);
   private route = inject(ActivatedRoute);
-  private router = inject(Router);
-  goTab(id: 'notifs' | 'reg'): void { void this.router.navigate([], { queryParams: { tab: id === 'reg' ? 'reg' : null }, queryParamsHandling: 'merge' }); }
   constructor() { this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.tab.set(q.get('tab') === 'reg' ? 'reg' : 'notifs')); }
-  tabs = [{ id: 'notifs', label: 'Notifications' }, { id: 'reg', label: 'Registrations' }] as const;
   tab = signal<'notifs' | 'reg'>('notifs');
   stats = signal<NotificationStats | null>(null);
   list = signal<NotificationItem[]>([]);

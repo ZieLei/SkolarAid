@@ -7,13 +7,12 @@ import { DialogService } from '../../core/dialog';
 import { DatePipeShort, PesoPipe, relativeTime, statusColor, formatPeso } from '../../core/format';
 import { ChartPoint, DashboardStats, RecentActivity, UpcomingPayment } from '../../core/models';
 import { lineConfig, makeChart, pieConfig } from '../../shared/charts';
-import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
 import { StatItem, StatStrip } from '../../shared/stat-strip';
 
 @Component({
   selector: 'app-admin-dashboard',
-  imports: [StatStrip, ScrollCue, AppIcon, PesoPipe, DatePipeShort],
+  imports: [StatStrip, ScrollCue, PesoPipe, DatePipeShort],
   template: `
     <h1 class="text-[20pt] font-bold text-ink">Welcome back, {{ auth.user()?.name || 'Administrator' }}!</h1>
     <p class="mb-5 text-[12pt] text-[#646464]">{{ today }}</p>
