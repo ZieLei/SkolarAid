@@ -14,6 +14,11 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Collapsible sidebar + original logo restored
+- `web/src/app/layout/admin-shell.ts`, `scholar-shell.ts`: hamburger button collapses the sidebar to an icon-only rail (72px admin / 76px scholar); labels become hover tooltips. State is remembered per portal in localStorage. Colors/sizes otherwise unchanged. Admin toggle sits in the top bar; scholar toggle sits beside the page title.
+- Restored the original `scholar.png` logo in both shells (it had been swapped for a Hugeicon in the icon change); file brought back to `web/public/assets/`.
+- Added `menu` to the icon map in `shared/icon.ts`.
+
 ### 2026-11-20 — Hugeicons replace all icons
 - Added `@hugeicons/angular` + `@hugeicons/core-free-icons` (web/package.json).
 - New `web/src/app/shared/icon.ts`: `<app-icon name="bell">` component and the `ICONS` name→Hugeicon map. To change an icon, edit the map.
