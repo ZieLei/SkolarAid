@@ -9,6 +9,7 @@ import { Modal } from '../../shared/modal';
 import { COURSES, GENDERS, YEAR_LEVELS } from '../register';
 import { ComplianceTab } from './compliance-tab';
 import { ScholarshipTypesDialog } from './scholarship-types';
+import { AppIcon } from '../../shared/icon';
 
 const DOCS = [
   { key: 'PSA', label: 'PSA Birth Certificate' }, { key: 'COE', label: 'COE (current sem)' }, { key: 'COR', label: 'COR' },
@@ -32,7 +33,7 @@ const blank = (): Form => ({
 
 @Component({
   selector: 'app-scholars',
-  imports: [FormsModule, Modal, PesoPipe, DatePipeShort, ComplianceTab, ScholarshipTypesDialog],
+  imports: [AppIcon, FormsModule, Modal, PesoPipe, DatePipeShort, ComplianceTab, ScholarshipTypesDialog],
   template: `
     <h1 class="page-title mb-4">Scholar Management</h1>
 
@@ -130,7 +131,7 @@ const blank = (): Form => ({
                 <label class="field-label">{{ d.label }}</label>
                 @if (!selectedId()) {
                   <label class="input flex cursor-pointer items-center truncate !text-[12px]" [class.!text-ok]="!!pending[d.key]">
-                    {{ pending[d.key] ? '✓ ' + pending[d.key]!.name : 'ATTACH FILE' }}
+                    @if (pending[d.key]) { <app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon> } {{ pending[d.key] ? pending[d.key]!.name : 'ATTACH FILE' }}
                     <input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="pickPending(d.key, $event)" />
                   </label>
                 } @else {
@@ -165,7 +166,7 @@ const blank = (): Form => ({
 
     @if (created(); as c) {
       <app-modal title="Scholar added successfully" [width]="480" (closed)="created.set(null)">
-        <p class="mb-3 text-[14px]">✅ <b>{{ c.fullName }}</b> has been added.</p>
+        <p class="mb-3 text-[14px]"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon><b>{{ c.fullName }}</b> has been added.</p>
         <dl class="grid grid-cols-[130px_1fr] gap-y-1 text-[14px]">
           <dt class="text-muted">Scholar Number</dt><dd class="font-bold">{{ c.scholarNumber }}</dd>
           <dt class="text-muted">Student ID / Username</dt><dd class="font-bold">{{ c.username }}</dd>

@@ -6,15 +6,16 @@ import { DialogService } from '../../core/dialog';
 import { DatePipeShort, PesoPipe, statusColor } from '../../core/format';
 import { DisbursementHistory, Option, PayrollCandidate, PayrollPreview, PayrollResult, PayrollStats, ProcessedPayment, ReleaseResult, ScholarFilters } from '../../core/models';
 import { YEAR_LEVELS } from '../register';
+import { AppIcon } from '../../shared/icon';
 
 @Component({
   selector: 'app-payroll',
-  imports: [FormsModule, PesoPipe, DatePipeShort],
+  imports: [AppIcon, FormsModule, PesoPipe, DatePipeShort],
   template: `
     <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
       @for (c of cards(); track c.label) {
         <div class="card flex h-[120px] items-center gap-4 px-5">
-          <img [src]="'assets/' + c.icon" alt="" class="card-icon h-[52px] w-[48px] object-contain" />
+          <app-icon [name]="c.icon" class="card-icon h-[52px] w-[48px]"></app-icon>
           <div><p class="text-[12pt] font-bold">{{ c.label }}</p><p class="font-bold text-accent" [class.text-[30px]]="!c.small" [class.text-[24px]]="c.small">{{ c.value }}</p></div>
         </div>
       }
@@ -35,8 +36,8 @@ import { YEAR_LEVELS } from '../register';
         <select class="input !w-[180px]" [(ngModel)]="method">@for (m of methods; track m) { <option>{{ m }}</option> }</select></div>
       <div class="ml-auto flex flex-wrap gap-2">
         <button class="btn btn-accent !h-[40px]" [disabled]="busy()" (click)="release()">🔓 Release Payments{{ stats()?.readyForRelease ? ' (' + stats()!.readyForRelease + ' ready)' : '' }}</button>
-        <button class="btn btn-ok !h-[40px] !text-[14px]" [disabled]="busy() || !selected().size" (click)="process()"><img src="assets/dollar.png" alt="" class="h-5 w-5" />Process Payroll</button>
-        <button class="btn btn-accent !h-[40px] !text-[14px]" [disabled]="busy() || !selected().size" (click)="preview()"><img src="assets/analysis.png" alt="" class="h-5 w-5" />Preview</button>
+        <button class="btn btn-ok !h-[40px] !text-[14px]" [disabled]="busy() || !selected().size" (click)="process()"><app-icon name="dollar" class="h-5 w-5"></app-icon>Process Payroll</button>
+        <button class="btn btn-accent !h-[40px] !text-[14px]" [disabled]="busy() || !selected().size" (click)="preview()"><app-icon name="analysis" class="h-5 w-5"></app-icon>Preview</button>
       </div>
     </div>
 
@@ -52,7 +53,7 @@ import { YEAR_LEVELS } from '../register';
                   <td>{{ c.scholarNumber }}</td><td class="font-bold">{{ c.fullName }}</td><td class="max-w-[220px] truncate" [title]="c.course ?? ''">{{ c.course }}</td><td>{{ c.yearLevel }}</td>
                   <td>{{ c.scholarshipType }}</td><td>{{ c.stipendAmount | peso }}</td>
                   <td><span class="font-bold" [style.color]="color(c.complianceStatus)">{{ c.complianceStatus }}</span></td>
-                  <td>@if (c.paymentStatus === 'Already Paid') { <span class="font-bold text-[#d98f00]">⚠ Already Paid</span> } @else if (c.isEligible) { <span class="font-bold text-ok">✓ Yes</span> } @else { <span class="text-[#969696]">✗ No</span> }</td>
+                  <td>@if (c.paymentStatus === 'Already Paid') { <span class="font-bold text-[#d98f00]"><app-icon name="alert" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Already Paid</span> } @else if (c.isEligible) { <span class="font-bold text-ok">✓ Yes</span> } @else { <span class="text-[#969696]">✗ No</span> }</td>
                 </tr>
               } @empty { <tr><td colspan="9" class="!py-8 text-center text-[#969696]">No scholars found</td></tr> }
             </tbody>
@@ -107,10 +108,10 @@ export class PayrollPage implements OnInit {
   periodLabel = computed(() => new Date(this.periodDate() + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
   total = computed(() => this.rows().filter((r) => this.selected().has(r.id)).reduce((s, r) => s + r.stipendAmount, 0));
   cards = computed(() => [
-    { label: 'Eligible Scholars', value: String(this.rows().filter((r) => r.isEligible).length), icon: 'user-groups.png', small: false },
-    { label: `Selected (${this.selected().size})`, value: String(this.selected().size), icon: 'checked.png', small: false },
-    { label: 'Total Amount', value: '₱' + this.total().toLocaleString('en-US', { maximumFractionDigits: 0 }), icon: 'wallet.png', small: true },
-    { label: 'Processed Today', value: String(this.stats()?.processedToday ?? 0), icon: 'dollar.png', small: false },
+    { label: 'Eligible Scholars', value: String(this.rows().filter((r) => r.isEligible).length), icon: 'user-groups', small: false },
+    { label: `Selected (${this.selected().size})`, value: String(this.selected().size), icon: 'checked', small: false },
+    { label: 'Total Amount', value: '₱' + this.total().toLocaleString('en-US', { maximumFractionDigits: 0 }), icon: 'wallet', small: true },
+    { label: 'Processed Today', value: String(this.stats()?.processedToday ?? 0), icon: 'dollar', small: false },
   ]);
 
   async ngOnInit(): Promise<void> {

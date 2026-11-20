@@ -9,10 +9,11 @@ import { Analytics, Receipt, ReleasedPayment, ReportResult, ScholarFilters } fro
 import { Modal } from '../../shared/modal';
 import { barConfig, lineConfig, makeChart, pieConfig } from '../../shared/charts';
 import { TEMPLATE_ICONS, TEMPLATE_LIST, printHtml, receiptHtml, reportHtml, templateHtml } from '../../shared/print';
+import { AppIcon } from '../../shared/icon';
 
 @Component({
   selector: 'app-reports',
-  imports: [FormsModule, Modal, PesoPipe, DatePipeShort],
+  imports: [AppIcon, FormsModule, Modal, PesoPipe, DatePipeShort],
   template: `
     <div class="mb-4 flex gap-1 border-b-2 border-[#d9d9d9]">
       @for (t of tabs; track t.id) {
@@ -52,7 +53,7 @@ import { TEMPLATE_ICONS, TEMPLATE_LIST, printHtml, receiptHtml, reportHtml, temp
         <aside class="card p-5">
           <h2 class="mb-1 text-[14pt] font-bold text-accent">📄 Report Templates</h2>
           <p class="mb-3 text-[12px] text-muted">Print blank, fillable templates for reports and liquidations:</p>
-          @for (t of templates; track t) { <button class="mb-2 w-full rounded bg-brand px-3 py-2 text-left text-[13px] text-white hover:bg-brand-hover" (click)="printTemplate(t)">{{ icons[t] }}  {{ t }}</button> }
+          @for (t of templates; track t) { <button class="mb-2 w-full rounded bg-brand px-3 py-2 text-left text-[13px] text-white hover:bg-brand-hover" (click)="printTemplate(t)"><app-icon [name]="icons[t]" class="mr-2 inline-flex h-4 w-4 align-[-3px]"></app-icon>{{ t }}</button> }
           <hr class="my-3" />
           <h2 class="mb-2 text-[14pt] font-bold text-accent">🧾 Payroll Receipt</h2>
           <button class="btn btn-ok w-full !h-[40px]" (click)="openReceipts()">🖨️ Print Disbursement Receipt</button>
@@ -62,7 +63,7 @@ import { TEMPLATE_ICONS, TEMPLATE_LIST, printHtml, receiptHtml, reportHtml, temp
       <div class="card mb-4 flex flex-wrap items-center gap-5 p-5">
         @for (c of statCards(); track c.label) {
           <div class="flex min-w-[220px] flex-1 items-center gap-3 rounded-lg border border-[#eee] p-3">
-            <img [src]="'assets/' + c.icon" alt="" class="card-icon h-[50px] w-[50px] object-contain" />
+            <app-icon [name]="c.icon" class="card-icon h-[50px] w-[50px]"></app-icon>
             <div><p class="text-[28px] font-bold leading-none" [style.color]="c.color">{{ c.value }}</p><p class="mt-1 text-[10pt] font-bold text-gray-500">{{ c.label }}</p></div>
           </div>
         }
@@ -114,10 +115,10 @@ export class ReportsPage implements OnInit, OnDestroy {
   statCards = computed(() => {
     const s = this.analytics()?.stats;
     return [
-      { label: 'Total Scholars', value: String(s?.totalScholars ?? 0), icon: 'user-groups.png', color: '#0a5c5c' },
-      { label: 'Active Scholars', value: String(s?.totalScholars ?? 0), icon: 'checked.png', color: '#28a745' },
-      { label: 'Total Disbursed', value: '₱' + (s?.totalDisbursed ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 }), icon: 'wallet.png', color: '#ffc107' },
-      { label: 'Pending Payments', value: String(s?.pendingPayments ?? 0), icon: 'wall-clock.png', color: '#dc3545' },
+      { label: 'Total Scholars', value: String(s?.totalScholars ?? 0), icon: 'user-groups', color: '#0a5c5c' },
+      { label: 'Active Scholars', value: String(s?.totalScholars ?? 0), icon: 'checked', color: '#28a745' },
+      { label: 'Total Disbursed', value: '₱' + (s?.totalDisbursed ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 }), icon: 'wallet', color: '#ffc107' },
+      { label: 'Pending Payments', value: String(s?.pendingPayments ?? 0), icon: 'wall-clock', color: '#dc3545' },
     ];
   });
 

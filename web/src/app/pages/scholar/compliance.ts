@@ -5,16 +5,17 @@ import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { DatePipeShort, statusColor } from '../../core/format';
 import { ComplianceItem, ScholarCompliance } from '../../core/models';
+import { AppIcon } from '../../shared/icon';
 
 @Component({
   selector: 'app-scholar-compliance',
-  imports: [FormsModule, DatePipeShort],
+  imports: [AppIcon, FormsModule, DatePipeShort],
   template: `
     <div class="mb-5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5">
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/file.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[11pt] font-bold text-label">Total Requirements</p><p class="text-[30px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/checked.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[11pt] font-bold text-label">Completed</p><p class="text-[30px] font-bold text-ok">{{ data()?.completed ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/wall-clock.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[11pt] font-bold text-label">Pending</p><p class="text-[30px] font-bold text-warn">{{ data()?.pending ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/reject.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[11pt] font-bold text-label">Overdue</p><p class="text-[30px] font-bold text-danger">{{ data()?.overdue ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="file" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Total Requirements</p><p class="text-[30px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="checked" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Completed</p><p class="text-[30px] font-bold text-ok">{{ data()?.completed ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="wall-clock" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Pending</p><p class="text-[30px] font-bold text-warn">{{ data()?.pending ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="reject" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Overdue</p><p class="text-[30px] font-bold text-danger">{{ data()?.overdue ?? 0 }}</p></div></div>
       <div class="card flex h-[110px] flex-col justify-center px-5"><p class="text-[12pt] font-bold text-label">Compliance Rate</p><p class="text-[28px] font-bold text-brand">{{ data()?.rate ?? 0 }}%</p>
         <div class="h-[10px] w-full overflow-hidden rounded bg-[#e6e6e6]"><div class="h-full bg-ok" [style.width.%]="data()?.rate ?? 0"></div></div></div>
     </div>

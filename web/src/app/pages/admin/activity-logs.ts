@@ -5,15 +5,16 @@ import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { DateTimePipe, daysAgo, today } from '../../core/format';
 import { ActivityFilters, ActivityLog, ActivityStats, Paged } from '../../core/models';
+import { AppIcon } from '../../shared/icon';
 
 @Component({
   selector: 'app-activity-logs',
-  imports: [FormsModule, DateTimePipe],
+  imports: [AppIcon, FormsModule, DateTimePipe],
   template: `
     <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
       @for (c of cards(); track c.label) {
         <div class="card flex h-[120px] items-center gap-4 px-5">
-          <img [src]="'assets/' + c.icon" alt="" class="card-icon h-[52px] w-[48px] object-contain" />
+          <app-icon [name]="c.icon" class="card-icon h-[52px] w-[48px]"></app-icon>
           <div><p class="text-[12pt] font-bold">{{ c.label }}</p><p class="text-[30px] font-bold text-accent">{{ c.value }}</p></div>
         </div>
       }
@@ -30,7 +31,7 @@ import { ActivityFilters, ActivityLog, ActivityStats, Paged } from '../../core/m
       <div class="ml-auto flex gap-2">
         <button class="btn btn-accent" (click)="refresh()">Refresh</button>
         <button class="btn" style="background:gray" (click)="clearFilters()">Clear</button>
-        <button class="btn btn-ok" (click)="exportCsv()"><img src="assets/file.png" alt="" class="h-4 w-4" />Export Logs</button>
+        <button class="btn btn-ok" (click)="exportCsv()"><app-icon name="file" class="h-4 w-4"></app-icon>Export Logs</button>
       </div>
     </div>
 
@@ -81,9 +82,9 @@ export class ActivityLogsPage implements OnInit {
   pageNo = computed(() => this.page()?.page ?? 1);
   totalPages = computed(() => Math.max(1, Math.ceil((this.page()?.total ?? 0) / (this.page()?.pageSize ?? 25))));
   cards = computed(() => [
-    { label: 'Total Logs', value: this.stats()?.total ?? 0, icon: 'file.png' },
-    { label: "Today's Activities", value: this.stats()?.today ?? 0, icon: 'checked.png' },
-    { label: 'Active Users', value: this.stats()?.activeUsers ?? 0, icon: 'user.png' },
+    { label: 'Total Logs', value: this.stats()?.total ?? 0, icon: 'file' },
+    { label: "Today's Activities", value: this.stats()?.today ?? 0, icon: 'checked' },
+    { label: 'Active Users', value: this.stats()?.activeUsers ?? 0, icon: 'user' },
   ]);
 
   async ngOnInit(): Promise<void> {

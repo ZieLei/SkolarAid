@@ -63,8 +63,8 @@ const TEMPLATES: Record<string, { columns: string[]; note: string }> = {
 };
 export const TEMPLATE_LIST = Object.keys(TEMPLATES);
 export const TEMPLATE_ICONS: Record<string, string> = {
-  'Scholar Census Report': '📊', 'Payroll Summary Report': '💰', 'Compliance Report': '📋', 'Payment History Report': '💳',
-  'Activity Log Report': '📝', 'Disbursement Voucher': '🧾', 'Liquidation Report': '📑', 'Stipend Release Form': '💵',
+  'Scholar Census Report': 'chart', 'Payroll Summary Report': 'money', 'Compliance Report': 'task', 'Payment History Report': 'wallet',
+  'Activity Log Report': 'note', 'Disbursement Voucher': 'invoice', 'Liquidation Report': 'file', 'Stipend Release Form': 'dollar',
 };
 
 export function templateHtml(name: string): string {

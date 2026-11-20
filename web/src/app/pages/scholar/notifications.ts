@@ -5,16 +5,17 @@ import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { DateTimePipe, NOTIFICATION_COLORS, relativeTime } from '../../core/format';
 import { ScholarNotification, ScholarNotifications } from '../../core/models';
+import { AppIcon } from '../../shared/icon';
 
 @Component({
   selector: 'app-scholar-notifications',
-  imports: [FormsModule, DateTimePipe],
+  imports: [AppIcon, FormsModule, DateTimePipe],
   template: `
     <div class="mb-5 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/bell.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Total Notifications</p><p class="text-[30px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/wall-clock.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Unread Count</p><p class="text-[30px] font-bold text-warn">{{ data()?.unread ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/dollar.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Payment Notifications</p><p class="text-[30px] font-bold text-ok">{{ data()?.payment ?? 0 }}</p></div></div>
-      <div class="card flex h-[110px] items-center gap-4 px-5"><img src="assets/reject.png" alt="" class="card-icon h-[45px] w-[45px] object-contain" /><div><p class="text-[12pt] font-bold text-label">Alert Notifications</p><p class="text-[30px] font-bold text-danger">{{ data()?.alert ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="bell" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[12pt] font-bold text-label">Total Notifications</p><p class="text-[30px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="wall-clock" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[12pt] font-bold text-label">Unread Count</p><p class="text-[30px] font-bold text-warn">{{ data()?.unread ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="dollar" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[12pt] font-bold text-label">Payment Notifications</p><p class="text-[30px] font-bold text-ok">{{ data()?.payment ?? 0 }}</p></div></div>
+      <div class="card flex h-[110px] items-center gap-4 px-5"><app-icon name="reject" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[12pt] font-bold text-label">Alert Notifications</p><p class="text-[30px] font-bold text-danger">{{ data()?.alert ?? 0 }}</p></div></div>
     </div>
 
     <div class="card mb-4 flex flex-wrap items-center gap-3 p-4">
@@ -31,7 +32,7 @@ import { ScholarNotification, ScholarNotifications } from '../../core/models';
           @for (n of data()?.items ?? []; track n.id) {
             <button class="flex w-full gap-3 rounded-lg border-l-4 px-4 py-3 text-left transition hover:bg-[#eef8f8]" [class.bg-[#fafafa]]="n.isRead" [class.bg-white]="!n.isRead"
                     [class.ring-1]="sel()?.id === n.id" [class.ring-brand]="sel()?.id === n.id" [style.border-color]="n.isRead ? '#e0e0e0' : color(n.type)" (click)="open(n)">
-              <img src="assets/bell.png" alt="" class="h-[36px] w-[36px] object-contain" />
+              <app-icon name="bell" class="h-[36px] w-[36px]"></app-icon>
               <div class="min-w-0 flex-1"><p class="text-[11pt] text-brand" [class.font-bold]="!n.isRead">{{ n.title }}</p><p class="line-clamp-2 text-[10pt] text-[#555]">{{ n.message }}</p></div>
               <span class="whitespace-nowrap text-[9pt] text-[#969696]">{{ rel(n.dateCreated) }}</span>
             </button>

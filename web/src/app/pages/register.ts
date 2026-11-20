@@ -6,6 +6,7 @@ import { Api, errorMessage } from '../core/api';
 import { DialogService } from '../core/dialog';
 import { PesoPipe } from '../core/format';
 import { ScholarshipType } from '../core/models';
+import { AppIcon } from '../shared/icon';
 
 export const COURSES = [
   'Bachelor of Science in Business Administration (Major in Financial Management)',
@@ -27,7 +28,7 @@ interface DocSlot { key: string; label: string; required: boolean; icon: string;
 /** Mirrors the WinForms Register screen (public scholar application). */
 @Component({
   selector: 'app-register',
-  imports: [FormsModule, RouterLink, PesoPipe],
+  imports: [AppIcon, FormsModule, RouterLink, PesoPipe],
   template: `
     <div class="min-h-screen bg-cover bg-center px-4 pb-10 pt-[17vh] font-['Segoe_UI','Microsoft_Sans_Serif',Arial,sans-serif]"
          style="background-image: url('assets/login-bg.png'); background-color: #0b3d44">
@@ -83,7 +84,7 @@ interface DocSlot { key: string; label: string; required: boolean; icon: string;
               <div class="mb-2">
                 <label class="block cursor-pointer rounded px-3 py-[7px] text-center text-[13px] text-white transition-colors"
                        [class.bg-brand]="!d.file" [class.bg-ok]="!!d.file">
-                  {{ d.file ? '✓ ' + d.label + ' Uploaded' : d.icon + ' Upload ' + d.label + (d.required ? '' : ' (optional)') }}
+                  <app-icon [name]="d.file ? 'checked' : d.icon" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>{{ d.file ? d.label + ' Uploaded' : 'Upload ' + d.label + (d.required ? '' : ' (optional)') }}
                   <input type="file" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" (change)="pick(d.key, $event)" />
                 </label>
                 @if (d.file) { <p class="mt-[2px] truncate text-[12px] text-muted">📎 {{ d.file.name }}</p> }
@@ -118,11 +119,11 @@ export class RegisterPage implements OnInit {
     enrollmentDate: '', expectedGraduation: '', bankName: '', bankAccountNumber: '', notes: '',
   };
   docs = signal<DocSlot[]>([
-    { key: 'psa', label: 'PSA Birth Certificate', required: true, icon: '📎', file: null },
-    { key: 'coe', label: 'Certificate of Enrollment', required: true, icon: '📝', file: null },
-    { key: 'cor', label: 'Certificate of Registration', required: true, icon: '📋', file: null },
-    { key: 'grades', label: 'Latest Grades/TOR', required: false, icon: '📊', file: null },
-    { key: 'contract', label: 'Scholarship Contract', required: false, icon: '📄', file: null },
+    { key: 'psa', label: 'PSA Birth Certificate', required: true, icon: 'attachment', file: null },
+    { key: 'coe', label: 'Certificate of Enrollment', required: true, icon: 'note', file: null },
+    { key: 'cor', label: 'Certificate of Registration', required: true, icon: 'task', file: null },
+    { key: 'grades', label: 'Latest Grades/TOR', required: false, icon: 'chart', file: null },
+    { key: 'contract', label: 'Scholarship Contract', required: false, icon: 'file', file: null },
   ]);
   /** Plain method (not computed): the form model is not a signal, so this must be re-evaluated on every change detection. */
   selected(): ScholarshipType | null { return this.types().find((t) => t.id === this.m.scholarshipTypeId) ?? null; }

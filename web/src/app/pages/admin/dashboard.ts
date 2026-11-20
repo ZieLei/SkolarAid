@@ -7,10 +7,11 @@ import { DialogService } from '../../core/dialog';
 import { DatePipeShort, PesoPipe, relativeTime, statusColor } from '../../core/format';
 import { ChartPoint, DashboardStats, RecentActivity, UpcomingPayment } from '../../core/models';
 import { lineConfig, makeChart, pieConfig } from '../../shared/charts';
+import { AppIcon } from '../../shared/icon';
 
 @Component({
   selector: 'app-admin-dashboard',
-  imports: [PesoPipe, DatePipeShort],
+  imports: [AppIcon, PesoPipe, DatePipeShort],
   template: `
     <h1 class="text-[20pt] font-bold text-ink">Welcome back, {{ auth.user()?.name || 'Administrator' }}! 👋</h1>
     <p class="mb-5 text-[12pt] text-[#646464]">{{ today }}</p>
@@ -18,7 +19,7 @@ import { lineConfig, makeChart, pieConfig } from '../../shared/charts';
     <div class="mb-6 grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-6">
       @for (c of cards(); track c.label) {
         <div class="card flex h-[130px] items-center gap-4 px-5">
-          <img [src]="'assets/' + c.icon" alt="" class="card-icon h-[55px] w-[50px] object-contain" />
+          <app-icon [name]="c.icon" class="card-icon h-[55px] w-[50px]"></app-icon>
           <div>
             <p class="text-[12pt] font-bold text-label">{{ c.label }}</p>
             <p class="font-bold" [class.text-brand]="!c.danger" [class.text-danger]="c.danger" [class.text-[32px]]="!c.money" [class.text-[28px]]="c.money">{{ c.value }}</p>
@@ -89,10 +90,10 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
         firstValueFrom(this.api.get<ChartPoint[]>('/admin/dashboard/monthly-disbursement')),
       ]);
       this.cards.set([
-        { label: 'Total Scholars', value: String(s.totalScholars), icon: 'user-groups.png' },
-        { label: 'Active Scholarships', value: String(s.activeScholarships), icon: 'checked.png' },
-        { label: 'Total Disbursed', value: '₱' + s.totalDisbursed.toLocaleString('en-US', { maximumFractionDigits: 0 }), icon: 'wallet.png', money: true },
-        { label: 'Pending Payments', value: String(s.pendingPayments), icon: 'wall-clock.png', danger: true },
+        { label: 'Total Scholars', value: String(s.totalScholars), icon: 'user-groups' },
+        { label: 'Active Scholarships', value: String(s.activeScholarships), icon: 'checked' },
+        { label: 'Total Disbursed', value: '₱' + s.totalDisbursed.toLocaleString('en-US', { maximumFractionDigits: 0 }), icon: 'wallet', money: true },
+        { label: 'Pending Payments', value: String(s.pendingPayments), icon: 'wall-clock', danger: true },
       ]);
       this.recent.set(r); this.upcoming.set(u);
       setTimeout(async () => {

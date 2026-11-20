@@ -4,14 +4,15 @@ import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { DatePipeShort, PesoPipe } from '../../core/format';
 import { ScholarProfile } from '../../core/models';
+import { AppIcon } from '../../shared/icon';
 
 @Component({
   selector: 'app-scholar-profile',
-  imports: [PesoPipe, DatePipeShort],
+  imports: [AppIcon, PesoPipe, DatePipeShort],
   template: `
     @if (p(); as p) {
       <section class="card mb-5 flex items-center gap-5 p-6">
-        <img src="assets/user.png" alt="" class="h-[80px] w-[80px] object-contain" />
+        <app-icon name="user" class="h-[80px] w-[80px]"></app-icon>
         <div><h2 class="text-[22px] font-bold text-ink">{{ p.firstName }} {{ p.middleName }} {{ p.lastName }}</h2>
           <p class="text-[12pt] font-bold" [style.color]="p.status === 'Active' ? '#28a745' : '#646464'">● {{ p.status }} Scholar</p></div>
       </section>

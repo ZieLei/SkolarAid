@@ -6,15 +6,16 @@ import { DialogService } from '../../core/dialog';
 import { DatePipeShort, DateTimePipe, NOTIFICATION_COLORS, PesoPipe, relativeTime, statusColor } from '../../core/format';
 import { ComposeResult, NotificationItem, NotificationStats, Option, RegistrationApproved, RegistrationDetail, RegistrationListItem } from '../../core/models';
 import { Modal } from '../../shared/modal';
+import { AppIcon } from '../../shared/icon';
 
 @Component({
   selector: 'app-notifications',
-  imports: [FormsModule, DateTimePipe, DatePipeShort, PesoPipe, Modal],
+  imports: [AppIcon, FormsModule, DateTimePipe, DatePipeShort, PesoPipe, Modal],
   template: `
     <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5">
       @for (c of cards(); track c.label) {
         <div class="card flex h-[110px] items-center gap-4 px-4" [title]="c.hint">
-          <img [src]="'assets/' + c.icon" alt="" class="card-icon h-[48px] w-[45px] object-contain" />
+          <app-icon [name]="c.icon" class="card-icon h-[48px] w-[45px]"></app-icon>
           <div><p class="text-[11pt] font-bold">{{ c.label }}</p><p class="text-[30px] font-bold" [style.color]="c.color">{{ c.value }}</p></div>
         </div>
       }
@@ -62,7 +63,7 @@ import { Modal } from '../../shared/modal';
           <label class="field-label-b">Message</label><textarea class="input mb-4" rows="8" [(ngModel)]="c.message" maxlength="4000"></textarea>
           <div class="flex justify-between">
             <button class="btn !h-[50px] w-[120px]" style="background:gray" (click)="clearCompose()">Clear Form</button>
-            <button class="btn btn-ok !h-[50px] w-[200px] !text-[14px]" [disabled]="busy()" (click)="send()"><img src="assets/bell.png" alt="" class="h-5 w-5" />Send Notification</button>
+            <button class="btn btn-ok !h-[50px] w-[200px] !text-[14px]" [disabled]="busy()" (click)="send()"><app-icon name="bell" class="h-5 w-5"></app-icon>Send Notification</button>
           </div>
         </section>
 
@@ -127,7 +128,7 @@ import { Modal } from '../../shared/modal';
               @for (k of r.files; track k) { <button class="btn btn-brand" (click)="openFile(r.id, k)">📎 {{ fileLabel(k) }}</button> } @empty { <span class="text-[13px] text-muted">No files</span> }
             </div>
             @if (r.status === 'Pending') {
-              <div class="flex gap-3"><button class="btn btn-ok !h-[40px]" [disabled]="busy()" (click)="approve(r)">✓ Approve</button><button class="btn btn-danger !h-[40px]" [disabled]="busy()" (click)="rejectOpen.set(true)">✗ Reject</button></div>
+              <div class="flex gap-3"><button class="btn btn-ok !h-[40px]" [disabled]="busy()" (click)="approve(r)"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Approve</button><button class="btn btn-danger !h-[40px]" [disabled]="busy()" (click)="rejectOpen.set(true)">✗ Reject</button></div>
             }
           } @else { <p class="text-[13px] text-muted">Select a registration to view details</p> }
         </section>
@@ -168,10 +169,10 @@ export class NotificationsPage implements OnInit {
   cards = computed(() => {
     const s = this.stats();
     return [
-      { label: 'Total Sent', value: s?.total ?? 0, icon: 'bell.png', color: '#0a5c5c', hint: 'All notifications sent' },
-      { label: 'Pending SMS', value: s?.unread ?? 0, icon: 'wall-clock.png', color: '#ffaa00', hint: 'Notifications not yet read' },
-      { label: 'Delivered', value: s?.read ?? 0, icon: 'checked.png', color: '#28a745', hint: 'Notifications read by scholars' },
-      { label: 'Failed SMS', value: s?.pendingRegistrations ?? 0, icon: 'reject.png', color: '#fb2c36', hint: 'Registrations awaiting review' },
+      { label: 'Total Sent', value: s?.total ?? 0, icon: 'bell', color: '#0a5c5c', hint: 'All notifications sent' },
+      { label: 'Pending SMS', value: s?.unread ?? 0, icon: 'wall-clock', color: '#ffaa00', hint: 'Notifications not yet read' },
+      { label: 'Delivered', value: s?.read ?? 0, icon: 'checked', color: '#28a745', hint: 'Notifications read by scholars' },
+      { label: 'Failed SMS', value: s?.pendingRegistrations ?? 0, icon: 'reject', color: '#fb2c36', hint: 'Registrations awaiting review' },
     ];
   });
 
