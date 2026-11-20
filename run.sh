@@ -85,6 +85,7 @@ case "$cmd" in
     export Seed__AdminUsername="${SEED_ADMIN_USERNAME:-admin}"
     export Seed__AdminPassword="${SEED_ADMIN_PASSWORD:-Admin#12345}"
     export Seed__SampleData=true
+    export Seed__DemoLogins=true
     echo "Demo mode: SQLite at $RUN_DIR/demo.db (delete it to reset). Login: $Seed__AdminUsername / $Seed__AdminPassword"
     start_stack
     ;;
@@ -115,6 +116,7 @@ MSG
     export Seed__AdminUsername="${SEED_ADMIN_USERNAME:-admin}"
     export Seed__AdminPassword="${SEED_ADMIN_PASSWORD:-}"
     export Seed__SampleData="${SEED_SAMPLE_DATA:-false}"
+    export Seed__DemoLogins="${SEED_DEMO_LOGINS:-true}"
     export Smtp__Host="${SMTP_HOST:-}" Smtp__Port="${SMTP_PORT:-587}" Smtp__User="${SMTP_USER:-}" Smtp__Password="${SMTP_PASSWORD:-}"
     export Smtp__FromAddress="${SMTP_FROM_ADDRESS:-}" Smtp__LoginUrl="${SMTP_LOGIN_URL:-$WEB_URL/login}"
     export Sms__ApiKey="${SMS_API_KEY:-}" Sms__SenderName="${SMS_SENDER_NAME:-}"

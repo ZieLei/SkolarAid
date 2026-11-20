@@ -33,6 +33,12 @@ public static class DbSeeder
             log.LogWarning("No admin user exists. Set Seed__AdminUsername and Seed__AdminPassword to create one.");
         }
 
+        if (config.GetValue<bool>("Seed:DemoLogins"))
+        {
+            await UpsertDemoAsync(db, passwords, Roles.Admin, "Adachi", "adachi123", "Adachi", log);
+            await UpsertDemoAsync(db, passwords, Roles.Scholar, "Shimamura", "shimamura123", "Shimamura", log);
+        }
+
         if (config.GetValue<bool>("Seed:SampleData") && !await db.ScholarshipTypes.AnyAsync())
         {
             db.ScholarshipTypes.AddRange(
@@ -42,5 +48,32 @@ public static class DbSeeder
             await db.SaveChangesAsync();
             log.LogInformation("Seeded sample scholarship types");
         }
+    }
+
+    /// <summary>Local-dev convenience logins. Re-applies the password on every start so they always work.</summary>
+    private static async Task UpsertDemoAsync(SkolarDbContext db, PasswordService passwords, string role, string username, string password, string name, ILogger log)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
+        if (user is null)
+        {
+            user = new User { Username = username, Role = role, Name = name };
+            db.Users.Add(user);
+        }
+        user.Password = passwords.Hash(password);
+        user.Role = role;
+        user.AccountStatus = "Active";
+        await db.SaveChangesAsync();
+
+        if (role == Roles.Scholar && !await db.Scholars.AnyAsync(s => s.UserId == user.Id))
+        {
+            db.Scholars.Add(new Scholar
+            {
+                UserId = user.Id, StudentId = username, ScholarNumber = "DEMO-0001",
+                FirstName = name, LastName = "Demo", Email = "shimamura@example.com",
+                Course = "BS Computer Science", YearLevel = "3rd Year", Status = "Active"
+            });
+            await db.SaveChangesAsync();
+        }
+        log.LogInformation("Demo login ready: {User} ({Role})", username, role);
     }
 }
