@@ -68,7 +68,7 @@
   .grid-wrap.cue-l.cue-r { mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
   /* Long text columns wrap instead of being cut mid-word. */
   table.dgrid tbody td.wrap { white-space: normal; min-width: 130px; overflow-wrap: anywhere; line-height: 1.35; padding-top: 5px; padding-bottom: 5px; }
-  table.dgrid { @apply w-full border-collapse text-[12px]; }
+  table.dgrid { @apply w-full border-collapse text-[13px]; }
   table.dgrid thead th { @apply sticky top-0 z-[2] bg-brand text-white font-bold text-[13px] text-left px-3 h-[35px] whitespace-nowrap; }
   table.dgrid tbody td { @apply px-3 h-[30px] border-b border-[#e6e6e6] bg-white whitespace-nowrap; }
   table.dgrid tbody tr.alt td { background: #f5fafa; }

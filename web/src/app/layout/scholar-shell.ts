@@ -18,9 +18,9 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
         @if (!collapsed()) { <span class="ml-[5px] mt-[15px] whitespace-nowrap text-[16px] font-bold text-white">IskolarAid Scholar</span> }
       </div>
       @for (n of nav; track n.link) {
-        <a [routerLink]="n.link" routerLinkActive="!bg-brand-hover font-bold !text-[17px]"
+        <a [routerLink]="n.link" routerLinkActive="!bg-brand-hover font-bold"
            [attr.title]="collapsed() ? n.label : null" [attr.aria-label]="n.label"
-           class="flex h-[60px] w-full items-center gap-3 whitespace-nowrap bg-brand px-5 text-[16px] text-white transition-colors hover:bg-brand-hover">
+           class="flex h-[60px] w-full items-center gap-3 whitespace-nowrap bg-brand px-5 text-[15px] text-white transition-colors hover:bg-brand-hover">
           <app-icon [name]="n.icon" class="h-[28px] w-[28px]"></app-icon>@if (!collapsed()) { {{ n.label }} }
         </a>
       }
@@ -31,7 +31,7 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
         <h1 class="text-[20px] font-bold text-ink">{{ title() }}</h1>
         <div class="ml-auto flex items-center gap-3">
           <app-icon name="user" class="h-[35px] w-[36px]"></app-icon>
-          <span class="text-[12pt] font-bold text-black">{{ auth.user()?.name }}</span>
+          <span class="text-[14px] font-bold text-ink">{{ auth.user()?.name }}</span>
           <button class="btn btn-outline !h-[40px] w-[110px] !text-[14px]" (click)="auth.logout()">Logout</button>
         </div>
       </header>

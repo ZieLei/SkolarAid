@@ -21,13 +21,13 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
       <span class="ml-[10px] text-[16px] font-bold text-white">IskolarAid Admin</span>
       <div class="ml-auto flex items-center gap-3">
         <app-icon name="user" class="h-[35px] w-[36px]"></app-icon>
-        <span class="text-[12pt] font-bold text-[#e6e6e6]">Administrator</span>
+        <span class="text-[14px] font-bold text-[#e6e6e6]">Administrator</span>
         <button class="btn btn-ghost !h-[40px] w-[110px] !text-[14px]" (click)="auth.logout()">Logout</button>
       </div>
     </header>
     <aside class="fixed left-0 top-[80px] bottom-0 z-20 overflow-y-auto overflow-x-hidden bg-brand pt-[45px] transition-[width] duration-200" [style.width.px]="collapsed() ? 72 : 280">
       @for (n of nav; track n.label) {
-        <a [routerLink]="n.link" [queryParams]="n.query" routerLinkActive="!bg-brand-hover font-bold !text-[16px]"
+        <a [routerLink]="n.link" [queryParams]="n.query" routerLinkActive="!bg-brand-hover font-bold"
            [routerLinkActiveOptions]="{ paths: 'subset', queryParams: 'exact', fragment: 'ignored', matrixParams: 'ignored' }"
            [attr.title]="collapsed() ? n.label : null" [attr.aria-label]="n.label"
            class="flex h-[55px] w-full items-center gap-3 whitespace-nowrap bg-brand px-5 text-[15px] text-white transition-colors hover:bg-brand-hover">

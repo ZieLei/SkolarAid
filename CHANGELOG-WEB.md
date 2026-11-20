@@ -14,6 +14,12 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Consistent text styling in the scholar portal
+- The scholar pages mixed point and pixel sizes (9pt to 22pt plus 11–24px), several greys, and a nav item that changed size when active. Now one scale: page title 24px, section titles 18px, body 14px, labels 13px, small 12px; table text 13px (all tables). `pt` sizes are gone from the scholar pages.
+- One secondary text colour (`#4b5563`) and one body colour instead of five greys; section headings share one bottom margin.
+- Sidebar items keep a fixed size (only bold changes when active) in both portals, so the menu no longer jumps; user name 14px.
+- "Showing 1 records" now reads "1 record".
+
 ### 2026-11-20 — Emoji purge
 - Removed every emoji and decorative symbol from the web app source and from the API strings the web displays (searched `web/src` and `api/src` for emoji, arrows, dingbats and geometric symbols: none remain).
 - Registrations: the "approved" and "rejected" pop-ups are now dialogs with icon tiles (scholar, scholar number, student ID), a status line with a mail/warning icon for whether the email went out, and a Done button. The Reject button uses the reject icon instead of "✗".

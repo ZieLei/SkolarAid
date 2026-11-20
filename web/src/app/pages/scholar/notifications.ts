@@ -16,16 +16,16 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
       @if (d.total === 0 && !filtersActive()) {
         <section class="card mx-auto mt-6 max-w-[640px] p-10 text-center">
           <app-icon name="bell" class="card-icon mx-auto mb-4 h-[64px] w-[64px]"></app-icon>
-          <h2 class="mb-2 text-[18pt] font-bold text-brand">You're all caught up</h2>
-          <p class="text-[12pt] text-[#444]">Nothing here yet. When the Scholarship Office sends you a reminder, a payment update or an announcement, it will show up on this page.</p>
+          <h2 class="mb-2 text-[18px] font-bold text-brand">You're all caught up</h2>
+          <p class="text-[14px] text-[#4b5563]">Nothing here yet. When the Scholarship Office sends you a reminder, a payment update or an announcement, it will show up on this page.</p>
         </section>
       } @else {
     <app-stat-strip [items]="stats()" />
   
       <div class="card mb-4 flex flex-wrap items-center gap-3 p-4">
-        <label class="text-[11pt] font-bold text-label">Type:</label>
+        <label class="text-[14px] font-bold text-[#4b5563]">Type:</label>
         <select class="input !w-[170px]" [ngModel]="type()" (ngModelChange)="type.set($event); load()"><option>All Types</option>@for (t of types; track t) { <option>{{ t }}</option> }</select>
-        <label class="flex items-center gap-2 text-[11pt]"><input type="checkbox" [ngModel]="unreadOnly()" (ngModelChange)="unreadOnly.set($event); load()" /> Unread Only</label>
+        <label class="flex items-center gap-2 text-[14px]"><input type="checkbox" [ngModel]="unreadOnly()" (ngModelChange)="unreadOnly.set($event); load()" /> Unread Only</label>
         <div class="ml-auto flex gap-2"><button class="btn btn-gray" (click)="type.set('All Types'); unreadOnly.set(false); load()">Clear</button><button class="btn btn-brand" (click)="load()">Refresh</button>
           <button class="btn btn-brand" [disabled]="!data()?.unread" (click)="markAll()">Mark All as Read</button></div>
       </div>
@@ -37,21 +37,21 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
               <button class="flex w-full gap-3 rounded-lg border-l-4 px-4 py-3 text-left transition hover:bg-[#eef8f8]" [class.bg-[#fafafa]]="n.isRead" [class.bg-white]="!n.isRead"
                       [class.ring-1]="sel()?.id === n.id" [class.ring-brand]="sel()?.id === n.id" [style.border-color]="n.isRead ? '#e0e0e0' : color(n.type)" (click)="open(n)">
                 <app-icon name="bell" class="h-[36px] w-[36px]"></app-icon>
-                <div class="min-w-0 flex-1"><p class="text-[11pt] text-brand" [class.font-bold]="!n.isRead">{{ n.title }}</p><p class="line-clamp-2 text-[10pt] text-[#555]">{{ n.message }}</p></div>
-                <span class="whitespace-nowrap text-[10pt] text-[#595959]" [title]="n.dateCreated | dt">{{ rel(n.dateCreated) }}</span>
+                <div class="min-w-0 flex-1"><p class="text-[14px] text-brand" [class.font-bold]="!n.isRead">{{ n.title }}</p><p class="line-clamp-2 text-[13px] text-[#4b5563]">{{ n.message }}</p></div>
+                <span class="whitespace-nowrap text-[13px] text-[#4b5563]" [title]="n.dateCreated | dt">{{ rel(n.dateCreated) }}</span>
               </button>
-            } @empty { <p class="p-8 text-center text-[13px] text-[#595959]">No notifications</p> }
+            } @empty { <p class="p-8 text-center text-[13px] text-[#4b5563]">No notifications</p> }
           </div>
-          <p class="px-3 pt-2 text-[9pt] text-muted">Showing {{ data()?.items?.length ?? 0 }} records</p>
+          <p class="px-3 pt-2 text-[12px] text-[#4b5563]">Showing {{ data()?.items?.length ?? 0 }} {{ data()?.items?.length === 1 ? 'record' : 'records' }}</p>
         </section>
         @if (sel()) { <aside class="card p-5">
           @if (sel(); as n) {
-            <h2 class="mb-1 text-[16pt] font-bold text-brand">{{ n.title }}</h2>
-            <p class="text-[11pt] font-bold" [style.color]="color(n.type)">{{ n.type }}</p><p class="mb-3 text-[10pt] text-muted">{{ n.dateCreated | dt }}</p>
-            <p class="mb-4 whitespace-pre-wrap text-[11pt]">{{ n.message }}</p>
-            <p class="text-[10pt] font-bold text-label">Sent by:</p><p class="mb-2 text-[11pt]">{{ n.senderName }}</p>
-            <p class="text-[10pt] font-bold text-label">Delivery Method:</p><p class="mb-2 text-[11pt]">In-App</p>
-            <p class="text-[10pt] font-bold text-label">Status:</p><p class="text-[11pt] font-bold" [style.color]="n.isRead ? '#17692c' : '#8a5300'">{{ n.isRead ? 'Read' : 'Unread' }}</p>
+            <h2 class="mb-3 text-[18px] font-bold text-brand">{{ n.title }}</h2>
+            <p class="text-[14px] font-bold" [style.color]="color(n.type)">{{ n.type }}</p><p class="mb-3 text-[13px] text-[#4b5563]">{{ n.dateCreated | dt }}</p>
+            <p class="mb-4 whitespace-pre-wrap text-[14px]">{{ n.message }}</p>
+            <p class="text-[13px] font-bold text-[#4b5563]">Sent by:</p><p class="mb-2 text-[14px]">{{ n.senderName }}</p>
+            <p class="text-[13px] font-bold text-[#4b5563]">Delivery Method:</p><p class="mb-2 text-[14px]">In-App</p>
+            <p class="text-[13px] font-bold text-[#4b5563]">Status:</p><p class="text-[14px] font-bold" [style.color]="n.isRead ? '#17692c' : '#8a5300'">{{ n.isRead ? 'Read' : 'Unread' }}</p>
           }
         </aside> }
       </div>

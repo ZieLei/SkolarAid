@@ -17,16 +17,16 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
 
     @if (toDo() > 0) {
       <div class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border-l-4 border-warn bg-[#fff8e6] px-5 py-3" role="status">
-        <p class="flex-1 text-[12pt] font-bold text-brand">{{ toDo() }} {{ toDo() === 1 ? 'requirement still needs' : 'requirements still need' }} your document.
-          <span class="font-normal text-[#646464]">Use the Upload button in the Action column.</span></p>
+        <p class="flex-1 text-[14px] font-bold text-brand">{{ toDo() }} {{ toDo() === 1 ? 'requirement still needs' : 'requirements still need' }} your document.
+          <span class="font-normal text-[#4b5563]">Use the Upload button in the Action column.</span></p>
         <button class="btn btn-brand !h-[32px]" (click)="status = 'All'; type = 'All Types'; showToDo()">Show what to upload</button>
       </div>
     }
 
     <div class="card mb-4 flex flex-wrap items-center gap-3 p-4">
-      <label class="text-[11pt] font-bold text-label">Status:</label>
+      <label class="text-[14px] font-bold text-[#4b5563]">Status:</label>
       <select class="input !w-[150px]" [(ngModel)]="status"><option>All</option>@for (s of statuses; track s) { <option>{{ s }}</option> }</select>
-      <label class="text-[11pt] font-bold text-label">Type:</label>
+      <label class="text-[14px] font-bold text-[#4b5563]">Type:</label>
       <select class="input !w-[220px]" [(ngModel)]="type"><option>All Types</option>@for (t of types(); track t) { <option>{{ t }}</option> }</select>
       <div class="ml-auto flex gap-2"><button class="btn btn-gray" (click)="status = 'All'; type = 'All Types'">Clear</button><button class="btn btn-brand" (click)="load()">Refresh</button></div>
     </div>
@@ -45,27 +45,27 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
                     <input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" [disabled]="busy()" (change)="upload($event, c)" /></label>
                 } @else if (c.fileCount) { <button class="btn btn-accent !h-[26px] !px-3 !text-[12px]" (click)="$event.stopPropagation(); view(c)">View file</button> }
               </td></tr>
-          } @empty { <tr><td colspan="6" class="!py-8 text-center text-[#595959]">No requirements found</td></tr> }</tbody></table></div>
-        <p class="px-3 py-2 text-[9pt] text-muted">Showing {{ filtered().length }} records</p>
+          } @empty { <tr><td colspan="6" class="!py-8 text-center text-[#4b5563]">No requirements found</td></tr> }</tbody></table></div>
+        <p class="px-3 py-2 text-[12px] text-[#4b5563]">Showing {{ filtered().length }} {{ filtered().length === 1 ? 'record' : 'records' }}</p>
       </section>
 
       @if (sel()) { <aside class="card p-5">
-        <h2 class="mb-3 text-[16pt] font-bold text-brand">Requirement Details</h2>
+        <h2 class="mb-3 text-[18px] font-bold text-brand">Requirement Details</h2>
         @if (sel(); as c) {
-          <p class="mb-3 text-[14pt] font-bold text-brand">#{{ c.id }}</p>
-          <p class="text-[10pt] font-bold text-label">Requirement Type:</p><p class="mb-2 text-[12pt]">{{ c.requirementType | reqName }}</p>
-          <p class="text-[10pt] font-bold text-label">Description:</p><p class="mb-2 text-[11pt]">{{ c.description || '-' }}</p>
-          <p class="text-[10pt] font-bold text-label">Due Date:</p><p class="mb-2 text-[12pt]">{{ c.dueDate | dmy }}</p>
-          <p class="text-[10pt] font-bold text-label">Date Submitted:</p><p class="mb-2 text-[12pt]">{{ c.dateSubmitted | dmy }}</p>
-          <p class="text-[10pt] font-bold text-label">Status:</p><p class="mb-2 text-[12pt] font-bold" [style.color]="color(c.status)">{{ c.status }}</p>
-          <p class="text-[10pt] font-bold text-label">Remarks:</p><p class="mb-2 text-[11pt]">{{ c.remarks || '-' }}</p>
-          <p class="text-[10pt] font-bold text-label">Checked By:</p><p class="mb-3 text-[12pt]">{{ c.checkedBy || '-' }}</p>
-          @if (c.status === 'Submitted') { <p class="mb-2 rounded bg-[#eef8f8] p-2 text-[11pt] text-label">Received. Waiting for the administrator to review it. If you registered online, this is the document you uploaded then.</p> }
+          <p class="mb-3 text-[18px] font-bold text-brand">#{{ c.id }}</p>
+          <p class="text-[13px] font-bold text-[#4b5563]">Requirement Type:</p><p class="mb-2 text-[14px]">{{ c.requirementType | reqName }}</p>
+          <p class="text-[13px] font-bold text-[#4b5563]">Description:</p><p class="mb-2 text-[14px]">{{ c.description || '-' }}</p>
+          <p class="text-[13px] font-bold text-[#4b5563]">Due Date:</p><p class="mb-2 text-[14px]">{{ c.dueDate | dmy }}</p>
+          <p class="text-[13px] font-bold text-[#4b5563]">Date Submitted:</p><p class="mb-2 text-[14px]">{{ c.dateSubmitted | dmy }}</p>
+          <p class="text-[13px] font-bold text-[#4b5563]">Status:</p><p class="mb-2 text-[14px] font-bold" [style.color]="color(c.status)">{{ c.status }}</p>
+          <p class="text-[13px] font-bold text-[#4b5563]">Remarks:</p><p class="mb-2 text-[14px]">{{ c.remarks || '-' }}</p>
+          <p class="text-[13px] font-bold text-[#4b5563]">Checked By:</p><p class="mb-3 text-[14px]">{{ c.checkedBy || '-' }}</p>
+          @if (c.status === 'Submitted') { <p class="mb-2 rounded bg-[#eef8f8] p-2 text-[14px] text-[#4b5563]">Received. Waiting for the administrator to review it. If you registered online, this is the document you uploaded then.</p> }
           @if (c.fileCount) { <button class="btn btn-accent mb-2 w-full" (click)="view(c)"><app-icon name="attachment" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>{{ c.fileName || 'View uploaded file' }}</button> }
           @if (c.status === 'Pending' || c.status === 'Rejected' || c.status === 'Overdue') {
             <label class="btn btn-ok w-full !h-[40px]" [class.opacity-60]="busy()"><app-icon name="attachment" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Upload Document
               <input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" [disabled]="busy()" (change)="upload($event, c)" /></label>
-            <p class="mt-1 text-[12px] text-muted">PDF, Word or image, up to 10 MB.</p>
+            <p class="mt-1 text-[12px] text-[#4b5563]">PDF, Word or image, up to 10 MB.</p>
           }
         }
       </aside> }
