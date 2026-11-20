@@ -32,7 +32,12 @@ if (string.IsNullOrWhiteSpace(jwt.Key) || jwt.Key.Length < 32)
 var cs = config.GetConnectionString("Default");
 if (string.IsNullOrWhiteSpace(cs)) throw new InvalidOperationException("ConnectionStrings__Default is required.");
 var serverVersion = Version.Parse(config["Database:ServerVersion"] ?? "8.0.36");
-builder.Services.AddDbContext<SkolarDbContext>(o => o.UseMySql(cs, new MySqlServerVersion(serverVersion)));
+// MySQL is the real database. "Sqlite" exists only for throw-away demos/UI checks without a MySQL server.
+var useSqlite = string.Equals(config["Database:Provider"], "Sqlite", StringComparison.OrdinalIgnoreCase);
+builder.Services.AddDbContext<SkolarDbContext>(o =>
+{
+    if (useSqlite) o.UseSqlite(cs); else o.UseMySql(cs, new MySqlServerVersion(serverVersion));
+});
 
 // ---- Services ----
 builder.Services.AddHttpContextAccessor();
@@ -109,7 +114,11 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 using (var scope = app.Services.CreateScope())
 {
     var log = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
-    if (config.GetValue<bool>("Database:AutoMigrate"))
+    if (useSqlite)
+    {
+        scope.ServiceProvider.GetRequiredService<SkolarDbContext>().Database.EnsureCreated();
+    }
+    else if (config.GetValue<bool>("Database:AutoMigrate"))
     {
         var db = scope.ServiceProvider.GetRequiredService<SkolarDbContext>();
         for (var attempt = 1; ; attempt++)
