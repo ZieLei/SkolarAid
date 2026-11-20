@@ -14,6 +14,11 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Scholar list: virtual scrolling, no stretching
+- `web/src/app/pages/admin/scholars.ts`: the scholar table is now a CSS-grid list inside `cdk-virtual-scroll-viewport` (30px rows), so only visible rows render. Its height fits the content (up to 24 rows) instead of stretching to match the edit form beside it (`items-start` on the grid).
+- Added `@angular/cdk` (web/package.json); added `.cell` style in `styles.css`.
+- Behavior kept: click selects, double-click opens details, same columns/colors. Dropped the row hover tint.
+
 ### 2026-11-20 — Collapsible sidebar + original logo restored
 - `web/src/app/layout/admin-shell.ts`, `scholar-shell.ts`: hamburger button collapses the sidebar to an icon-only rail (72px admin / 76px scholar); labels become hover tooltips. State is remembered per portal in localStorage. Colors/sizes otherwise unchanged. Admin toggle sits in the top bar; scholar toggle sits beside the page title.
 - Restored the original `scholar.png` logo in both shells (it had been swapped for a Hugeicon in the icon change); file brought back to `web/public/assets/`.

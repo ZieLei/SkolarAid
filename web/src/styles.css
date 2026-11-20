@@ -50,6 +50,7 @@
   table.dgrid tbody tr.alt td { background: #f5fafa; }
   table.dgrid tbody tr.sel td { background: #e6f5f5; }
   table.dgrid tbody tr:hover td { background: #eef8f8; }
+  .cell { @apply block truncate border-b border-[#e6e6e6] px-3 leading-[29px] whitespace-nowrap; }
   .badge { @apply inline-block rounded-full px-2 py-[1px] text-[11px] font-bold; }
 }
 

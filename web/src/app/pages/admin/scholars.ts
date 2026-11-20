@@ -1,4 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ScrollingModule } from '@angular/cdk/scrolling';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
@@ -33,7 +34,7 @@ const blank = (): Form => ({
 
 @Component({
   selector: 'app-scholars',
-  imports: [AppIcon, FormsModule, Modal, PesoPipe, DatePipeShort, ComplianceTab, ScholarshipTypesDialog],
+  imports: [AppIcon, ScrollingModule, FormsModule, Modal, PesoPipe, DatePipeShort, ComplianceTab, ScholarshipTypesDialog],
   template: `
     <h1 class="page-title mb-4">Scholar Management</h1>
 
@@ -62,21 +63,26 @@ const blank = (): Form => ({
         </select>
       </div>
 
-      <div class="grid gap-4 2xl:grid-cols-[1fr_569px]">
+      <div class="grid items-start gap-4 2xl:grid-cols-[1fr_569px]">
         <section class="card overflow-hidden">
-          <div class="grid-wrap max-h-[720px]">
-            <table class="dgrid">
-              <thead><tr><th>ID</th><th>Scholar #</th><th>Student ID</th><th>Full Name</th><th>Course</th><th>Year</th><th>Scholarship</th><th>Status</th></tr></thead>
-              <tbody>
-                @for (s of list(); track s.id; let i = $index) {
-                  <tr class="cursor-pointer" [class.alt]="i % 2 === 1" [class.sel]="s.id === selectedId()" (click)="select(s.id)" (dblclick)="openDetails(s.id)">
-                    <td>{{ s.id }}</td><td>{{ s.scholarNumber }}</td><td>{{ s.studentId }}</td><td class="font-bold">{{ s.fullName }}</td>
-                    <td class="max-w-[260px] truncate" [title]="s.course ?? ''">{{ s.course }}</td><td>{{ s.yearLevel }}</td><td>{{ s.scholarship }}</td>
-                    <td><span class="font-bold" [style.color]="color(s.status)">{{ s.status }}</span></td>
-                  </tr>
-                } @empty { <tr><td colspan="8" class="!py-8 text-center text-[#969696]">No scholars found</td></tr> }
-              </tbody>
-            </table>
+          <div class="overflow-x-auto">
+            <div class="min-w-[900px]" role="table" aria-label="Scholars">
+              <div role="row" class="grid overflow-hidden bg-brand text-left text-[13px] font-bold text-white [scrollbar-gutter:stable]" [style.grid-template-columns]="cols">
+                @for (h of heads; track h) { <div role="columnheader" class="h-[35px] truncate px-3 leading-[35px]">{{ h }}</div> }
+              </div>
+              @if (!list().length) { <div class="py-8 text-center text-[12px] text-[#969696]">No scholars found</div> }
+              <cdk-virtual-scroll-viewport [itemSize]="rowH" [style.height.px]="viewportH()" class="[scrollbar-gutter:stable]">
+                <div *cdkVirtualFor="let s of list(); trackBy: trackId; let i = index; templateCacheSize: 0" role="row"
+                     class="grid cursor-pointer text-[12px]" [style.grid-template-columns]="cols" [style.height.px]="rowH"
+                     [style.background]="rowBg(i, s.id)"
+                     (click)="select(s.id)" (dblclick)="openDetails(s.id)">
+                  <div role="cell" class="cell">{{ s.id }}</div><div role="cell" class="cell">{{ s.scholarNumber }}</div><div role="cell" class="cell">{{ s.studentId }}</div>
+                  <div role="cell" class="cell font-bold" [title]="s.fullName">{{ s.fullName }}</div>
+                  <div role="cell" class="cell" [title]="s.course ?? ''">{{ s.course }}</div><div role="cell" class="cell">{{ s.yearLevel }}</div><div role="cell" class="cell" [title]="s.scholarship ?? ''">{{ s.scholarship }}</div>
+                  <div role="cell" class="cell"><span class="font-bold" [style.color]="color(s.status)">{{ s.status }}</span></div>
+                </div>
+              </cdk-virtual-scroll-viewport>
+            </div>
           </div>
           <p class="px-3 py-2 text-[12px] text-muted">Showing {{ list().length }} of {{ total() }} scholars</p>
         </section>
@@ -214,6 +220,13 @@ export class ScholarsPage implements OnInit {
   tabs = [{ id: 'info', label: 'Scholar Information' }, { id: 'compliance', label: 'Compliance Management' }] as const;
   tab = signal<'info' | 'compliance'>('info');
   list = signal<ScholarListItem[]>([]);
+  // Virtual list: only the rows in view are rendered; height hugs the content up to MAX_ROWS.
+  readonly rowH = 30;
+  readonly heads = ['ID', 'Scholar #', 'Student ID', 'Full Name', 'Course', 'Year', 'Scholarship', 'Status'];
+  readonly cols = '60px 110px 120px minmax(150px,1.5fr) minmax(140px,1.4fr) 90px minmax(120px,1fr) 100px';
+  viewportH = computed(() => Math.min(this.list().length, 24) * this.rowH);
+  rowBg = (i: number, id: number) => (id === this.selectedId() ? '#e6f5f5' : i % 2 ? '#f5fafa' : '#fff');
+  trackId = (_: number, s: ScholarListItem) => s.id;
   total = signal(0);
   filters = signal<ScholarFilters | null>(null);
   types = signal<ScholarshipType[]>([]);
