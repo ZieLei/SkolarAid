@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { Api } from './api';
 import { LoginResponse, UserInfo } from './models';
 
-const KEY = 'skolaraid.session';
+const KEY = 'iskolaraid.session';
 
 interface Session { token: string; expiresAt: string; user: UserInfo; }
 

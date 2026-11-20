@@ -25,11 +25,11 @@ describe('AuthService and guards', () => {
     await p;
     expect(auth.isAdmin()).toBe(true);
     expect(auth.homeRoute()).toBe('/admin/dashboard');
-    expect(localStorage.getItem('skolaraid.session')).toContain('t0k');
+    expect(localStorage.getItem('iskolaraid.session')).toContain('t0k');
   });
 
   it('ignores an expired stored session', () => {
-    localStorage.setItem('skolaraid.session', JSON.stringify({ ...adminLogin, expiresAt: new Date(Date.now() - 1000).toISOString() }));
+    localStorage.setItem('iskolaraid.session', JSON.stringify({ ...adminLogin, expiresAt: new Date(Date.now() - 1000).toISOString() }));
     expect(TestBed.inject(AuthService).isLoggedIn()).toBe(false);
   });
 

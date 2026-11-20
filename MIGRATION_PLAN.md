@@ -1,4 +1,4 @@
-# SkolarAid: WinForms to Angular + ASP.NET Core migration plan
+# IskolarAid: WinForms to Angular + ASP.NET Core migration plan
 
 Status: **Phase 1 (analysis)**. Nothing in `/SkolarAid` (the legacy WinForms project) is modified. The new code goes in `/api` and `/web` beside it.
 
@@ -110,10 +110,10 @@ The brief says to keep MySQL unless there is a strong reason. There isn't one. T
 ```
 /SkolarAid        legacy WinForms (untouched, reference only)
 /api              ASP.NET Core 10 (LTS) Web API
-  SkolarAid.Api            controllers, auth, DI, middleware (thin)
-  SkolarAid.Core           services, DTOs, business rules (no EF types)
-  SkolarAid.Data           DbContext, entities, EF migrations, seed
-  SkolarAid.Tests          xUnit tests for ported rules
+  IskolarAid.Api            controllers, auth, DI, middleware (thin)
+  IskolarAid.Core           services, DTOs, business rules (no EF types)
+  IskolarAid.Data           DbContext, entities, EF migrations, seed
+  IskolarAid.Tests          xUnit tests for ported rules
 /web              Angular (latest stable, standalone, strict TS) + Tailwind CSS
 docker-compose.yml  API + MySQL
 ```

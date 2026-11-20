@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SkolarAid run script.   Usage: ./run.sh <command>
+# IskolarAid run script.   Usage: ./run.sh <command>
 #
 #   demo     API + web with a throw-away SQLite database (no MySQL/Docker needed). Admin: admin / Admin#12345
 #   dev      API + web against a local MySQL (reads .env, see .env.example)
@@ -58,10 +58,10 @@ start_stack() {  # assumes API env vars are exported
   need dotnet ".NET 10 SDK"; need node "Node 22+"; need npm "Node 22+"; need curl "curl"
   stop_all
   web_deps
-  (cd api && dotnet build src/SkolarAid.Api -v q --nologo >"$RUN_DIR/build.log" 2>&1) || { cat "$RUN_DIR/build.log"; exit 1; }
+  (cd api && dotnet build src/IskolarAid.Api -v q --nologo >"$RUN_DIR/build.log" 2>&1) || { cat "$RUN_DIR/build.log"; exit 1; }
 
   export ASPNETCORE_URLS="$API_URL"
-  (cd api && setsid dotnet run --project src/SkolarAid.Api --no-build --no-launch-profile >"$RUN_DIR/api.log" 2>&1 & echo $! >"$RUN_DIR/api.pid")
+  (cd api && setsid dotnet run --project src/IskolarAid.Api --no-build --no-launch-profile >"$RUN_DIR/api.log" 2>&1 & echo $! >"$RUN_DIR/api.pid")
   (cd web && setsid npx ng serve --port 4200 >"$RUN_DIR/web.log" 2>&1 & echo $! >"$RUN_DIR/web.pid")
 
   trap 'echo; echo "Stopping..."; stop_all; exit 0' INT TERM

@@ -1,7 +1,7 @@
-# SkolarAid — web edition
+# IskolarAid — web edition
 
 Scholarship management for Legacy College of Compostela. This repository started as a WinForms + MySQL desktop app
-(`/SkolarAid`, kept untouched for reference) and is being migrated to a web app on the `migrate/angular-aspnet` branch:
+(`/SkolarAid` — the original WinForms folder, kept untouched for reference under its old, misspelled name) and is being migrated to a web app on the `migrate/angular-aspnet` branch:
 
 | Part | Tech | Folder |
 |---|---|---|
@@ -49,7 +49,7 @@ export ConnectionStrings__Default="Server=localhost;Port=3306;Database=iskolarai
 export Jwt__Key="$(openssl rand -base64 48)"
 export Database__AutoMigrate=true
 export Seed__AdminUsername=admin Seed__AdminPassword='choose-a-strong-one' Seed__SampleData=true
-dotnet run --project src/SkolarAid.Api
+dotnet run --project src/IskolarAid.Api
 
 # 3. web  (http://localhost:4200, /api is proxied to :5080)
 cd web && npm install && npm start
@@ -91,8 +91,8 @@ ASP.NET maps `Section__Key` to `Section:Key`. In Docker use the `.env` names in 
 cd api
 dotnet build
 dotnet test                                   # 74 tests (rules, services, HTTP end-to-end on SQLite)
-dotnet dotnet-ef migrations add <Name> --project src/SkolarAid.Data --startup-project src/SkolarAid.Data
-dotnet dotnet-ef database update --project src/SkolarAid.Data --startup-project src/SkolarAid.Data
+dotnet dotnet-ef migrations add <Name> --project src/IskolarAid.Data --startup-project src/IskolarAid.Data
+dotnet dotnet-ef database update --project src/IskolarAid.Data --startup-project src/IskolarAid.Data
 
 # Web
 cd web
@@ -104,9 +104,9 @@ npm run build                                 # production bundle in web/dist
 ## Layout
 
 ```
-api/src/SkolarAid.Api    controllers (thin), JWT, validation, error handling, startup/seed
-api/src/SkolarAid.Core   services + DTOs + pure business rules (ported from the WinForms code-behind)
-api/src/SkolarAid.Data   EF Core entities, DbContext (snake_case mapping of the legacy schema), migrations
+api/src/IskolarAid.Api    controllers (thin), JWT, validation, error handling, startup/seed
+api/src/IskolarAid.Core   services + DTOs + pure business rules (ported from the WinForms code-behind)
+api/src/IskolarAid.Data   EF Core entities, DbContext (snake_case mapping of the legacy schema), migrations
 api/tests                xUnit tests (unit + WebApplicationFactory end-to-end)
 web/src/app/core         API client, auth, guards, dialogs, formatting
 web/src/app/layout       admin shell (header + 280px sidebar) and scholar shell (300px sidebar)
