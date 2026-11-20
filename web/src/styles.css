@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+/* Palette taken from the WinForms designers (teal #00444F family, WhiteSmoke-ish content background). */
+@theme {
+  --color-brand: #00444f;
+  --color-brand-hover: #005a69;
+  --color-accent: #0a5c5c;
+  --color-login: #165550;
+  --color-surface: #f3f4f6;
+  --color-ink: #1e1e1e;
+  --color-muted: #646464;
+  --color-label: #505050;
+  --color-danger: #ef4444;
+  --color-warn: #ffaa00;
+  --color-ok: #28a745;
+  --color-info: #007bff;
+  --color-row-select: #e6f5f5;
+  --font-sans: "Century Gothic", "Questrial", "Apple SD Gothic Neo", Arial, sans-serif;
+}
+
+@layer base {
+  html, body { height: 100%; }
+  body { @apply bg-surface text-black font-sans; margin: 0; }
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; opacity: .55; }
+}
+
+@layer components {
+  .card { @apply bg-white rounded-xl shadow-sm; }
+  .card-title { @apply text-brand font-bold text-[16px]; }
+  .page-title { @apply text-[20px] font-bold text-ink; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 h-[35px] text-[13px] font-bold text-white transition-colors; }
+  .btn-brand { @apply bg-brand hover:bg-brand-hover; }
+  .btn-accent { @apply bg-accent hover:bg-brand-hover; }
+  .btn-ok { @apply bg-ok hover:brightness-95; }
+  .btn-danger { @apply bg-danger hover:brightness-95; }
+  .btn-warn { @apply bg-[#ffc107] hover:brightness-95 text-black; }
+  .btn-info { @apply bg-info hover:brightness-95; }
+  .btn-gray { @apply bg-[#b4b4b4] hover:brightness-95; }
+  .field-label { @apply block text-[13px] text-muted mb-1; }
+  .field-label-b { @apply block text-[13px] font-bold text-label mb-1; }
+  .input { @apply w-full h-[30px] px-2 border border-gray-300 rounded bg-white text-[14px] outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:bg-gray-100; }
+  textarea.input { @apply h-auto py-1; }
+  .section-title { @apply text-brand font-bold text-[14px] mt-3 mb-1; }
+  /* DataGridView look: teal header, white rows, light teal selection */
+  .grid-wrap { @apply overflow-auto; }
+  table.grid { @apply w-full border-collapse text-[12px]; }
+  table.grid thead th { @apply sticky top-0 bg-brand text-white font-bold text-[13px] text-left px-3 h-[35px] whitespace-nowrap; }
+  table.grid tbody td { @apply px-3 h-[30px] border-b border-[#e6e6e6] bg-white; }
+  table.grid tbody tr.alt td { background: #f5fafa; }
+  table.grid tbody tr.sel td { background: #e6f5f5; }
+  table.grid tbody tr:hover td { background: #eef8f8; }
+  .badge { @apply inline-block rounded-full px-2 py-[1px] text-[11px] font-bold; }
+}
