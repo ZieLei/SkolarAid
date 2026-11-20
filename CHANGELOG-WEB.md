@@ -14,6 +14,9 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Fix: empty-state cards stuck to the left
+- `web/src/styles.css`: the page-rhythm rule zeroed all margins of top-level blocks, including the left/right auto margins that centre the empty-state cards on scholar Payments and Notifications. It now only resets vertical margins, so those cards centre again.
+
 ### 2026-11-20 — Consistent text styling in the scholar portal
 - The scholar pages mixed point and pixel sizes (9pt to 22pt plus 11–24px), several greys, and a nav item that changed size when active. Now one scale: page title 24px, section titles 18px, body 14px, labels 13px, small 12px; table text 13px (all tables). `pt` sizes are gone from the scholar pages.
 - One secondary text colour (`#4b5563`) and one body colour instead of five greys; section headings share one bottom margin.

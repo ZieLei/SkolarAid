@@ -84,5 +84,5 @@
 /* Page rhythm: each page lays its top-level blocks out in one column with a single gap,
    so spacing is the same everywhere (individual mb-* on those blocks are neutralised). */
 router-outlet + * { display: flex; flex-direction: column; gap: 16px; }
-router-outlet + * > * { margin: 0 !important; }
+router-outlet + * > * { margin-block: 0 !important; }
 router-outlet + * > h1 + p { margin-top: -12px !important; }
