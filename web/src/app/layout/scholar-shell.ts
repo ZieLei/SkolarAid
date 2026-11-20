@@ -3,6 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { AuthService } from '../core/auth';
+import { DialogService } from '../core/dialog';
 import { AppIcon } from '../shared/icon';
 
 const KEY = 'scholar-sidebar-collapsed';
@@ -35,7 +36,7 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
         <div class="ml-auto flex items-center gap-3">
           <app-icon name="user" class="h-[35px] w-[36px]"></app-icon>
           <span class="text-[14px] font-bold text-ink">{{ auth.user()?.name }}</span>
-          <button class="btn btn-outline !h-[40px] w-[110px] !text-[14px]" (click)="auth.logout()">Logout</button>
+          <button class="btn btn-outline !h-[40px] w-[110px] !text-[14px]" (click)="confirmLogout()">Logout</button>
         </div>
       </header>
       <div class="px-[30px] pb-[30px]"><router-outlet /></div>
@@ -44,6 +45,10 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
 })
 export class ScholarShell {
   auth = inject(AuthService);
+  private dialog = inject(DialogService);
+  async confirmLogout(): Promise<void> {
+    if (await this.dialog.confirm('You will need to sign in again to continue.', 'Log out of IskolarAid?', 'Log out', 'Stay signed in')) this.auth.logout();
+  }
   collapsed = signal(readCollapsed());
   toggle() { this.collapsed.update((v) => !v); try { localStorage.setItem(KEY, this.collapsed() ? '1' : '0'); } catch { /* storage unavailable */ } }
   nav = [
