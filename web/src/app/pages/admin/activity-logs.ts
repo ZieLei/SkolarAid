@@ -7,19 +7,13 @@ import { DateTimePipe, daysAgo, today } from '../../core/format';
 import { ActivityFilters, ActivityLog, ActivityStats, Paged } from '../../core/models';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
+import { StatItem, StatStrip } from '../../shared/stat-strip';
 
 @Component({
   selector: 'app-activity-logs',
-  imports: [ScrollCue, AppIcon, FormsModule, DateTimePipe],
+  imports: [StatStrip, ScrollCue, AppIcon, FormsModule, DateTimePipe],
   template: `
-    <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
-      @for (c of cards(); track c.label) {
-        <div class="card flex h-[120px] items-center gap-4 px-5">
-          <app-icon [name]="c.icon" class="card-icon h-[52px] w-[48px]"></app-icon>
-          <div><p class="text-[12pt] font-bold">{{ c.label }}</p><p class="text-[26px] font-bold text-accent">{{ c.value }}</p></div>
-        </div>
-      }
-    </div>
+    <app-stat-strip [items]="cards()" />
 
     <div class="card mb-4 flex flex-wrap items-end gap-3 p-4">
       <div><label class="field-label-b">Search</label><input class="input !w-[170px]" [(ngModel)]="search" (keyup.enter)="apply()" /></div>
@@ -36,7 +30,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
       </div>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[1fr_337px]">
+    <div class="grid items-start gap-4" [class]="sel() ? 'xl:grid-cols-[1fr_337px]' : ''">
       <section class="card overflow-hidden">
         <div scrollCue class="grid-wrap max-h-[520px]">
           <table class="dgrid">
@@ -60,15 +54,15 @@ import { ScrollCue } from '../../shared/scroll-cue';
         </div>
       </section>
 
-      <aside class="card p-5">
+      @if (sel()) { <aside class="card p-5">
         <h2 class="mb-3 text-[14pt] font-bold text-accent">Log Entry Details</h2>
         @if (sel(); as l) {
           <p class="mb-2 text-[13px]">Timestamp: {{ l.createdAt | dt }}</p><p class="mb-2 text-[13px]">User: {{ l.userName }}</p><p class="mb-2 text-[13px]">Action: {{ l.actionType }}</p>
           <p class="mb-2 text-[13px]">Table Affected: {{ l.tableAffected || '-' }}</p><p class="mb-3 text-[13px]">Record ID: {{ l.recordId ?? '-' }}</p>
           <p class="mb-1 text-[11pt] font-bold">Description:</p>
           <div class="min-h-[160px] whitespace-pre-wrap rounded bg-surface p-2 text-[13px]">{{ l.details }}</div>
-        } @else { <p class="text-[13px] text-muted">Select a log entry to see its details.</p> }
-      </aside>
+        }
+      </aside> }
     </div>
   `,
 })

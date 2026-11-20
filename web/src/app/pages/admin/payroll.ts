@@ -8,19 +8,13 @@ import { DisbursementHistory, Option, PayrollCandidate, PayrollPreview, PayrollR
 import { YEAR_LEVELS } from '../register';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
+import { StatItem, StatStrip } from '../../shared/stat-strip';
 
 @Component({
   selector: 'app-payroll',
-  imports: [ScrollCue, AppIcon, FormsModule, PesoPipe, DatePipeShort],
+  imports: [StatStrip, ScrollCue, AppIcon, FormsModule, PesoPipe, DatePipeShort],
   template: `
-    <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
-      @for (c of cards(); track c.label) {
-        <div class="card flex h-[92px] items-center gap-4 px-5">
-          <app-icon [name]="c.icon" class="card-icon h-[52px] w-[48px]"></app-icon>
-          <div><p class="text-[12pt] font-bold">{{ c.label }}</p><p class="font-bold text-accent" [class.text-[26px]]="!c.small" [class.text-[24px]]="c.small">{{ c.value }}</p>@if (c.hint) { <p class="text-[12px] leading-tight text-muted">{{ c.hint }}</p> }</div>
-        </div>
-      }
-    </div>
+    <app-stat-strip [items]="cards()" />
 
     <div class="card mb-3 flex flex-wrap items-end gap-4 p-4">
       <div class="min-w-[220px] flex-1"><label class="field-label-b">Search by Name/ID</label><input class="input" [ngModel]="search()" (ngModelChange)="search.set($event); reloadSoon()" /></div>
@@ -35,6 +29,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
       <div><label class="field-label-b">Payment Period</label><input class="input !w-[210px]" type="month" [ngModel]="periodMonth()" (ngModelChange)="periodMonth.set($event); load(); loadHistory()" /></div>
       <div><label class="field-label-b">Payment Method</label>
         <select class="input !w-[180px]" [(ngModel)]="method">@for (m of methods; track m) { <option>{{ m }}</option> }</select></div>
+      <p class="pb-1 text-[14px]" aria-live="polite"><b>{{ selected().size }}</b> selected · Total <b class="text-accent">{{ total() | peso }}</b> for {{ periodLabel() }}</p>
       <div class="ml-auto flex flex-col items-end gap-2">
         <div class="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Payroll steps">
           <span class="text-[12px] font-bold text-label">Step 1</span>
@@ -50,36 +45,27 @@ import { ScrollCue } from '../../shared/scroll-cue';
       </div>
     </div>
 
-    <div class="grid gap-4 min-[1800px]:grid-cols-[1fr_364px]">
-      <section class="card overflow-hidden">
-        <div scrollCue class="grid-wrap max-h-[470px]">
-          <table class="dgrid">
-            <thead><tr><th class="w-[40px]"></th><th>Scholar #</th><th>Name</th><th>Course</th><th>Year</th><th>Scholarship</th><th>Stipend</th><th>Compliance</th><th>Eligible</th></tr></thead>
-            <tbody>
-              @for (c of rows(); track c.id; let i = $index) {
-                <tr [class.alt]="i % 2 === 1" [style.opacity]="c.isEligible ? 1 : .65">
-                  <td><input type="checkbox" [disabled]="!c.isEligible" [checked]="selected().has(c.id)" (change)="toggle(c.id)" [attr.aria-label]="'Select ' + c.fullName" /></td>
-                  <td>{{ c.scholarNumber }}</td><td class="font-bold">{{ c.fullName }}</td><td class="wrap">{{ c.course }}</td><td>{{ c.yearLevel }}</td>
-                  <td class="wrap">{{ c.scholarshipType }}</td><td>{{ c.stipendAmount | peso }}</td>
-                  <td><span class="font-bold" [style.color]="color(c.complianceStatus)">{{ c.complianceStatus }}</span></td>
-                  <td>@if (c.paymentStatus === 'Already Paid') { <span class="font-bold text-[#8a5300]"><app-icon name="alert" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Already Paid</span> } @else if (c.isEligible) { <span class="font-bold text-ok"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Yes</span> } @else { <span class="font-bold text-[#4b5563]">No</span><span class="block whitespace-normal text-[12px] leading-tight text-[#4b5563]">{{ reason(c) }}</span> }</td>
-                </tr>
-              } @empty { <tr><td colspan="9" class="!py-8 text-center text-[#595959]">No scholars found</td></tr> }
-            </tbody>
-          </table>
-        </div>
-      </section>
+    <section class="card overflow-hidden">
+      <div scrollCue class="grid-wrap max-h-[470px]">
+        <table class="dgrid">
+          <thead><tr><th class="w-[40px]"></th><th>Scholar #</th><th>Name</th><th>Course</th><th>Year</th><th>Scholarship</th><th>Stipend</th><th>Compliance</th><th>Eligible</th></tr></thead>
+          <tbody>
+            @for (c of rows(); track c.id; let i = $index) {
+              <tr [class.alt]="i % 2 === 1" [style.opacity]="c.isEligible ? 1 : .65">
+                <td><input type="checkbox" [disabled]="!c.isEligible" [checked]="selected().has(c.id)" (change)="toggle(c.id)" [attr.aria-label]="'Select ' + c.fullName" /></td>
+                <td>{{ c.scholarNumber }}</td><td class="font-bold">{{ c.fullName }}</td><td class="wrap">{{ c.course }}</td><td>{{ c.yearLevel }}</td>
+                <td class="wrap">{{ c.scholarshipType }}</td><td>{{ c.stipendAmount | peso }}</td>
+                <td><span class="font-bold" [style.color]="color(c.complianceStatus)">{{ c.complianceStatus }}</span></td>
+                <td>@if (c.paymentStatus === 'Already Paid') { <span class="font-bold text-[#8a5300]"><app-icon name="alert" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Already Paid</span> } @else if (c.isEligible) { <span class="font-bold text-ok"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Yes</span> } @else { <span class="font-bold text-[#4b5563]">No</span><span class="block whitespace-normal text-[12px] leading-tight text-[#4b5563]">{{ reason(c) }}</span> }</td>
+              </tr>
+            } @empty { <tr><td colspan="9" class="!py-8 text-center text-[#595959]">No scholars found</td></tr> }
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-      <aside class="card p-5">
-        <h2 class="mb-4 text-[14pt] font-bold text-accent">Batch Summary</h2>
-        <p class="mb-3 text-[11pt]">Selected Scholars: {{ selected().size }}</p>
-        <p class="mb-3 text-[14pt] font-bold text-accent">Total: {{ total() | peso }}</p>
-        <p class="text-[11pt]">Method: {{ method }}</p>
-        <p class="mt-3 text-[11pt]">Period: {{ periodLabel() }}</p>
-      </aside>
-    </div>
 
-    <section class="card mt-4 overflow-hidden">
+    <section class="card overflow-hidden">
       <h2 class="px-4 pt-3 text-[14pt] font-bold text-accent">Disbursement History — {{ periodLabel() }}</h2>
       <div scrollCue class="grid-wrap max-h-[300px] p-2">
         <table class="dgrid">
@@ -126,8 +112,6 @@ export class PayrollPage implements OnInit {
   }
   cards = computed<{ label: string; value: string; icon: string; small: boolean; hint?: string }[]>(() => [
     { label: 'Eligible Scholars', value: String(this.rows().filter((r) => r.isEligible).length), icon: 'user-groups', small: false, hint: `of ${this.rows().length} listed · rest already paid or need compliance approved` },
-    { label: `Selected (${this.selected().size})`, value: String(this.selected().size), icon: 'checked', small: false },
-    { label: 'Total Amount', value: formatPeso(this.total()), icon: 'wallet', small: true },
     { label: 'Processed Today', value: String(this.stats()?.processedToday ?? 0), icon: 'dollar', small: false, hint: 'Payments processed today' },
   ]);
 

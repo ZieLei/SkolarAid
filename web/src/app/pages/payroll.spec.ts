@@ -26,7 +26,7 @@ describe('PayrollPage', () => {
     c.selectAll(); fx.detectChanges();
     expect([...c.selected()].sort()).toEqual([1, 2]);
     expect(c.total()).toBe(8500);
-    expect(el.textContent).toContain('Selected Scholars: 2');
+    expect(el.textContent).toMatch(/2 selected/);
     expect(el.textContent).toContain('₱8,500.00');
   });
 

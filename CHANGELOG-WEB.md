@@ -14,6 +14,13 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Fewer cards, no dead zones
+- New `StatStrip` (`shared/stat-strip.ts`): every page's row of big icon cards is now one slim summary bar; zero values are muted grey, only attention-worthy numbers get colour. Used on both dashboards, Payroll, Activity Log, Notifications and the scholar Payments / Compliance / Notifications pages.
+- Payroll: the "Batch Summary" card and the Selected / Total Amount cards are gone; "N selected · Total ₱X for <period>" sits in the action bar. The side panel no longer exists, so the table gets full width.
+- Detail panels ("Select a payment…", "Select a log entry…", compliance, notifications, registrations) only appear once something is selected; before that the list uses the full width. Grids use `items-start`, so cards no longer stretch to match a taller neighbour (dashboards, reports, scholars, notifications).
+- One page rhythm: every page's top-level blocks sit in a single column with a 16px gap (global rule in styles.css), replacing the random mix of mb-3/4/5/6.
+- Tests updated for the new payroll summary; screenshots/ refreshed.
+
 ### 2026-11-20 — UX fixes 4–7 + medium/small issues
 **4. Payroll safeguards**
 - Buttons now follow the workflow: Preview (Step 1) → Process Payroll (Step 2) → Release Payments (Step 3, outlined, set apart). Disabled buttons say why, in a visible line and a tooltip; Release is off until something is actually due.

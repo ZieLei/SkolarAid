@@ -7,19 +7,13 @@ import { DatePipeShort, statusColor, RequirementNamePipe } from '../../core/form
 import { ComplianceItem, ScholarCompliance } from '../../core/models';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
+import { StatItem, StatStrip } from '../../shared/stat-strip';
 
 @Component({
   selector: 'app-scholar-compliance',
-  imports: [RequirementNamePipe, ScrollCue, AppIcon, FormsModule, DatePipeShort],
+  imports: [StatStrip, RequirementNamePipe, ScrollCue, AppIcon, FormsModule, DatePipeShort],
   template: `
-    <div class="mb-5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5">
-      <div class="card flex h-[88px] items-center gap-4 px-5"><app-icon name="file" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Total Requirements</p><p class="text-[26px] font-bold text-brand">{{ data()?.total ?? 0 }}</p></div></div>
-      <div class="card flex h-[88px] items-center gap-4 px-5"><app-icon name="checked" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Completed</p><p class="text-[26px] font-bold text-ok">{{ data()?.completed ?? 0 }}</p></div></div>
-      <div class="card flex h-[88px] items-center gap-4 px-5"><app-icon name="wall-clock" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Pending</p><p class="text-[26px] font-bold text-pending">{{ data()?.pending ?? 0 }}</p></div></div>
-      <div class="card flex h-[88px] items-center gap-4 px-5"><app-icon name="overdue" class="card-icon h-[45px] w-[45px]"></app-icon><div><p class="text-[11pt] font-bold text-label">Overdue</p><p class="text-[26px] font-bold text-danger">{{ data()?.overdue ?? 0 }}</p></div></div>
-      <div class="card flex h-[88px] flex-col justify-center px-5"><p class="text-[12pt] font-bold text-label">Compliance Rate</p><p class="text-[28px] font-bold text-brand">{{ data()?.rate ?? 0 }}%</p>
-        <div class="h-[10px] w-full overflow-hidden rounded bg-[#e6e6e6]"><div class="h-full bg-ok" [style.width.%]="data()?.rate ?? 0"></div></div></div>
-    </div>
+    <app-stat-strip [items]="stats()" />
 
     @if (toDo() > 0) {
       <div class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border-l-4 border-warn bg-[#fff8e6] px-5 py-3" role="status">
@@ -37,7 +31,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
       <div class="ml-auto flex gap-2"><button class="btn btn-gray" (click)="status = 'All'; type = 'All Types'">Clear</button><button class="btn btn-brand" (click)="load()">Refresh</button></div>
     </div>
 
-    <div class="grid gap-5 xl:grid-cols-[1fr_360px]">
+    <div class="grid items-start gap-5" [class]="sel() ? 'xl:grid-cols-[1fr_360px]' : ''">
       <section class="card overflow-hidden">
         <div scrollCue class="grid-wrap max-h-[520px]"><table class="dgrid">
           <thead><tr><th>ID</th><th>Requirement Type</th><th>Due Date</th><th>Date Submitted</th><th>Status</th><th>Action</th></tr></thead>
@@ -55,7 +49,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
         <p class="px-3 py-2 text-[9pt] text-muted">Showing {{ filtered().length }} records</p>
       </section>
 
-      <aside class="card p-5">
+      @if (sel()) { <aside class="card p-5">
         <h2 class="mb-3 text-[16pt] font-bold text-brand">Requirement Details</h2>
         @if (sel(); as c) {
           <p class="mb-3 text-[14pt] font-bold text-brand">#{{ c.id }}</p>
@@ -73,8 +67,8 @@ import { ScrollCue } from '../../shared/scroll-cue';
               <input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" [disabled]="busy()" (change)="upload($event, c)" /></label>
             <p class="mt-1 text-[12px] text-muted">PDF, Word or image, up to 10 MB.</p>
           }
-        } @else { <p class="text-[12px] text-muted">Select a requirement to see its details.</p> }
-      </aside>
+        }
+      </aside> }
     </div>
   `,
 })
@@ -92,6 +86,16 @@ export class ScholarCompliancePage implements OnInit {
   types = computed(() => [...new Set((this.data()?.items ?? []).map((i) => i.requirementType))]);
   filtered = computed(() => (this.data()?.items ?? []).filter((i) => (this.statusSig() === 'All' || i.status === this.statusSig()) && (this.typeSig() === 'All Types' || i.requirementType === this.typeSig())));
 
+  stats = computed<StatItem[]>(() => {
+    const d = this.data();
+    return [
+      { label: 'Requirements', value: d?.total ?? 0 },
+      { label: 'Completed', value: d?.completed ?? 0, tone: 'ok' },
+      { label: 'To submit', value: d?.pending ?? 0, tone: 'pending' },
+      { label: 'Overdue', value: d?.overdue ?? 0, tone: 'danger' },
+      { label: 'Compliance rate', value: (d?.rate ?? 0) + '%', progress: d?.rate ?? 0 },
+    ];
+  });
   canUpload = (c: ComplianceItem): boolean => c.status === 'Pending' || c.status === 'Rejected' || c.status === 'Overdue';
   toDo = computed(() => (this.data()?.items ?? []).filter((i) => this.canUpload(i)).length);
   showToDo(): void { const first = (this.data()?.items ?? []).find((i) => this.canUpload(i)); if (first) this.sel.set(first); }

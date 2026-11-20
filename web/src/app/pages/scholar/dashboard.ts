@@ -3,14 +3,15 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
-import { DatePipeShort, NOTIFICATION_COLORS, PesoPipe, relativeTime, statusColor, RequirementNamePipe } from '../../core/format';
+import { DatePipeShort, NOTIFICATION_COLORS, PesoPipe, relativeTime, statusColor, RequirementNamePipe, formatPeso } from '../../core/format';
 import { ScholarDashboard } from '../../core/models';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
+import { StatItem, StatStrip } from '../../shared/stat-strip';
 
 @Component({
   selector: 'app-scholar-dashboard',
-  imports: [RequirementNamePipe, ScrollCue, AppIcon, RouterLink, PesoPipe, DatePipeShort],
+  imports: [StatStrip, RequirementNamePipe, ScrollCue, AppIcon, RouterLink, PesoPipe, DatePipeShort],
   template: `
     <h1 class="text-[22pt] font-bold text-brand">Welcome back!</h1>
     <p class="mb-5 text-[13pt] text-[#646464]">{{ today }}</p>
@@ -26,20 +27,10 @@ import { ScrollCue } from '../../shared/scroll-cue';
           <a routerLink="/scholar/compliance" class="btn btn-ok !h-[40px] !px-5">Upload documents</a>
         </div>
       }
-      <div class="mb-6 grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-6">
-        <div class="card flex h-[140px] items-center gap-4 px-5"><app-icon name="wallet" class="card-icon h-[60px] w-[55px]"></app-icon>
-          <div><p class="text-[13pt] font-bold text-label">Total Stipend Received</p><p class="text-[30px] font-bold text-brand">{{ d.totalStipend | peso }}</p></div></div>
-        <div class="card flex h-[140px] items-center gap-4 px-5"><app-icon name="dollar" class="card-icon h-[60px] w-[55px]"></app-icon>
-          <div><p class="text-[13pt] font-bold text-label">Next Payment</p><p class="text-[30px] font-bold text-brand">{{ d.nextPaymentAmount ?? d.scholarshipStipend | peso }}</p><p class="text-[10pt] font-bold text-[#646464]">{{ d.nextPaymentDate }}</p><p class="text-[9pt] leading-tight text-[#646464]">{{ d.nextPaymentNote }}</p></div></div>
-        <div class="card flex h-[140px] items-center gap-4 px-5"><app-icon name="scholar" class="card-icon h-[60px] w-[55px]"></app-icon>
-          <div><p class="text-[13pt] font-bold text-label">Scholarship Type</p><p class="text-[15pt] font-bold leading-tight text-brand" [title]="d.scholarshipName">{{ d.scholarshipName }}</p></div></div>
-        <div class="card flex h-[140px] items-center gap-4 px-5"><app-icon name="file" class="card-icon h-[60px] w-[55px]"></app-icon>
-          <div class="flex-1"><p class="text-[13pt] font-bold text-label">Compliance Rate</p><p class="text-[30px] font-bold text-brand">{{ d.complianceRate }}%</p>
-            <div class="h-[10px] w-full max-w-[200px] overflow-hidden rounded bg-[#e6e6e6]"><div class="h-full bg-ok" [style.width.%]="d.complianceRate"></div></div></div></div>
-      </div>
+      <app-stat-strip [items]="stats(d)" />
 
-      <div class="grid gap-6 xl:grid-cols-[1fr_1fr]">
-        <div class="space-y-6">
+      <div class="grid items-start gap-4 xl:grid-cols-[1fr_1fr]">
+        <div class="space-y-4">
           <section class="card p-5">
             <div class="mb-3 flex items-center"><h2 class="text-[16pt] font-bold text-brand">Recent Payments</h2><a routerLink="/scholar/payments" class="btn btn-brand ml-auto !h-[30px] !text-[12px]">View All</a></div>
             <div scrollCue class="grid-wrap max-h-[270px]"><table class="dgrid"><thead><tr><th>Period</th><th>Amount</th><th>Status</th><th>Release Date</th></tr></thead>
@@ -76,5 +67,14 @@ export class ScholarDashboardPage implements OnInit {
   d = signal<ScholarDashboard | null>(null);
   today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   color = statusColor; rel = relativeTime; tcolor = (t: string) => NOTIFICATION_COLORS[t] ?? '#646464';
+  stats(d: ScholarDashboard): StatItem[] {
+    return [
+      { label: 'Stipend received', value: formatPeso(d.totalStipend), tone: 'ok' },
+      { label: 'Next payment', value: formatPeso(d.nextPaymentAmount ?? d.scholarshipStipend), sub: d.nextPaymentDate + ' · ' + d.nextPaymentNote },
+      { label: 'Scholarship', value: d.scholarshipName },
+      { label: 'Compliance rate', value: d.complianceRate + '%', progress: d.complianceRate },
+    ];
+  }
+
   async ngOnInit(): Promise<void> { try { this.d.set(await firstValueFrom(this.api.get<ScholarDashboard>('/scholar/dashboard'))); } catch (e) { void this.dlg.error(errorMessage(e)); } }
 }

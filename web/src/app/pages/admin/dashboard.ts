@@ -9,28 +9,18 @@ import { ChartPoint, DashboardStats, RecentActivity, UpcomingPayment } from '../
 import { lineConfig, makeChart, pieConfig } from '../../shared/charts';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
+import { StatItem, StatStrip } from '../../shared/stat-strip';
 
 @Component({
   selector: 'app-admin-dashboard',
-  imports: [ScrollCue, AppIcon, PesoPipe, DatePipeShort],
+  imports: [StatStrip, ScrollCue, AppIcon, PesoPipe, DatePipeShort],
   template: `
     <h1 class="text-[20pt] font-bold text-ink">Welcome back, {{ auth.user()?.name || 'Administrator' }}!</h1>
     <p class="mb-5 text-[12pt] text-[#646464]">{{ today }}</p>
 
-    <div class="mb-6 grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-6">
-      @for (c of cards(); track c.label) {
-        <div class="card flex h-[130px] items-center gap-4 px-5">
-          <app-icon [name]="c.icon" class="card-icon h-[55px] w-[50px]"></app-icon>
-          <div>
-            <p class="text-[12pt] font-bold text-label">{{ c.label }}</p>
-            <p class="font-bold" [class.text-brand]="!c.danger" [class.text-danger]="c.danger" [class.text-[32px]]="!c.money" [class.text-[28px]]="c.money">{{ c.value }}</p>
-            @if (c.hint) { <p class="text-[12px] leading-tight text-muted">{{ c.hint }}</p> }
-          </div>
-        </div>
-      }
-    </div>
+    <app-stat-strip [items]="cards()" />
 
-    <div class="mb-6 grid gap-6 xl:grid-cols-[470px_1fr]">
+    <div class="grid items-start gap-4 xl:grid-cols-[470px_1fr]">
       <section class="card p-4">
         <h2 class="border-b-2 border-[#e6e6e6] pb-2 text-[14pt] font-bold text-brand">Recent Activity</h2>
         <ul class="mt-2 max-h-[260px] divide-y divide-[#f0f0f0] overflow-auto">
@@ -61,7 +51,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
       </section>
     </div>
 
-    <div class="grid gap-6 lg:grid-cols-2">
+    <div class="grid items-start gap-4 lg:grid-cols-2">
       <section class="card p-4"><h2 class="mb-2 text-[14pt] font-bold text-brand">Scholarship Distribution</h2><div class="h-[260px]"><canvas #pie></canvas></div></section>
       <section class="card p-4"><h2 class="mb-2 text-[14pt] font-bold text-brand">Monthly Disbursements</h2><div class="h-[260px]"><canvas #line></canvas></div></section>
     </div>
@@ -76,7 +66,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   private charts: Chart[] = [];
 
   today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  cards = signal<{ label: string; value: string; icon: string; danger?: boolean; money?: boolean; hint?: string }[]>([]);
+  cards = signal<{ label: string; value: string; icon: string; danger?: boolean; money?: boolean; hint?: string; tone?: 'pending' }[]>([]);
   recent = signal<RecentActivity[]>([]);
   upcoming = signal<UpcomingPayment[]>([]);
   color = statusColor;
@@ -96,7 +86,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
         { label: 'Active Scholarships', value: String(s.activeScholarships), icon: 'checked', hint: 'Scholarship programs in use' },
         { label: 'Total Disbursed', value: formatPeso(s.totalDisbursed), icon: 'wallet', money: true,
           hint: s.queuedAmount > 0 ? `Released only · ${formatPeso(s.queuedAmount)} processed, awaiting release` : 'Released to scholars' },
-        { label: 'Pending Payments', value: String(s.pendingPayments), icon: 'wall-clock', danger: true, hint: 'Processed, not yet released' },
+        { label: 'Pending Payments', value: String(s.pendingPayments), icon: 'wall-clock', danger: true, tone: 'pending', hint: 'Processed, not yet released' },
       ]);
       this.recent.set(r); this.upcoming.set(u);
       setTimeout(async () => {

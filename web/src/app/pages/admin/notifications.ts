@@ -11,19 +11,13 @@ import { ComposeResult, NotificationItem, NotificationStats, Option, Registratio
 import { Modal } from '../../shared/modal';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
+import { StatItem, StatStrip } from '../../shared/stat-strip';
 
 @Component({
   selector: 'app-notifications',
-  imports: [ScrollCue, AppIcon, FormsModule, DateTimePipe, DatePipeShort, PesoPipe, Modal],
+  imports: [StatStrip, ScrollCue, AppIcon, FormsModule, DateTimePipe, DatePipeShort, PesoPipe, Modal],
   template: `
-    <div class="mb-4 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5">
-      @for (c of cards(); track c.label) {
-        <div class="card flex h-[88px] items-center gap-4 px-4" [title]="c.hint">
-          <app-icon [name]="c.icon" class="card-icon h-[48px] w-[45px]"></app-icon>
-          <div><p class="text-[11pt] font-bold">{{ c.label }}</p><p class="text-[26px] font-bold" [style.color]="c.color">{{ c.value }}</p></div>
-        </div>
-      }
-    </div>
+    <app-stat-strip [items]="cards()" />
 
     <div class="mb-4 flex gap-1 border-b-2 border-[#d9d9d9]">
       @for (t of tabs; track t.id) {
@@ -51,7 +45,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
         </div>
       </div>
 
-      <div class="grid gap-4 xl:grid-cols-[400px_1fr_230px]">
+      <div class="grid items-start gap-4" [class]="sel() ? 'xl:grid-cols-[400px_1fr_260px]' : 'xl:grid-cols-[400px_1fr]'">
         <section class="card p-5">
           <h2 class="mb-3 text-[14pt] font-bold text-accent">Compose Notification</h2>
           <div class="grid grid-cols-2 gap-3">
@@ -88,7 +82,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
           </div>
         </section>
 
-        <aside class="card p-4">
+        @if (sel()) { <aside class="card p-4">
           <h2 class="mb-3 text-[12pt] font-bold text-accent">Notification Details</h2>
           @if (sel(); as n) {
             <p class="text-[12px]">Date: {{ n.dateCreated | dt }}</p><p class="text-[12px]">Sender: {{ n.senderName }}</p><p class="text-[12px]">Recipient: {{ n.recipientName }}</p>
@@ -97,11 +91,11 @@ import { ScrollCue } from '../../shared/scroll-cue';
             <div class="mb-3 max-h-[260px] overflow-auto whitespace-pre-wrap rounded bg-surface p-2 text-[12px]">{{ n.message }}</div>
             <button class="btn btn-accent mb-2 w-full" (click)="resend(n)">Resend Notification</button>
             <button class="btn btn-danger w-full" (click)="remove(n)">Delete</button>
-          } @else { <p class="text-[12px] text-muted">Select a notification to see its details.</p> }
-        </aside>
+          }
+        </aside> }
       </div>
     } @else {
-      <div class="grid gap-4 xl:grid-cols-[480px_1fr]">
+      <div class="grid items-start gap-4" [class]="regSel() ? 'xl:grid-cols-[480px_1fr]' : ''">
         <section class="card max-h-[640px] overflow-auto p-3">
           @for (r of regs(); track r.id) {
             <button class="mb-2 w-full rounded-lg border p-3 text-left transition hover:bg-[#f0f7f8]" [class.border-accent]="regSel()?.id === r.id" [class.border-[#e6e6e6]]="regSel()?.id !== r.id" (click)="openReg(r.id)">
@@ -112,7 +106,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
           } @empty { <p class="p-6 text-center text-[13px] text-[#595959]">No registrations</p> }
         </section>
 
-        <section class="card p-5">
+        @if (regSel()) { <section class="card p-5">
           @if (regSel(); as r) {
             <div class="mb-3 flex items-center"><h2 class="text-[14pt] font-bold text-accent">{{ r.firstName }} {{ r.middleName }} {{ r.lastName }}</h2>
               <span class="ml-3 text-[13px] font-bold" [style.color]="color(r.status)">{{ r.status }}</span></div>
@@ -135,8 +129,8 @@ import { ScrollCue } from '../../shared/scroll-cue';
             @if (r.status === 'Pending') {
               <div class="flex gap-3"><button class="btn btn-ok !h-[40px]" [disabled]="busy()" (click)="approve(r)"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Approve</button><button class="btn btn-danger !h-[40px]" [disabled]="busy()" (click)="rejectOpen.set(true)">✗ Reject</button></div>
             }
-          } @else { <p class="text-[13px] text-muted">Select a registration to view details</p> }
-        </section>
+          }
+        </section> }
       </div>
     }
 
@@ -180,9 +174,9 @@ export class NotificationsPage implements OnInit, OnDestroy {
     const s = this.stats();
     return [
       { label: 'Total Sent', value: s?.total ?? 0, icon: 'bell', color: '#0a5c5c', hint: 'All in-app notifications sent (not affected by the filters below)' },
-      { label: 'Unread', value: s?.unread ?? 0, icon: 'wall-clock', color: '#8a5300', hint: 'In-app notifications scholars have not opened yet' },
+      { label: 'Unread', value: s?.unread ?? 0, icon: 'wall-clock', color: '#8a5300', tone: 'pending' as const, hint: 'In-app notifications scholars have not opened yet' },
       { label: 'Read', value: s?.read ?? 0, icon: 'checked', color: '#17692c', hint: 'In-app notifications scholars have opened' },
-      { label: 'Awaiting Approval', value: s?.pendingRegistrations ?? 0, icon: 'file', color: '#b42318', hint: 'New scholar registrations waiting for review' },
+      { label: 'Awaiting Approval', value: s?.pendingRegistrations ?? 0, icon: 'file', color: '#b42318', tone: 'pending' as const, hint: 'New scholar registrations waiting for review' },
     ];
   });
 

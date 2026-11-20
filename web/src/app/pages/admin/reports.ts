@@ -23,7 +23,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
     </div>
 
     @if (tab() === 'reports') {
-      <div class="grid gap-4 xl:grid-cols-[1fr_330px]">
+      <div class="grid items-start gap-4 xl:grid-cols-[1fr_330px]">
         <section class="card p-5">
           <div class="mb-3 flex flex-wrap items-end gap-4">
             <div><label class="field-label-b">Report Type:</label><select class="input !w-[230px]" [(ngModel)]="q.type">@for (t of reportTypes(); track t) { <option>{{ t }}</option> }</select></div>
@@ -47,7 +47,7 @@ import { ScrollCue } from '../../shared/scroll-cue';
                 <thead><tr>@for (c of r.columns; track c) { <th>{{ c }}</th> }</tr></thead>
                 <tbody>@for (row of r.rows; track $index; let i = $index) { <tr [class.alt]="i % 2 === 1">@for (cell of row; track $index) { <td>{{ cell }}</td> }</tr> } @empty { <tr><td [attr.colspan]="r.columns.length" class="!py-8 text-center text-[#595959]">No records found</td></tr> }</tbody>
               </table>
-            } @else { <p class="p-10 text-center text-[13px] text-[#595959]">Choose a report type and press “Generate Report”.</p> }
+            } @else { <p class="p-6 text-center text-[13px] text-[#595959]">Choose a report type and press “Generate Report”.</p> }
           </div>
         </section>
 
