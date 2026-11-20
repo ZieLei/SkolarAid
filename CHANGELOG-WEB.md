@@ -14,6 +14,12 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Two years of dummy data
+- New `api/src/SkolarAid.Api/Infrastructure/HistorySeeder.cs`, switched on by `Seed:HistoricalData` (env `SEED_HISTORICAL_DATA=true`, wired in `run.sh` for `dev` and `demo`, documented in `.env.example`). Off by default. Idempotent (skips if seeded scholars exist) and deterministic (fixed random seed).
+- Fills Nov 2024 – Nov 2026 with: 64 scholars (with login accounts), their approved registrations plus 8 pending/rejected ones, 5 compliance requirements each (placeholder PDFs attached where submitted), 862 monthly/semi-annual Released payments (~₱3.9M), ~930 notifications and ~1,800 activity-log entries. Mix of Active, Probation, Inactive and Dropped scholars.
+- All seeded scholars log in with their Student ID (e.g. 2025-000044) and password `Scholar#123`; their emails end in `@seed.iskolaraid.test`.
+- Existing records (the original 5 scholars, Adachi, Shimamura) are untouched. Applied to the local dev DB via `SEED_HISTORICAL_DATA=true` in `.env`. To remove the data, delete rows whose scholar email ends in `@seed.iskolaraid.test` (or reset the database).
+
 ### 2026-11-20 — Fewer cards, no dead zones
 - New `StatStrip` (`shared/stat-strip.ts`): every page's row of big icon cards is now one slim summary bar; zero values are muted grey, only attention-worthy numbers get colour. Used on both dashboards, Payroll, Activity Log, Notifications and the scholar Payments / Compliance / Notifications pages.
 - Payroll: the "Batch Summary" card and the Selected / Total Amount cards are gone; "N selected · Total ₱X for <period>" sits in the action bar. The side panel no longer exists, so the table gets full width.
