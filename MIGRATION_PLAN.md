@@ -210,3 +210,12 @@ docker-compose.yml  API + MySQL
 7. Dashboard, reports, activity logs, notifications.
 8. Scholar portal (5 screens).
 9. Tests, README, parity checklist.
+
+## 11. Phase 2 outcome (updates to the plan above)
+
+* **R2 materialised:** Pomelo's newest stable release (9.0.0) targets EF Core 9, so the API runs on **.NET 10 with EF Core 9 + Pomelo 9.0.0**. Revisit when Pomelo ships EF Core 10 support.
+* C# 14 note: `string[].Contains()` binds to a span overload that EF Core 9 can't translate; the code uses `List<string>` in queries (covered by a test).
+* All decisions in section 8 were implemented as written. Additional fixes found while porting: failed activity-log writes could poison the next `SaveChanges` (now detached); payroll status counts and scholar numbering use client-safe/`MAX` logic; registration approval carries documents across.
+* UI fidelity: colours (`#00444F`, `#005A69`, `#0A5C5C`, `#F3F4F6`…), sizes (80px header, 280/300px sidebars, 55/60px nav rows) and text were read from the Designer files; the login/register background and icons are the original resources.
+* `Database__Provider=Sqlite` exists only for throw-away demos/UI checks without a MySQL server; MySQL is the supported database.
+* Deliverables: [README.md](README.md), [PARITY_CHECKLIST.md](PARITY_CHECKLIST.md), `docker-compose.yml`, `db/existing-database.sql`.
