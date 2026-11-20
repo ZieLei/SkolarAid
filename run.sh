@@ -108,6 +108,7 @@ MSG
     export ConnectionStrings__Default="${ConnectionStrings__Default:-Server=${MYSQL_HOST:-localhost};Port=${MYSQL_PORT:-3306};Database=${MYSQL_DATABASE:-iskolaraid};User=${MYSQL_USER:-root};Password=${MYSQL_PASSWORD};}"
     export Jwt__Key="$JWT_KEY"
     export Database__AutoMigrate=true
+    export Database__ServerType="${DB_SERVER_TYPE:-MySql}" Database__ServerVersion="${DB_SERVER_VERSION:-8.0.36}"
     export Cors__Origins="${CORS_ORIGINS:-http://localhost:4200}"
     export Seed__AdminUsername="${SEED_ADMIN_USERNAME:-admin}"
     export Seed__AdminPassword="${SEED_ADMIN_PASSWORD:-}"

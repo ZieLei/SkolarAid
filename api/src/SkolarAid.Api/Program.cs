@@ -32,11 +32,12 @@ if (string.IsNullOrWhiteSpace(jwt.Key) || jwt.Key.Length < 32)
 var cs = config.GetConnectionString("Default");
 if (string.IsNullOrWhiteSpace(cs)) throw new InvalidOperationException("ConnectionStrings__Default is required.");
 var serverVersion = Version.Parse(config["Database:ServerVersion"] ?? "8.0.36");
+var serverType = string.Equals(config["Database:ServerType"], "MariaDb", StringComparison.OrdinalIgnoreCase) ? ServerType.MariaDb : ServerType.MySql;
 // MySQL is the real database. "Sqlite" exists only for throw-away demos/UI checks without a MySQL server.
 var useSqlite = string.Equals(config["Database:Provider"], "Sqlite", StringComparison.OrdinalIgnoreCase);
 builder.Services.AddDbContext<SkolarDbContext>(o =>
 {
-    if (useSqlite) o.UseSqlite(cs); else o.UseMySql(cs, new MySqlServerVersion(serverVersion));
+    if (useSqlite) o.UseSqlite(cs); else o.UseMySql(cs, ServerVersion.Create(serverVersion, serverType));
 });
 
 // ---- Services ----
