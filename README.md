@@ -122,6 +122,10 @@ web/src/app/pages         one component per original WinForms screen
 web/src/app/shared        icons, modals, summary strip, form errors, chart setup
 ```
 
+## Change something
+
+Run `./run.sh test` before you push. It runs the API and web test suites in one go.
+
 ## Know who can do what
 
 * `ADMIN` reaches every `/api/admin/*` endpoint and `/admin/*` route.

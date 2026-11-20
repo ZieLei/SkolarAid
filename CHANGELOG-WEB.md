@@ -14,6 +14,9 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — README: "Change something" note
+- Added a short section telling contributors to run `./run.sh test` before pushing.
+
 ### 2026-11-20 — Page description and theme colour
 - `web/src/index.html`: added a meta description and a teal `theme-color` (colours the browser bar on phones).
 
