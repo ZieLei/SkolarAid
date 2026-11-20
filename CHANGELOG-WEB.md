@@ -14,6 +14,11 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — README rewrite and repo description
+- README rewritten in a plainer voice: headings and sentences start with verbs (Try it, Run with Docker, Fill a dev database with fake data, Configure, Build and test...), inline comments that only restated the command are gone, and stale facts are fixed (74 API / 17 web tests, shared shell layout, demo logins and the history-seed switches, MariaDB `Database__ServerType`).
+- GitHub repository description changed from "Skolar Managment using WinForms and mysql..." (typos, old name) to a verb-led one.
+- Email sender name in `appsettings.json` now says IskolarAid.
+
 ### 2026-11-20 — Admin layout now matches the scholar layout
 - `web/src/app/layout/admin-shell.ts`: the full-width teal top bar is gone. Like the scholar portal, the teal sidebar runs the full height with the logo block at its top, and the header is plain light with the burger button (outside the sidebar), the page title on the left and the user + Logout on the right. Sidebar widths (300/76) and item height (60px) are shared with the scholar side.
 - The header now shows the current page's title in every admin page (so the duplicate "Scholar Management" heading inside that page was removed); the dashboard keeps its "Welcome back" greeting like the scholar dashboard does.
