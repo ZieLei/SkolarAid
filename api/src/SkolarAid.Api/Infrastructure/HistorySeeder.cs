@@ -40,12 +40,6 @@ public static class HistorySeeder
     private static readonly string[] Puroks = ["Poblacion", "Ngan", "Mapaca", "Osmeña", "Gabi", "Bango", "Lagab"];
     private static readonly string[] Methods = ["Bank Transfer", "Bank Transfer", "Bank Transfer", "Mobile Wallet", "Cash"];
 
-    private static readonly byte[] PlaceholderPdf = Encoding.ASCII.GetBytes(
-        "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n" +
-        "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 120]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n" +
-        "4 0 obj<</Length 62>>stream\nBT /F1 14 Tf 20 60 Td (Sample document - seeded data) Tj ET\nendstream endobj\n" +
-        "5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%EOF");
-
     public static async Task SeedAsync(IServiceProvider sp, ILogger log)
     {
         var db = sp.GetRequiredService<SkolarDbContext>();
@@ -177,21 +171,12 @@ public static class HistorySeeder
                     rec.DateSubmitted = joined.AddDays(rng.Next(1, 20)); rec.FilePath = $"{ComplianceRules.DocKeys[k].ToLowerInvariant()}-{s.StudentId}.pdf";
                     if (st != "Submitted") rec.CheckedBy = admin.Id;
                     if (st == "Rejected") rec.Remarks = "Document is blurry or incomplete. Please upload a clearer copy.";
-                    db.ComplianceRecords.Add(rec);
-                    db.FileAttachments.Add(new FileAttachment
-                    {
-                        ScholarId = 0, Compliance = rec, FileName = rec.FilePath, OriginalName = rec.FilePath, FileType = ".pdf", FileSize = PlaceholderPdf.Length,
-                        FileData = PlaceholderPdf, UploadedAt = rec.DateSubmitted.Value,
-                    });
+                    db.ComplianceRecords.Add(rec); // the document itself is attached by SampleDocuments
                 }
                 else db.ComplianceRecords.Add(rec);
             }
         }
         await db.SaveChangesAsync();
-        // FileAttachment.ScholarId has no navigation; set it from the compliance record now that ids exist
-        foreach (var f in await db.FileAttachments.Include(x => x.Compliance).Where(x => x.ScholarId == 0).ToListAsync()) f.ScholarId = f.Compliance!.ScholarId;
-        await db.SaveChangesAsync();
-
         // payroll: one payment per scholar per due month; everything before this month is released
         var refSeq = 0; var paymentCount = 0; var releasedByMonth = new SortedDictionary<DateTime, (int Count, decimal Total)>();
         foreach (var (s, _, joined, ends) in scholars)

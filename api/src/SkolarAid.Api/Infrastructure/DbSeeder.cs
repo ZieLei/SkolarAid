@@ -39,7 +39,11 @@ public static class DbSeeder
             await UpsertDemoAsync(db, passwords, Roles.Scholar, "Shimamura", "shimamura123", "Shimamura", log);
         }
 
-        if (config.GetValue<bool>("Seed:HistoricalData")) await HistorySeeder.SeedAsync(sp, log);
+        if (config.GetValue<bool>("Seed:HistoricalData"))
+        {
+            await HistorySeeder.SeedAsync(sp, log);
+            await SampleDocuments.AttachAsync(db, log);
+        }
 
         if (config.GetValue<bool>("Seed:SampleData") && !await db.ScholarshipTypes.AnyAsync())
         {

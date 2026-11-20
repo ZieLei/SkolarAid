@@ -14,6 +14,10 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Made-up documents for file attachments
+- New `api/src/SkolarAid.Api/Infrastructure/SampleDocuments.cs`: five generated, valid one-page PDFs (PSA Birth Certificate, Certificate of Enrollment, Certificate of Registration, Report of Grades, Scholarship Contract), each stamped "SAMPLE DOCUMENT". Runs with `SEED_HISTORICAL_DATA=true`.
+- Every compliance record that is Submitted / Approved / Rejected now has the matching file attached, for everyone in the database (the original 5 scholars included): same 5 files shared by all, 66/66/66/55/55 attachments. Pending/Overdue records stay empty on purpose. Replaces the tiny placeholder PDFs from the history seeder (which no longer creates files). Anything a real user uploaded is left alone; re-running does nothing.
+
 ### 2026-11-20 — Remove duplicate Notifications/Registrations tabs
 - `web/src/app/pages/admin/notifications.ts`: the in-page "Notifications | Registrations" tab strip is gone. The sidebar already has both entries, so each is now reached one way only (`/admin/notifications` and `/admin/notifications?tab=reg`). The notification stat strip shows only on the Notifications view.
 - Removed an unused import warning in the admin dashboard.
