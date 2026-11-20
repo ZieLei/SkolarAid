@@ -50,7 +50,8 @@ const blank = (): Form => ({
       <app-compliance-tab [preselect]="complianceFor()" />
     } @else {
       <div class="card mb-4 flex flex-wrap items-center gap-3 p-4">
-        <button class="btn btn-brand !h-[35px] !px-4" (click)="typesOpen.set(true)">Manage scholarships</button>
+        <button class="btn btn-brand !h-[35px] !px-4" (click)="openAdd()"><app-icon name="user" class="h-4 w-4"></app-icon>Add scholar</button>
+        <button class="btn btn-outline !h-[35px] !px-4" (click)="typesOpen.set(true)">Manage scholarships</button>
         <div class="relative min-w-[240px] flex-1">
           <app-icon name="search" class="absolute left-2 top-[7px] h-4 w-4 text-muted"></app-icon>
           <input class="input !pl-8" placeholder="Search scholar..." [ngModel]="search()" (ngModelChange)="onSearch($event)" aria-label="Search scholar" />
@@ -65,10 +66,9 @@ const blank = (): Form => ({
         </select>
       </div>
 
-      <div class="grid items-start gap-4 min-[1800px]:grid-cols-[1fr_569px]">
-        <section class="card overflow-hidden">
+      <section class="card overflow-hidden">
           <div scrollCue class="grid-wrap">
-            <div class="min-w-[980px]" role="table" aria-label="Scholars">
+            <div class="min-w-[900px]" role="table" aria-label="Scholars">
               <div role="row" class="grid overflow-hidden bg-brand text-left text-[13px] font-bold text-white [scrollbar-gutter:stable]" [style.grid-template-columns]="cols">
                 @for (h of heads; track h) { <div role="columnheader" class="h-[35px] truncate px-3 leading-[35px]">{{ h }}</div> }
               </div>
@@ -76,106 +76,102 @@ const blank = (): Form => ({
               <cdk-virtual-scroll-viewport [itemSize]="rowH" [style.height.px]="viewportH()" class="max-h-[max(260px,calc(100vh-330px))] [scrollbar-gutter:stable]">
                 <div *cdkVirtualFor="let s of list(); trackBy: trackId; let i = index; templateCacheSize: 0" role="row"
                      class="grid cursor-pointer text-[12px]" [style.grid-template-columns]="cols" [style.height.px]="rowH"
-                     [style.background]="rowBg(i, s.id)"
-                     (click)="select(s.id)" (dblclick)="openDetails(s.id)">
-                  <div role="cell" class="cell">{{ s.id }}</div><div role="cell" class="cell">{{ s.scholarNumber }}</div><div role="cell" class="cell">{{ s.studentId }}</div>
+                     [style.background]="rowBg(i)" (click)="openDetails(s.id)" [attr.title]="'Open ' + s.fullName">
+                  <div role="cell" class="cell">{{ s.scholarNumber }}</div><div role="cell" class="cell">{{ s.studentId }}</div>
                   <div role="cell" class="cell font-bold" [title]="s.fullName"><span class="line-clamp-2 break-words">{{ s.fullName }}</span></div>
                   <div role="cell" class="cell" [title]="s.course ?? ''"><span class="line-clamp-2 break-words">{{ s.course }}</span></div><div role="cell" class="cell">{{ s.yearLevel }}</div>
                   <div role="cell" class="cell" [title]="s.scholarship ?? ''"><span class="line-clamp-2 break-words">{{ s.scholarship || '—' }}</span></div>
                   <div role="cell" class="cell"><span class="font-bold" [style.color]="color(s.status)">{{ s.status }}</span></div>
+                  <div role="cell" class="cell"><button class="btn btn-outline !h-[28px] !px-3 !text-[12px]" (click)="$event.stopPropagation(); openEdit(s.id)" [attr.aria-label]="'Edit ' + s.fullName">Edit</button></div>
                 </div>
               </cdk-virtual-scroll-viewport>
             </div>
           </div>
-          <p class="px-3 py-2 text-[12px] text-muted">Showing {{ list().length }} of {{ total() }} scholars</p>
-        </section>
+          <p class="px-3 py-2 text-[12px] text-muted">Showing {{ list().length }} of {{ total() }} scholars · click a row to see everything about a scholar</p>
+      </section>
 
-        <section class="card p-4">
-          <div class="mb-1 flex flex-wrap items-center gap-2">
-            <h2 class="text-[18px] font-bold text-brand">{{ selectedId() ? 'Edit scholar' : 'Add a new scholar' }}</h2>
-            <span class="rounded-full px-3 py-[2px] text-[12px] font-bold" [class.bg-[#e6f5f5]]="!selectedId()" [class.text-brand]="!selectedId()" [class.bg-[#fff3d6]]="!!selectedId()" [class.text-[#6b4400]]="!!selectedId()">
-              {{ selectedId() ? 'Editing ' + f.firstName + ' ' + f.lastName : 'New record' }}</span>
-            @if (selectedId()) { <button class="btn btn-outline !h-[28px] !px-3 !text-[12px]" (click)="clear()">+ Add another scholar instead</button> }
-          </div>
-          <p class="mb-1 text-[12px] text-[#555]"><span class="font-bold text-[#c62828]">*</span> required. Pick a scholar in the list to edit them.</p>
-
-          <h3 class="section-title">Basic Information</h3>
-          <div class="grid grid-cols-3 gap-x-3 gap-y-2">
-            <div><label class="field-label req">First Name</label><input class="input" [(ngModel)]="f.firstName" maxlength="100" /></div>
-            <div><label class="field-label req">Last Name</label><input class="input" [(ngModel)]="f.lastName" maxlength="100" /></div>
-            <div><label class="field-label">Middle Name</label><input class="input" [(ngModel)]="f.middleName" maxlength="100" /></div>
-            <div class="col-span-2"><label class="field-label req">Email</label><input class="input" type="email" [(ngModel)]="f.email" maxlength="150" /></div>
-            <div><label class="field-label">Contact Number</label><input class="input" [(ngModel)]="f.contactNumber" maxlength="30" /></div>
-            <div><label class="field-label">Date of Birth</label><input class="input" type="date" [(ngModel)]="f.dateOfBirth" [max]="todayIso" /></div>
-            <div><label class="field-label req">Gender</label><select class="input" [(ngModel)]="f.gender"><option value="">Select…</option>@for (g of genders; track g) { <option>{{ g }}</option> }</select></div>
-            @if (!selectedId()) { <div><label class="field-label">Suffixes</label><input class="input" [(ngModel)]="f.suffix" maxlength="30" /></div> } @else { <div></div> }
-            <div class="col-span-2"><label class="field-label">Address</label><input class="input" [(ngModel)]="f.address" maxlength="500" /></div>
-            <div><label class="field-label">Student ID #</label><input class="input" [(ngModel)]="f.studentId" maxlength="50" placeholder="auto if blank" /></div>
-          </div>
-
-          <h3 class="section-title">Academic Details</h3>
-          <div class="grid grid-cols-[1fr_90px] gap-x-3">
-            <div><label class="field-label req">Course</label><select class="input" [(ngModel)]="f.course"><option value="">Select...</option>@for (c of courses; track c) { <option>{{ c }}</option> }</select></div>
-            <div><label class="field-label req">Year Level</label><select class="input" [(ngModel)]="f.yearLevel"><option value="">-</option>@for (y of years; track y) { <option>{{ y }}</option> }</select></div>
-          </div>
-
-          <h3 class="section-title">Scholarship Details</h3>
-          <div class="grid grid-cols-2 gap-x-3 gap-y-2">
-            <div><label class="field-label req">Scholarship Type</label>
-              <select class="input" [ngModel]="f.scholarshipTypeId" (ngModelChange)="onTypeChange($event)"><option [ngValue]="0">Select...</option>@for (t of types(); track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }</select></div>
-            <div><label class="field-label">Stipend Amount</label><input class="input" type="number" min="0" step="0.01" [(ngModel)]="f.stipendAmount" placeholder="Set by scholarship type" /></div>
-            <div><label class="field-label">Stipend Frequency</label><select class="input" [(ngModel)]="f.stipendFrequency">@for (x of freqs; track x) { <option>{{ x }}</option> }</select></div>
-            <div><label class="field-label">Scholarship Fund Source</label><select class="input" [(ngModel)]="f.scholarshipFundSource">@for (x of funds; track x) { <option>{{ x }}</option> }</select></div>
-            <div class="col-span-2"><label class="field-label">Renewal Conditions</label><input class="input" [(ngModel)]="f.renewalConditions" maxlength="1000" /></div>
-          </div>
-
-          <h3 class="section-title">Bank Information</h3>
-          <div class="grid grid-cols-[1.5fr_1fr] gap-x-3 gap-y-2">
-            <div><label class="field-label">Bank Name</label><select class="input" [(ngModel)]="f.bankName"><option value="">Select…</option>@for (b of banks; track b) { <option>{{ b }}</option> }@if (f.bankName && !banks.includes(f.bankName)) { <option>{{ f.bankName }}</option> }</select></div>
-            <div><label class="field-label">Account Number</label><input class="input" [(ngModel)]="f.bankAccountNumber" maxlength="50" /></div>
-            <div><label class="field-label">Enrollment Date</label><input class="input" type="date" [(ngModel)]="f.enrollmentDate" /></div>
-            <div><label class="field-label">Expected Graduation</label><input class="input" type="date" [(ngModel)]="f.expectedGraduation" /></div>
-            <div><label class="field-label">Status</label><select class="input" [(ngModel)]="f.status" [disabled]="!selectedId()">@for (s of statuses; track s) { <option>{{ s }}</option> }</select></div>
-            <div><label class="field-label">Scholar Number</label><input class="input" [value]="f.scholarNumber || 'Generated on save'" disabled /></div>
-          </div>
-
-          <h3 class="section-title">Files Attachments</h3>
-          <div class="grid grid-cols-3 gap-x-3 gap-y-2">
-            @for (d of docs; track d.key) {
-              <div>
-                <label class="field-label">{{ d.label }}</label>
-                @if (!selectedId()) {
-                  <label class="btn btn-outline !h-[30px] w-full cursor-pointer justify-start !text-[12px]" [class.!text-ok]="!!pending[d.key]" [attr.title]="pending[d.key]?.name ?? 'Attach file'">
-                    <app-icon [name]="pending[d.key] ? 'checked' : 'attachment'" class="h-4 w-4 shrink-0"></app-icon><span class="truncate">{{ pending[d.key] ? pending[d.key]!.name : 'Attach file' }}</span>
-                    <input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="pickPending(d.key, $event)" />
-                  </label>
-                } @else {
-                  @let doc = docFor(d.key);
-                  @if (doc; as dc) {
-                    <div class="flex gap-1">
-                      <button type="button" class="input !text-left !text-[12px]" [disabled]="!dc.hasFile" (click)="openDoc(dc.complianceId)">{{ dc.hasFile ? dc.fileName : 'Not uploaded' }}</button>
-                      <label class="btn btn-outline !h-[30px] !px-2 !text-[12px]" title="Replace file"><app-icon name="attachment" class="h-4 w-4"></app-icon><input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="replaceDoc(dc.complianceId, $event)" /></label>
-                    </div>
-                  } @else { <span class="text-[12px] text-muted">Not uploaded</span> }
-                }
-              </div>
-            }
-          </div>
-
-          <div class="sticky bottom-0 -mx-4 -mb-4 mt-5 flex flex-wrap gap-2 rounded-b-xl border-t border-[#e0e0e0] bg-white px-4 py-3">
-            @if (!selectedId()) {
-              <button class="btn btn-brand" [disabled]="busy()" (click)="save()">Add Scholar</button>
-            } @else {
-              <button class="btn btn-info" (click)="openDetails(selectedId()!)">View</button>
-              <button class="btn btn-brand" [disabled]="busy()" (click)="save()">Save changes</button>
-              <button class="btn btn-warn" (click)="toggleStatus()">{{ f.status === 'Active' ? 'Deactivate' : 'Reactivate' }}</button>
-              <button class="btn btn-accent" (click)="complianceFor.set(selectedId()); tab.set('compliance')">Compliance</button>
-            }
-            <button class="btn btn-gray" (click)="clear()">{{ selectedId() ? 'Cancel' : 'Clear form' }}</button>
-          </div>
-        </section>
-      </div>
     }
+
+    @if (formOpen()) {
+      <app-modal [title]="selectedId() ? 'Edit ' + f.firstName + ' ' + f.lastName : 'Add a new scholar'" [width]="920" (closed)="closeForm()">
+                  <p class="mb-1 text-[12px] text-[#555]"><span class="font-bold text-[#c62828]">*</span> required.</p>
+
+        <h3 class="section-title">Basic Information</h3>
+        <div class="grid grid-cols-3 gap-x-3 gap-y-2">
+          <div><label class="field-label req">First Name</label><input class="input" [(ngModel)]="f.firstName" maxlength="100" /></div>
+          <div><label class="field-label req">Last Name</label><input class="input" [(ngModel)]="f.lastName" maxlength="100" /></div>
+          <div><label class="field-label">Middle Name</label><input class="input" [(ngModel)]="f.middleName" maxlength="100" /></div>
+          <div class="col-span-2"><label class="field-label req">Email</label><input class="input" type="email" [(ngModel)]="f.email" maxlength="150" /></div>
+          <div><label class="field-label">Contact Number</label><input class="input" [(ngModel)]="f.contactNumber" maxlength="30" /></div>
+          <div><label class="field-label">Date of Birth</label><input class="input" type="date" [(ngModel)]="f.dateOfBirth" [max]="todayIso" /></div>
+          <div><label class="field-label req">Gender</label><select class="input" [(ngModel)]="f.gender"><option value="">Select…</option>@for (g of genders; track g) { <option>{{ g }}</option> }</select></div>
+          @if (!selectedId()) { <div><label class="field-label">Suffixes</label><input class="input" [(ngModel)]="f.suffix" maxlength="30" /></div> } @else { <div></div> }
+          <div class="col-span-2"><label class="field-label">Address</label><input class="input" [(ngModel)]="f.address" maxlength="500" /></div>
+          <div><label class="field-label">Student ID #</label><input class="input" [(ngModel)]="f.studentId" maxlength="50" placeholder="auto if blank" /></div>
+        </div>
+
+        <h3 class="section-title">Academic Details</h3>
+        <div class="grid grid-cols-[1fr_90px] gap-x-3">
+          <div><label class="field-label req">Course</label><select class="input" [(ngModel)]="f.course"><option value="">Select...</option>@for (c of courses; track c) { <option>{{ c }}</option> }</select></div>
+          <div><label class="field-label req">Year Level</label><select class="input" [(ngModel)]="f.yearLevel"><option value="">-</option>@for (y of years; track y) { <option>{{ y }}</option> }</select></div>
+        </div>
+
+        <h3 class="section-title">Scholarship Details</h3>
+        <div class="grid grid-cols-2 gap-x-3 gap-y-2">
+          <div><label class="field-label req">Scholarship Type</label>
+            <select class="input" [ngModel]="f.scholarshipTypeId" (ngModelChange)="onTypeChange($event)"><option [ngValue]="0">Select...</option>@for (t of types(); track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }</select></div>
+          <div><label class="field-label">Stipend Amount</label><input class="input" type="number" min="0" step="0.01" [(ngModel)]="f.stipendAmount" placeholder="Set by scholarship type" /></div>
+          <div><label class="field-label">Stipend Frequency</label><select class="input" [(ngModel)]="f.stipendFrequency">@for (x of freqs; track x) { <option>{{ x }}</option> }</select></div>
+          <div><label class="field-label">Scholarship Fund Source</label><select class="input" [(ngModel)]="f.scholarshipFundSource">@for (x of funds; track x) { <option>{{ x }}</option> }</select></div>
+          <div class="col-span-2"><label class="field-label">Renewal Conditions</label><input class="input" [(ngModel)]="f.renewalConditions" maxlength="1000" /></div>
+        </div>
+
+        <h3 class="section-title">Bank Information</h3>
+        <div class="grid grid-cols-[1.5fr_1fr] gap-x-3 gap-y-2">
+          <div><label class="field-label">Bank Name</label><select class="input" [(ngModel)]="f.bankName"><option value="">Select…</option>@for (b of banks; track b) { <option>{{ b }}</option> }@if (f.bankName && !banks.includes(f.bankName)) { <option>{{ f.bankName }}</option> }</select></div>
+          <div><label class="field-label">Account Number</label><input class="input" [(ngModel)]="f.bankAccountNumber" maxlength="50" /></div>
+          <div><label class="field-label">Enrollment Date</label><input class="input" type="date" [(ngModel)]="f.enrollmentDate" /></div>
+          <div><label class="field-label">Expected Graduation</label><input class="input" type="date" [(ngModel)]="f.expectedGraduation" /></div>
+          <div><label class="field-label">Status</label><select class="input" [(ngModel)]="f.status" [disabled]="!selectedId()">@for (s of statuses; track s) { <option>{{ s }}</option> }</select></div>
+          <div><label class="field-label">Scholar Number</label><input class="input" [value]="f.scholarNumber || 'Generated on save'" disabled /></div>
+        </div>
+
+        <h3 class="section-title">Files Attachments</h3>
+        <div class="grid grid-cols-3 gap-x-3 gap-y-2">
+          @for (d of docs; track d.key) {
+            <div>
+              <label class="field-label">{{ d.label }}</label>
+              @if (!selectedId()) {
+                <label class="btn btn-outline !h-[30px] w-full cursor-pointer justify-start !text-[12px]" [class.!text-ok]="!!pending[d.key]" [attr.title]="pending[d.key]?.name ?? 'Attach file'">
+                  <app-icon [name]="pending[d.key] ? 'checked' : 'attachment'" class="h-4 w-4 shrink-0"></app-icon><span class="truncate">{{ pending[d.key] ? pending[d.key]!.name : 'Attach file' }}</span>
+                  <input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="pickPending(d.key, $event)" />
+                </label>
+              } @else {
+                @let doc = docFor(d.key);
+                @if (doc; as dc) {
+                  <div class="flex gap-1">
+                    <button type="button" class="input !text-left !text-[12px]" [disabled]="!dc.hasFile" (click)="openDoc(dc.complianceId)">{{ dc.hasFile ? dc.fileName : 'Not uploaded' }}</button>
+                    <label class="btn btn-outline !h-[30px] !px-2 !text-[12px]" title="Replace file"><app-icon name="attachment" class="h-4 w-4"></app-icon><input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="replaceDoc(dc.complianceId, $event)" /></label>
+                  </div>
+                } @else { <span class="text-[12px] text-muted">Not uploaded</span> }
+              }
+            </div>
+          }
+        </div>
+
+        <div class="sticky -bottom-5 -mx-5 -mb-5 mt-5 flex flex-wrap gap-2 rounded-b-xl border-t border-[#e0e0e0] bg-white px-5 py-3">
+          @if (!selectedId()) {
+            <button class="btn btn-brand" [disabled]="busy()" (click)="save()">Add Scholar</button>
+          } @else {
+            <button class="btn btn-brand" [disabled]="busy()" (click)="save()">Save changes</button>
+            <button class="btn btn-warn" (click)="toggleStatus()">{{ f.status === 'Active' ? 'Deactivate' : 'Reactivate' }}</button>
+            <button class="btn btn-accent" (click)="closeForm(); complianceFor.set(selectedId()); tab.set('compliance')">Compliance</button>
+          }
+          <button class="btn btn-gray ml-auto" (click)="selectedId() ? closeForm() : clear()">{{ selectedId() ? 'Cancel' : 'Clear form' }}</button>
+        </div>
+      </app-modal>
+    }
+
 
     @if (typesOpen()) { <app-scholarship-types (closed)="typesOpen.set(false)" (changed)="loadTypes()" /> }
 
@@ -196,6 +192,7 @@ const blank = (): Form => ({
 
     @if (details(); as d) {
       <app-modal [title]="d.firstName + ' ' + d.lastName" [width]="860" (closed)="details.set(null)">
+        <div class="mb-3 flex justify-end gap-2"><button class="btn btn-brand" (click)="details.set(null); openEdit(d.id)">Edit this scholar</button></div>
         <div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div class="rounded-lg bg-[#f0f7f8] p-3"><p class="text-[12px] text-muted">Scholar #</p><p class="font-bold text-brand">{{ d.scholarNumber }}</p></div>
           <div class="rounded-lg bg-[#f0f7f8] p-3"><p class="text-[12px] text-muted">Total Received</p><p class="font-bold text-brand">{{ d.totalReceived | peso }}</p></div>
@@ -231,8 +228,8 @@ export class ScholarsPage implements OnInit {
   list = signal<ScholarListItem[]>([]);
   // Virtual list: only the rows in view are rendered; height hugs the content up to MAX_ROWS.
   readonly rowH = 44;
-  readonly heads = ['ID', 'Scholar #', 'Student ID', 'Full Name', 'Course', 'Year', 'Scholarship', 'Status'];
-  readonly cols = '52px 112px 112px minmax(150px,1.3fr) minmax(200px,1.8fr) 84px minmax(150px,1.3fr) 92px';
+  readonly heads = ['Scholar #', 'Student ID', 'Full Name', 'Course', 'Year', 'Scholarship', 'Status', ''];
+  readonly cols = '112px 108px minmax(150px,1.3fr) minmax(190px,1.7fr) 78px minmax(140px,1.2fr) 92px 84px';
   viewportH = computed(() => Math.min(this.list().length, 24) * this.rowH);
   private viewport = viewChild(CdkVirtualScrollViewport);
   /** The viewport's height depends on the data, so tell the CDK to re-measure whenever it changes; otherwise it keeps rendering rows for its old (tiny) size. */
@@ -240,7 +237,7 @@ export class ScholarsPage implements OnInit {
     this.viewportH(); const v = this.viewport();
     if (v) setTimeout(() => v.checkViewportSize());
   });
-  rowBg = (i: number, id: number) => (id === this.selectedId() ? '#e6f5f5' : i % 2 ? '#f5fafa' : '#fff');
+  rowBg = (i: number) => (i % 2 ? '#f5fafa' : '#fff');
   trackId = (_: number, s: ScholarListItem) => s.id;
   total = signal(0);
   filters = signal<ScholarFilters | null>(null);
@@ -252,6 +249,11 @@ export class ScholarsPage implements OnInit {
   busy = signal(false);
   typesOpen = signal(false);
   created = signal<ScholarCreated | null>(null);
+  /** The add/edit form lives in a dialog; the list stays full width. */
+  formOpen = signal(false);
+  openAdd(): void { this.clear(); this.formOpen.set(true); }
+  async openEdit(id: number): Promise<void> { await this.select(id); if (this.selectedId() === id) this.formOpen.set(true); }
+  closeForm(): void { this.formOpen.set(false); this.clear(); }
   details = signal<ScholarDetail | null>(null);
   detailItems = signal<ComplianceItem[]>([]);
   f: Form = blank();
@@ -344,10 +346,11 @@ export class ScholarsPage implements OnInit {
           const file = this.pending[d.key]; const doc = detail.documents.find((x) => x.key === d.key);
           if (file && doc) { const fd = new FormData(); fd.append('file', file, file.name); await firstValueFrom(this.api.upload(`/admin/compliance/${doc.complianceId}/file`, fd)); }
         }
-        this.created.set(c); this.clear();
+        this.created.set(c); this.closeForm();
       } else {
         await firstValueFrom(this.api.put(`/admin/scholars/${this.selectedId()}`, this.payload()));
         await this.select(this.selectedId()!);
+        this.closeForm();
         void this.dlg.success('Scholar updated successfully!');
       }
       await this.loadList();

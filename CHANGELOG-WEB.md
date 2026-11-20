@@ -14,6 +14,11 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — Scholar Management: list first, form in a dialog
+- `web/src/app/pages/admin/scholars.ts`: the add/edit form no longer sits beside or under the table. **Add scholar** (toolbar) opens it in a dialog; every row has an **Edit** button that opens the same dialog filled with that scholar (Save changes / Deactivate / Compliance / Cancel in a sticky footer). Clicking a row opens the full details view (which also has an "Edit this scholar" button).
+- With the form gone the table gets the full width: dropped the internal ID column, tightened column widths, and all of Scholar #, Student ID, name, course, year, scholarship, status and actions fit without sideways scrolling at normal desktop widths.
+- Closing/saving the dialog resets the form; add still shows the temporary-password summary.
+
 ### 2026-11-20 — Fix: table header overlapped by rows while scrolling
 - `web/src/styles.css`: payroll rows that can't be selected are dimmed with `opacity`, which makes each such row its own stacking layer; those rows painted over the sticky header when scrolled under it, so the header looked washed out and the text bled through. The sticky header now has `z-index: 2` (applies to every table).
 
