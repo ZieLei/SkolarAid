@@ -87,6 +87,20 @@ case "$cmd" in
     start_stack
     ;;
   dev)
+    if [[ ! -f .env ]]; then
+      cp .env.example .env
+      key=$(head -c 48 /dev/urandom | base64 | tr -d '\n=+/' | head -c 48)
+      sed -i "s|^JWT_KEY=.*|JWT_KEY=$key|" .env
+      cat <<MSG
+Created .env with a random JWT_KEY. Now edit it and set:
+  MYSQL_USER / MYSQL_PASSWORD   a MySQL account that can create tables (e.g. root for local dev)
+  MYSQL_DATABASE                database name (create it first: CREATE DATABASE iskolaraid CHARACTER SET utf8mb4;)
+  SEED_ADMIN_PASSWORD           password for the first admin login
+Optional: MYSQL_HOST / MYSQL_PORT if MySQL is not on localhost:3306.
+Then run ./run.sh dev again.
+MSG
+      exit 0
+    fi
     load_env
     : "${MYSQL_PASSWORD:?Copy .env.example to .env and set MYSQL_PASSWORD, JWT_KEY, SEED_ADMIN_PASSWORD}"
     : "${JWT_KEY:?Set JWT_KEY in .env}"
