@@ -17,10 +17,10 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
   template: `
     <header class="fixed inset-x-0 top-0 z-30 flex h-[80px] items-center bg-brand px-5">
       <button type="button" class="mr-3 flex h-[36px] w-[36px] items-center justify-center rounded text-white hover:bg-brand-hover" (click)="toggle()" [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'" [attr.aria-expanded]="!collapsed()"><app-icon name="menu" class="h-[24px] w-[24px]"></app-icon></button>
-      <img src="assets/scholar.png" alt="" class="h-[50px] w-[55px] object-contain" />
-      <span class="ml-[10px] text-[16px] font-bold text-white">IskolarAid Admin</span>
+      <img src="assets/logo-white.svg" alt="IskolarAid" class="h-[44px] w-auto" />
+      <span class="ml-4 rounded-full border border-white/60 px-3 py-[2px] text-[12px] font-bold uppercase tracking-[.14em] text-white">Admin</span>
       <div class="ml-auto flex items-center gap-3">
-        <app-icon name="user" class="h-[35px] w-[36px]"></app-icon>
+        <app-icon name="user" class="h-[35px] w-[36px] text-white"></app-icon>
         <span class="text-[14px] font-bold text-[#e6e6e6]">Administrator</span>
         <button class="btn btn-ghost !h-[40px] w-[110px] !text-[14px]" (click)="auth.logout()">Logout</button>
       </div>

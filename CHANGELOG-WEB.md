@@ -14,6 +14,11 @@ Add new entries at the top, newest first.
 
 ## Log
 
+### 2026-11-20 — IskolarAid naming and the real logo
+- **Name.** The product is *IskolarAid* (as in the logo on the login background), not "SkolarAid". Renamed everything in the new stack: solution (`IskolarAid.sln`), projects/folders (`IskolarAid.Api/Core/Data/Tests`), namespaces, `IskolarDbContext` (+ migration snapshot), Dockerfile, `run.sh`, JWT issuer/audience, README/plan docs, and the browser storage key (`iskolaraid.session`). API tests (74) and web tests (17) pass. Left alone on purpose: the legacy WinForms folder `/SkolarAid` and root `SkolarAid.slnx` (original source, untouched), the GitHub/local repo folder name, and the existing MariaDB user `skolaraid`. Users will be asked to log in once (the token issuer changed).
+- **Logo.** The mortarboard-and-hands mark and "IskolarAid" wordmark on `login-bg.png` were traced into clean vectors: `logo-{white,teal}.svg` (lockup), `logo-mark-*.svg`, `logo-wordmark-*.svg`, plus `favicon.svg`. Used in the admin header (with an "Admin" pill), the scholar sidebar (mark only when collapsed) and the print header; the temporary `scholar.png` icon is gone. The login/register backgrounds still carry the original raster logo.
+- Admin header avatar is white so it is visible on the teal bar.
+
 ### 2026-11-20 — "Delete read" without the ellipsis
 - An ellipsis on a button means "this opens a dialog that asks you for more input". "Delete read" only opens a yes/no confirmation (like "Mark all read", which has none), so the "…" came off. "Choose a payment to print…" on Reports keeps its ellipsis because it opens a picker.
 

@@ -13,9 +13,12 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
   imports: [AppIcon, RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <aside class="fixed inset-y-0 left-0 z-20 overflow-y-auto overflow-x-hidden bg-brand transition-[width] duration-200" [style.width.px]="collapsed() ? 76 : 300">
-      <div class="flex h-[110px] items-start px-5 pt-[15px]">
-        <img src="assets/scholar.png" alt="" class="h-[55px] w-[60px] shrink-0 object-contain" />
-        @if (!collapsed()) { <span class="ml-[5px] mt-[15px] whitespace-nowrap text-[16px] font-bold text-white">IskolarAid Scholar</span> }
+      <div class="flex h-[110px] flex-col justify-center px-5">
+        @if (collapsed()) { <img src="assets/logo-mark-white.svg" alt="IskolarAid" class="mx-auto h-[40px]" /> }
+        @else {
+          <img src="assets/logo-white.svg" alt="IskolarAid" class="h-[44px] w-auto self-start" />
+          <span class="mt-2 text-[12px] font-bold uppercase tracking-[.14em] text-white/80">Scholar portal</span>
+        }
       </div>
       @for (n of nav; track n.link) {
         <a [routerLink]="n.link" routerLinkActive="!bg-brand-hover font-bold"
