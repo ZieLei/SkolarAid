@@ -40,6 +40,7 @@ public sealed class Fixture : IDisposable
     public FakeSms Sms { get; } = new();
     public PasswordService Passwords { get; } = new();
     public ActivityLogService Log { get; }
+    public AppEvents Events { get; } = new();
 
     public Fixture()
     {
@@ -52,11 +53,11 @@ public sealed class Fixture : IDisposable
     public Microsoft.Extensions.Options.IOptions<T> Opt<T>(T v) where T : class => Microsoft.Extensions.Options.Options.Create(v);
 
     public AuthService Auth => new(Db, Passwords, Log);
-    public ComplianceService Compliance => new(Db, Log, Current, Opt(new UploadOptions()));
+    public ComplianceService Compliance => new(Db, Log, Current, Opt(new UploadOptions()), Events);
     public ScholarService Scholars => new(Db, Passwords, Log, Email, Sms, Opt(new SmtpOptions()));
-    public PayrollService Payroll => new(Db, Log, Current, Email, Sms);
+    public PayrollService Payroll => new(Db, Log, Current, Email, Sms, Events);
     public RegistrationService Registrations(IFileStore? store = null) =>
-        new(Db, store ?? new MemoryFileStore(), Passwords, Log, Email, Opt(new SmtpOptions()), Opt(new UploadOptions()));
+        new(Db, store ?? new MemoryFileStore(), Passwords, Log, Email, Opt(new SmtpOptions()), Opt(new UploadOptions()), Events);
 
     public async Task<ScholarshipType> AddTypeAsync(string name = "Academic", decimal amount = 5000, bool active = true)
     {

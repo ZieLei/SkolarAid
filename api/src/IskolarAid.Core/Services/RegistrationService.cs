@@ -9,7 +9,7 @@ using IskolarAid.Data.Entities;
 namespace IskolarAid.Core.Services;
 
 public class RegistrationService(IskolarDbContext db, IFileStore files, PasswordService passwords, ActivityLogService log,
-    IEmailSender email, IOptions<SmtpOptions> smtp, IOptions<UploadOptions> upload)
+    IEmailSender email, IOptions<SmtpOptions> smtp, IOptions<UploadOptions> upload, AppEvents events)
 {
     public static readonly string[] RequiredFiles = ["PSA", "COE", "COR"];
     public static readonly string[] AllFiles = ["PSA", "COE", "COR", "Grades", "Contract"];
@@ -60,6 +60,7 @@ public class RegistrationService(IskolarDbContext db, IFileStore files, Password
         await db.SaveChangesAsync();
         await log.LogAsync("REGISTER", $"New scholar registration submitted: {ScholarRules.FullName(dto.FirstName, dto.MiddleName, dto.LastName, dto.Suffix)} (Student ID: {studentId})",
             "scholar_registrations", reg.Id, null, "System");
+        events.RaiseRegistrationSubmitted(reg.Id, ScholarRules.FullName(dto.FirstName, dto.MiddleName, dto.LastName, dto.Suffix));
         return reg.Id;
     }
 
@@ -152,6 +153,7 @@ public class RegistrationService(IskolarDbContext db, IFileStore files, Password
         await tx.CommitAsync();
 
         await log.LogCreate("scholars", scholar.Id, $"Approved registration #{r.Id}: {fullName} ({number})");
+        events.RaiseRegistrationReviewed(r.Id, fullName, "Approved");
         var (subject, body) = MessageTemplates.Welcome(fullName, number, studentId, password, smtp.Value.LoginUrl);
         var sent = await email.SendAsync(r.Email, fullName, subject, body);
         return new RegistrationApprovedDto(scholar.Id, number, studentId, fullName, sent);
@@ -165,6 +167,7 @@ public class RegistrationService(IskolarDbContext db, IFileStore files, Password
         r.RejectionReason = reason.Trim();
         await db.SaveChangesAsync();
         await log.LogUpdate("scholar_registrations", id, $"Rejected registration for {r.FirstName} {r.LastName}");
+        events.RaiseRegistrationReviewed(r.Id, $"{r.FirstName} {r.LastName}", "Rejected");
         if (!sendEmail) return false;
         var (subject, body) = MessageTemplates.Rejection($"{r.FirstName} {r.LastName}", reason);
         return await email.SendAsync(r.Email, $"{r.FirstName} {r.LastName}", subject, body);

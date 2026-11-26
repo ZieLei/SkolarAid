@@ -6,7 +6,7 @@ using IskolarAid.Data.Entities;
 
 namespace IskolarAid.Core.Services;
 
-public class NotificationService(IskolarDbContext db, ICurrentUser current, ActivityLogService log, IEmailSender email, ISmsSender sms)
+public class NotificationService(IskolarDbContext db, ICurrentUser current, ActivityLogService log, IEmailSender email, ISmsSender sms, AppEvents events)
 {
     // ---------- Admin ----------
     public async Task<List<NotificationDto>> ListAsync(string? type, bool unreadOnly, string? search, int? recipientId)
@@ -48,6 +48,7 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
             });
         await db.SaveChangesAsync();
         await log.LogCreate("notifications", dto.RecipientId ?? 0, $"Sent '{dto.Title}' to {(dto.RecipientId is null ? "all active scholars" : recipients[0].FullName)}");
+        events.RaiseNotificationsSent(recipients.Select(s => s.Id).ToList(), dto.Title.Trim(), dto.Type);
 
         int emails = 0, texts = 0;
         foreach (var s in recipients)

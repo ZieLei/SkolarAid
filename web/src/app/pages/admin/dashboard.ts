@@ -1,6 +1,7 @@
 import { Component, ElementRef, OnDestroy, OnInit, inject, signal, viewChild } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { Chart } from 'chart.js';
+import { RealtimeService, reloadOn } from '../../core/realtime';
 import { Api, errorMessage } from '../../core/api';
 import { AuthService } from '../../core/auth';
 import { DialogService } from '../../core/dialog';
@@ -71,7 +72,14 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   color = statusColor;
   rel = relativeTime;
 
-  async ngOnInit(): Promise<void> {
+  constructor() {
+    const rt = inject(RealtimeService);
+    reloadOn([rt.paymentsChanged$, rt.registrationReviewed$, rt.complianceChanged$], () => this.load());
+  }
+
+  ngOnInit(): void { void this.load(); }
+
+  async load(): Promise<void> {
     try {
       const [s, r, u, d, m] = await Promise.all([
         firstValueFrom(this.api.get<DashboardStats>('/admin/dashboard/stats')),
@@ -89,6 +97,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       ]);
       this.recent.set(r); this.upcoming.set(u);
       setTimeout(async () => {
+        this.charts.forEach((c) => c.destroy()); this.charts = [];
         const pe = this.pieEl()?.nativeElement, le = this.lineEl()?.nativeElement;
         if (pe) this.charts.push(await makeChart(pe, pieConfig(d.map((x) => x.label), d.map((x) => x.value))));
         if (le) this.charts.push(await makeChart(le, lineConfig(m.map((x) => x.label), m.map((x) => x.value))));

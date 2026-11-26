@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using IskolarAid.Api.Infrastructure;
+using IskolarAid.Api.Realtime;
 using IskolarAid.Core.Common;
 using IskolarAid.Core.Services;
 using IskolarAid.Data;
@@ -62,6 +63,11 @@ builder.Services.AddScoped<ActivityLogQueryService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<ScholarPortalService>();
 
+// ---- Real time: C# events (AppEvents) -> RealtimeNotifier -> SignalR hub -> browsers ----
+builder.Services.AddSingleton<AppEvents>();
+builder.Services.AddSingleton<RealtimeNotifier>();
+builder.Services.AddSignalR();
+
 // ---- Auth ----
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o =>
 {
@@ -74,15 +80,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         ValidateLifetime = true, ClockSkew = TimeSpan.FromMinutes(1),
         RoleClaimType = "role", NameClaimType = "name"
     };
+    // Browsers cannot send an Authorization header on a WebSocket, so the SignalR client puts the token in the query string.
+    o.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = ctx =>
+        {
+            var token = ctx.Request.Query["access_token"];
+            if (!string.IsNullOrEmpty(token) && ctx.HttpContext.Request.Path.StartsWithSegments("/hubs")) ctx.Token = token;
+            return Task.CompletedTask;
+        }
+    };
 });
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("Admin", p => p.RequireRole(IskolarAid.Data.Entities.Roles.Admin))
     .AddPolicy("Scholar", p => p.RequireRole(IskolarAid.Data.Entities.Roles.Scholar));
 
-// ---- CORS (explicit origins only) ----
+// ---- CORS (explicit origins only; AllowCredentials is required by the SignalR browser client) ----
 var origins = (config["Cors:Origins"] ?? "http://localhost:4200").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()
-    .WithExposedHeaders("Content-Disposition")));
+    .WithExposedHeaders("Content-Disposition").AllowCredentials()));
 
 // ---- Rate limiting (login brute force, public registration spam) ----
 builder.Services.AddRateLimiter(o =>
@@ -110,9 +126,15 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 // ---- Startup tasks ----
+// Create the notifier now so it subscribes to the C# events before the first request.
+app.Services.GetRequiredService<RealtimeNotifier>();
+var eventsLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("AppEvents");
+app.Services.GetRequiredService<AppEvents>().SubscriberFailed = (name, ex) => eventsLog.LogError(ex, "A subscriber of {Event} failed", name);
+
 using (var scope = app.Services.CreateScope())
 {
     var log = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");

@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
+import { RealtimeService, reloadOn } from '../../core/realtime';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { DatePipeShort, statusColor, RequirementNamePipe, requirementName } from '../../core/format';
@@ -98,6 +99,11 @@ export class ScholarCompliancePage implements OnInit {
   canUpload = (c: ComplianceItem): boolean => c.status === 'Pending' || c.status === 'Rejected' || c.status === 'Overdue';
   todoNames = computed(() => (this.data()?.items ?? []).filter((i) => this.canUpload(i)).map((i) => requirementName(i.requirementType)).join(', '));
   toDo = computed(() => (this.data()?.items ?? []).filter((i) => this.canUpload(i)).length);
+
+  constructor() {
+    const rt = inject(RealtimeService);
+    reloadOn([rt.complianceChanged$], () => this.load());
+  }
 
   ngOnInit(): void { void this.load(); }
 

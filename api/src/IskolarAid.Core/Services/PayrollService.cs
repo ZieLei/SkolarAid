@@ -7,7 +7,7 @@ using IskolarAid.Data.Entities;
 
 namespace IskolarAid.Core.Services;
 
-public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurrentUser current, IEmailSender email, ISmsSender sms)
+public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurrentUser current, IEmailSender email, ISmsSender sms, AppEvents events)
 {
     // List<string>, not string[]: C# 14 binds string[].Contains to a span overload that EF Core 9 cannot translate.
     private static readonly List<string> PaidStatuses = ["Released", "Processed"];
@@ -91,6 +91,9 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
         var total = processed.Sum(x => x.P.Amount);
         if (processed.Count > 0)
             await log.LogCreate("payments", 0, $"Processed payroll for {processed.Count} scholars. Period: {period}, Total: ₱{total:N2}");
+        var processedIds = processed.Select(x => x.S.Id).ToList();
+        events.RaisePaymentsChanged(processedIds, "Processed");
+        events.RaiseNotificationsSent(processedIds, "Payment Processed", "Update");
 
         // Notifications go out after commit and never roll back the payroll.
         int emails = 0, texts = 0;
@@ -138,6 +141,9 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
         await tx.CommitAsync();
         var total = due.Sum(p => p.Amount);
         await log.LogCreate("payments", 0, $"Released {due.Count} payments. Total: ₱{total:N2}");
+        var releasedIds = due.Select(p => p.ScholarId).Distinct().ToList();
+        events.RaisePaymentsChanged(releasedIds, "Released");
+        events.RaiseNotificationsSent(releasedIds, "Payment Released!", "Update");
 
         var emails = 0;
         foreach (var p in due)

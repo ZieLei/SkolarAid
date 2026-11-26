@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
+import { RealtimeService, reloadOn } from '../../core/realtime';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { DatePipeShort, PesoPipe, statusColor, formatPeso } from '../../core/format';
@@ -194,6 +195,12 @@ export class PayrollPage implements OnInit {
     { label: 'Eligible Scholars', value: String(this.rows().filter((r) => r.isEligible).length), icon: 'user-groups', small: false, hint: `of ${this.rows().length} listed · rest already paid or need compliance approved` },
     { label: 'Processed Today', value: String(this.stats()?.processedToday ?? 0), icon: 'dollar', small: false, hint: 'Payments processed today' },
   ]);
+
+  constructor() {
+    // Another admin (or tab) processed / released payments, or compliance changed eligibility.
+    const rt = inject(RealtimeService);
+    reloadOn([rt.paymentsChanged$, rt.complianceChanged$], () => Promise.all([this.load(), this.loadHistory(), this.loadStats()]));
+  }
 
   async ngOnInit(): Promise<void> {
     const f = await firstValueFrom(this.api.get<ScholarFilters>('/admin/scholars/filters'));

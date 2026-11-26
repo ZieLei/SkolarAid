@@ -1,12 +1,14 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { filter, map } from 'rxjs';
-import { firstValueFrom } from 'rxjs';
+import { filter, firstValueFrom, map, merge } from 'rxjs';
 import { Api } from '../core/api';
 import { AuthService } from '../core/auth';
 import { DialogService } from '../core/dialog';
 import { NotificationStats } from '../core/models';
+import { RealtimeService } from '../core/realtime';
+import { ToastService } from '../core/toast';
+import { LiveStatus } from '../shared/live-status';
 import { AppIcon } from '../shared/icon';
 
 const KEY = 'admin-sidebar-collapsed';
@@ -14,7 +16,7 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
 
 @Component({
   selector: 'app-admin-shell',
-  imports: [AppIcon, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [AppIcon, LiveStatus, RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <aside class="fixed inset-y-0 left-0 z-20 overflow-y-auto overflow-x-hidden bg-brand transition-[width] duration-200" [style.width.px]="collapsed() ? 76 : 300">
       <div class="flex h-[110px] flex-col justify-center px-5">
@@ -39,6 +41,7 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
         <button type="button" class="mr-3 flex h-[36px] w-[36px] items-center justify-center rounded text-brand hover:bg-black/5" (click)="toggle()" [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'" [attr.aria-expanded]="!collapsed()"><app-icon name="menu" class="h-[24px] w-[24px]"></app-icon></button>
         <h1 class="text-[20px] font-bold text-ink">{{ title() }}</h1>
         <div class="ml-auto flex items-center gap-3">
+          <app-live-status class="mr-2" />
           <app-icon name="user" class="h-[35px] w-[36px]"></app-icon>
           <span class="text-[14px] font-bold text-ink">Administrator</span>
           <button class="btn btn-outline !h-[40px] w-[110px] !text-[14px]" (click)="confirmLogout()">Logout</button>
@@ -82,5 +85,16 @@ export class AdminShell {
     const load = () => void firstValueFrom(this.api.get<NotificationStats>('/admin/notifications/stats')).then((s) => this.pendingRegs.set(s.pendingRegistrations)).catch(() => undefined);
     load();
     this.router.events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed()).subscribe(load);
+
+    // Live updates: one connection while the admin portal is open.
+    const rt = inject(RealtimeService);
+    const toast = inject(ToastService);
+    rt.connect();
+    inject(DestroyRef).onDestroy(() => rt.disconnect());
+    merge(rt.registrationSubmitted$, rt.registrationReviewed$, rt.reconnected$).pipe(takeUntilDestroyed()).subscribe(load);
+    rt.registrationSubmitted$.pipe(takeUntilDestroyed()).subscribe((r) =>
+      toast.show(`New scholar registration from ${r.name}.`, { actionLabel: 'Review', onAction: () => void this.router.navigate(['/admin/notifications'], { queryParams: { tab: 'reg' } }) }));
+    rt.complianceChanged$.pipe(filter((c) => c.byScholar), takeUntilDestroyed()).subscribe((c) =>
+      toast.show(`A scholar submitted ${c.requirement} for review.`));
   }
 }

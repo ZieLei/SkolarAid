@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
+import { RealtimeService, reloadOn } from '../../core/realtime';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { ToastService } from '../../core/toast';
@@ -177,7 +178,11 @@ export class NotificationsPage implements OnInit, OnDestroy {
   private dlg = inject(DialogService);
   private toast = inject(ToastService);
   private route = inject(ActivatedRoute);
-  constructor() { this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.tab.set(q.get('tab') === 'reg' ? 'reg' : 'notifs')); }
+  constructor() {
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.tab.set(q.get('tab') === 'reg' ? 'reg' : 'notifs'));
+    const rt = inject(RealtimeService);
+    reloadOn([rt.notificationsChanged$, rt.registrationSubmitted$, rt.registrationReviewed$], () => this.refresh());
+  }
   tab = signal<'notifs' | 'reg'>('notifs');
   stats = signal<NotificationStats | null>(null);
   list = signal<NotificationItem[]>([]);

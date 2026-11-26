@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { RealtimeService, reloadOn } from '../../core/realtime';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { DatePipeShort, NOTIFICATION_COLORS, PesoPipe, relativeTime, statusColor, RequirementNamePipe, formatPeso } from '../../core/format';
@@ -76,5 +77,11 @@ export class ScholarDashboardPage implements OnInit {
     ];
   }
 
-  async ngOnInit(): Promise<void> { try { this.d.set(await firstValueFrom(this.api.get<ScholarDashboard>('/scholar/dashboard'))); } catch (e) { void this.dlg.error(errorMessage(e)); } }
+  constructor() {
+    const rt = inject(RealtimeService);
+    reloadOn([rt.notificationReceived$, rt.paymentsChanged$, rt.complianceChanged$], () => this.load());
+  }
+
+  ngOnInit(): void { void this.load(); }
+  async load(): Promise<void> { try { this.d.set(await firstValueFrom(this.api.get<ScholarDashboard>('/scholar/dashboard'))); } catch (e) { void this.dlg.error(errorMessage(e)); } }
 }

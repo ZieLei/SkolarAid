@@ -8,7 +8,7 @@ using IskolarAid.Data.Entities;
 
 namespace IskolarAid.Core.Services;
 
-public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICurrentUser current, IOptions<UploadOptions> upload)
+public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICurrentUser current, IOptions<UploadOptions> upload, AppEvents events)
 {
     private long MaxBytes => upload.Value.MaxBytes;
 
@@ -73,6 +73,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         if (status is "Submitted" or "Approved") c.DateSubmitted = DateTime.Today;
         await db.SaveChangesAsync();
         await log.LogUpdate("compliance_records", id, $"Status updated to {status}");
+        events.RaiseComplianceChanged(c.ScholarId, c.RequirementType, status, byScholar: false);
     }
 
     public Task MarkMissingAsync(int id) => UpdateStatusAsync(id, "Overdue", "Marked as missing by admin");
@@ -88,6 +89,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         db.ComplianceRecords.Add(c);
         await db.SaveChangesAsync();
         await log.LogCreate("compliance_records", scholarId, $"Added requirement '{c.RequirementType}'");
+        events.RaiseComplianceChanged(scholarId, c.RequirementType, c.Status, byScholar: false);
         return new ComplianceItemDto(c.Id, c.RequirementType, c.Description, c.DueDate, null, c.Status, null, null, 0, null);
     }
 
@@ -98,6 +100,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         db.ComplianceRecords.Remove(c);
         await db.SaveChangesAsync();
         await log.LogDelete("compliance_records", id, $"Deleted requirement '{c.RequirementType}'");
+        events.RaiseComplianceChanged(c.ScholarId, c.RequirementType, "Deleted", byScholar: false);
     }
 
     /// <summary>Stores the file (replacing any existing one), marks the record Submitted. Used by admin and scholar uploads.</summary>
@@ -122,6 +125,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         var c = await db.ComplianceRecords.FindAsync(id) ?? throw AppException.NotFound("Compliance record");
         await AttachFileAsync(c, fileName, data);
         await log.LogCreate("file_attachments", id, $"File uploaded: {fileName}");
+        events.RaiseComplianceChanged(c.ScholarId, c.RequirementType, c.Status, byScholar: false);
     }
 
     public async Task<(string Name, string ContentType, byte[] Data)> DownloadAsync(int id, int? ownerScholarId = null)
@@ -138,6 +142,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         c.Status = "Pending"; c.FilePath = null; c.DateSubmitted = null;
         await db.SaveChangesAsync();
         await log.LogDelete("file_attachments", id, $"Deleted file for compliance record {id}");
+        events.RaiseComplianceChanged(c.ScholarId, c.RequirementType, c.Status, byScholar: false);
     }
 
     public async Task RemindAsync(int scholarId)
@@ -151,6 +156,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         });
         await db.SaveChangesAsync();
         await log.LogCreate("notifications", scholarId, "Compliance reminder sent");
+        events.RaiseNotificationsSent([scholarId], "Compliance Reminder - IskolarAid", "Reminder");
     }
 
     // ---------- Scholar (own records only) ----------
@@ -183,5 +189,6 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
             throw new AppException("This requirement can no longer be changed.");
         await AttachFileAsync(c, fileName, data);
         await log.LogCreate("file_attachments", complianceId, $"Scholar uploaded document: {fileName}");
+        events.RaiseComplianceChanged(scholarId, c.RequirementType, c.Status, byScholar: true);
     }
 }

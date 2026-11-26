@@ -1,2 +1,3 @@
 { "/api": { "target": "http://localhost:5080", "secure": false, "changeOrigin": true },
+  "/hubs": { "target": "http://localhost:5080", "secure": false, "changeOrigin": true, "ws": true },
   "/health": { "target": "http://localhost:5080", "secure": false } }

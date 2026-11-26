@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { RealtimeService, reloadOn } from '../../core/realtime';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { DatePipeShort, PesoPipe, statusColor, formatPeso } from '../../core/format';
@@ -89,6 +90,11 @@ export class ScholarPaymentsPage implements OnInit {
   get period() { return this.periodSig(); } set period(v: string) { this.periodSig.set(v); }
   periods = computed(() => [...new Set((this.data()?.items ?? []).map((p) => p.period))]);
   filtered = computed(() => (this.data()?.items ?? []).filter((p) => (this.statusSig() === 'All' || p.status === this.statusSig()) && (this.periodSig() === 'All Periods' || p.period === this.periodSig())));
+
+  constructor() {
+    const rt = inject(RealtimeService);
+    reloadOn([rt.paymentsChanged$], () => this.load());
+  }
 
   ngOnInit(): void { void this.load(); }
   async load(): Promise<void> { try { this.data.set(await firstValueFrom(this.api.get<ScholarPayments>('/scholar/payments'))); if (!this.data()!.totalPayments) this.info.set(await firstValueFrom(this.api.get<ScholarDashboard>('/scholar/dashboard'))); } catch (e) { void this.dlg.error(errorMessage(e)); } }

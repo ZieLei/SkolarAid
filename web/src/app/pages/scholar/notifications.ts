@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
+import { RealtimeService, reloadOn } from '../../core/realtime';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { DateTimePipe, NOTIFICATION_COLORS, relativeTime } from '../../core/format';
@@ -77,6 +78,11 @@ export class ScholarNotificationsPage implements OnInit {
   filtersActive = () => this.type() !== 'All Types' || this.unreadOnly();
   types = ['Reminder', 'Alert', 'Update', 'Announcement'];
   color = (t: string) => NOTIFICATION_COLORS[t] ?? '#646464'; rel = relativeTime;
+
+  constructor() {
+    const rt = inject(RealtimeService);
+    reloadOn([rt.notificationReceived$], () => this.load());
+  }
 
   ngOnInit(): void { void this.load(); }
 

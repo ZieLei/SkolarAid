@@ -1,9 +1,12 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { AuthService } from '../core/auth';
 import { DialogService } from '../core/dialog';
+import { RealtimeService } from '../core/realtime';
+import { ToastService } from '../core/toast';
+import { LiveStatus } from '../shared/live-status';
 import { AppIcon } from '../shared/icon';
 
 const KEY = 'scholar-sidebar-collapsed';
@@ -11,7 +14,7 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
 
 @Component({
   selector: 'app-scholar-shell',
-  imports: [AppIcon, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [AppIcon, LiveStatus, RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <aside class="fixed inset-y-0 left-0 z-20 overflow-y-auto overflow-x-hidden bg-brand transition-[width] duration-200" [style.width.px]="collapsed() ? 76 : 300">
       <div class="flex h-[110px] flex-col justify-center px-5">
@@ -34,6 +37,7 @@ function readCollapsed(): boolean { try { return localStorage.getItem(KEY) === '
         <button type="button" class="mr-3 flex h-[36px] w-[36px] items-center justify-center rounded text-brand hover:bg-black/5" (click)="toggle()" [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'" [attr.aria-expanded]="!collapsed()"><app-icon name="menu" class="h-[24px] w-[24px]"></app-icon></button>
         <h1 class="text-[20px] font-bold text-ink">{{ title() }}</h1>
         <div class="ml-auto flex items-center gap-3">
+          <app-live-status class="mr-2" />
           <app-icon name="user" class="h-[35px] w-[36px]"></app-icon>
           <span class="text-[14px] font-bold text-ink">{{ auth.user()?.name }}</span>
           <button class="btn btn-outline !h-[40px] w-[110px] !text-[14px]" (click)="confirmLogout()">Logout</button>
@@ -61,4 +65,14 @@ export class ScholarShell {
   private router = inject(Router);
   private url = toSignal(this.router.events.pipe(filter((e) => e instanceof NavigationEnd), map((e) => (e as NavigationEnd).urlAfterRedirects)), { initialValue: this.router.url });
   title = computed(() => this.nav.find((n) => this.url().startsWith(n.link))?.label ?? '');
+
+  constructor() {
+    // Live updates: one connection while the scholar portal is open.
+    const rt = inject(RealtimeService);
+    const toast = inject(ToastService);
+    rt.connect();
+    inject(DestroyRef).onDestroy(() => rt.disconnect());
+    rt.notificationReceived$.pipe(takeUntilDestroyed()).subscribe((n) =>
+      toast.show(`New notification: ${n.title}`, { actionLabel: 'View', onAction: () => void this.router.navigateByUrl('/scholar/notifications') }));
+  }
 }

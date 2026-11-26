@@ -1,6 +1,7 @@
 import { Component, inject, input, signal, effect, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
+import { filter, firstValueFrom } from 'rxjs';
+import { RealtimeService, reloadOn } from '../../core/realtime';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { DatePipeShort, statusColor, RequirementNamePipe } from '../../core/format';
@@ -111,6 +112,9 @@ export class ComplianceTab {
 
   constructor() {
     void this.loadOptions();
+    // The open scholar uploaded a document, or another admin changed their requirements.
+    const rt = inject(RealtimeService);
+    reloadOn([rt.complianceChanged$.pipe(filter((c) => c.scholarId === this.scholarId()))], () => this.scholarId() ? this.reload() : undefined);
     effect(() => { const p = this.preselect(); if (p) untracked(() => void this.select(p)); });
   }
 
