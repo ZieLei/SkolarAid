@@ -18,17 +18,65 @@ More background: [MIGRATION_PLAN.md](MIGRATION_PLAN.md) explains the decisions, 
 ./run.sh demo
 ```
 
-Starts the API and the web app on a throw-away SQLite database. Sign in as `admin` / `Admin#12345`. Needs no MySQL and no Docker, but it is for looking around only.
+Starts the API and the web app on a throw-away SQLite database at <https://localhost:4200>. Sign in as `admin` / `Admin#12345`. Needs no MySQL and no Docker, but it is for looking around only.
 
 The other commands:
 
 ```bash
-./run.sh dev      # API + web against your MySQL or MariaDB, configured in .env
+./run.sh dev      # API + web on the real database from .env; starts a local MariaDB in .run/ if none is up
+./run.sh dev --lan  # the same, and other devices on your network can open it too
+./run.sh cert     # create or refresh the HTTPS certificate (demo and dev do this by themselves)
+./run.sh share-ca # let another device trust this machine's certificates
 ./run.sh db       # start a MariaDB in .run/ without sudo, using the names in .env
 ./run.sh docker   # build and start API, MySQL and web with Docker
 ./run.sh test     # run the API and web tests
-./run.sh stop     # stop whatever the script started
+./run.sh stop     # stop whatever the script started, the local MariaDB included
 ```
+
+## HTTPS
+
+`./run.sh demo` and `./run.sh dev` serve the app over HTTPS, with no browser warning. The certificate comes from [mkcert](https://github.com/FiloSottile/mkcert): a small certificate authority (CA) that belongs to your machine and that your system and browsers trust. Only the web dev server speaks HTTPS. It forwards `/api` and `/hubs` to the API on `localhost`, so live updates run over `wss://`.
+
+The certificate lives in `.run/certs` (not committed). It covers `localhost`, the machine's name (`<name>` and `<name>.local`) and its network addresses. The script makes a new one by itself when the network address changes or the old one is about to expire.
+
+### A new computer for running the app
+
+1. Install mkcert and the NSS tools Firefox and Chrome use:
+   * Arch: `sudo pacman -S mkcert nss`
+   * Debian/Ubuntu: `sudo apt install mkcert libnss3-tools`
+   * macOS: `brew install mkcert nss`
+   * Windows: `choco install mkcert`
+2. Run `./run.sh dev` (or `demo`). On the first run it creates the machine's CA and trusts it, which may ask for your password once. Then it makes the certificate.
+3. Restart the browser if it was already open.
+
+Each computer has its own CA. Never copy `rootCA-key.pem` (in `mkcert -CAROOT`) to another machine or into the repo. Anyone with that file can create certificates your devices will trust.
+
+Without mkcert, the script falls back to a self-signed certificate. Browsers will warn about it, but the app still works. `NO_HTTPS=1 ./run.sh dev` serves plain HTTP.
+
+### A new phone, tablet or laptop that only opens the app
+
+The other device has to trust the CA of the computer running the app, once. Start the app with:
+
+```bash
+./run.sh dev --lan
+```
+
+Next to the app's addresses it prints a **New device?** block with a link to the CA certificate, a QR code and the CA's fingerprint. The certificate is shared on port 8000 for as long as the app runs. `./run.sh share-ca` shows the same link, plus the install steps for each system, without starting the app.
+
+On the device:
+
+1. Open the link or scan the QR code.
+2. Install the file as a trusted certificate authority:
+   * **Android:** Settings → Security → More security settings → Encryption & credentials → Install a certificate → CA certificate.
+   * **iPhone/iPad:** Allow the download in Safari, then Settings → Profile Downloaded → Install, then Settings → General → About → Certificate Trust Settings and turn it on.
+   * **Windows:** Double-click → Install Certificate → Local Machine → Trusted Root Certification Authorities.
+   * **macOS:** Double-click to add it to the System keychain, open it, and set Trust to Always Trust.
+3. Check that the fingerprint the device shows matches the one in the terminal.
+4. Open `https://<computer's IP>:4200`, which the script prints too.
+
+**The link changes when the computer's IP address changes**, for example on a new Wi-Fi network or a new DHCP lease, so take it from the terminal each time. The certificate behind it stays the same: the CA lasts about 10 years, so a device you have set up keeps working. Only the address you type changes.
+
+Both devices must be on the same network, and the computer's firewall must allow ports 4200 and 8000. `--lan` makes the dev server reachable by everyone on that network, so use it only on networks you trust. Only the public certificate is ever shared, never the CA's private key. To remove trust later, delete the certificate in the device's settings, on the same screen where you installed it.
 
 ## Run with Docker
 
@@ -100,12 +148,12 @@ ASP.NET reads `Section__Key` as `Section:Key`. Docker reads the names in [.env.e
 ```bash
 cd api
 dotnet build
-dotnet test       # 74 tests: rules, services and HTTP end to end on SQLite
+dotnet test       # 81 tests: rules, services, events, the hub, and HTTP end to end on SQLite
 dotnet dotnet-ef migrations add <Name> --project src/IskolarAid.Data --startup-project src/IskolarAid.Data
 dotnet dotnet-ef database update --project src/IskolarAid.Data --startup-project src/IskolarAid.Data
 
 cd ../web
-npm test -- --watch=false    # 17 Vitest tests
+npm test -- --watch=false    # 21 Vitest tests
 npm run build                # bundle goes to web/dist
 ```
 
@@ -113,10 +161,11 @@ npm run build                # bundle goes to web/dist
 
 ```text
 api/src/IskolarAid.Api    controllers, JWT, startup and seeding
+api/src/IskolarAid.Api/Realtime   SignalR hub and the notifier that forwards C# events to browsers
 api/src/IskolarAid.Core   services, DTOs and the business rules ported from WinForms
 api/src/IskolarAid.Data   entities, DbContext, migrations
 api/tests                 xUnit unit tests and end-to-end tests
-web/src/app/core          API client, auth, dialogs, formatting
+web/src/app/core          API client, auth, dialogs, formatting, the live-updates connection (realtime.ts)
 web/src/app/layout        the admin and scholar shells
 web/src/app/pages         one component per original WinForms screen
 web/src/app/shared        icons, modals, summary strip, form errors, chart setup
@@ -125,6 +174,51 @@ web/src/app/shared        icons, modals, summary strip, form errors, chart setup
 ## Change something
 
 Run `./run.sh test` before you push. It runs the API and web test suites in one go.
+
+## Live updates
+
+Screens update by themselves when something changes elsewhere: a scholar sees a new notification or payment without pressing Refresh, and an admin sees new registrations and uploaded documents as they arrive. The header shows **Live**, **Reconnecting…** or **Offline**. When it is offline, every page still works over plain HTTP.
+
+How one change travels, from a click to every screen that cares:
+
+```mermaid
+flowchart LR
+  A["Admin clicks<br/>Release payments"] -- "POST /api/admin/payroll/release" --> C[PayrollController]
+  C --> S["PayrollService.ReleaseAsync<br/>saves, then raises"]
+  S -- "C# event PaymentsChanged" --> N[RealtimeNotifier]
+  N -- "IHubContext → groups" --> H(("/hubs/notifications"))
+  H -- "PaymentsChanged" --> AD["Other admin tabs<br/>payroll + dashboard reload"]
+  H -- "PaymentsChanged,<br/>NotificationReceived" --> SC["That scholar<br/>toast + payments reload"]
+```
+
+1. **UI event:** a button or form calls a service.
+2. **Request:** `HttpClient` sends it to the API.
+3. **Server:** the controller calls a service, which saves and then raises a C# event on `AppEvents`.
+4. **Broadcast:** `RealtimeNotifier` listens to those events and sends a SignalR event to the right groups.
+5. **UI update:** `RealtimeService` turns server events into RxJS streams. Pages reload their data over HTTP, because HTTP stays the source of truth.
+
+### Events
+
+| C# event (raised by) | SignalR event | Who hears it | What reacts |
+| --- | --- | --- | --- |
+| `RegistrationSubmitted` (public registration form) | `RegistrationSubmitted { id, name }` | admins | badge count, toast with **Review**, Registrations list |
+| `RegistrationReviewed` (approve / reject) | `RegistrationReviewed { id, name, status }` | admins | badge count, Registrations list, dashboard |
+| `NotificationsSent` (compose, compliance reminder, payroll) | `NotificationReceived { title, type }` | each recipient scholar | toast with **View**, notifications, dashboard |
+| | `NotificationsChanged { count }` | admins | Notifications page |
+| `PaymentsChanged` (process, release) | `PaymentsChanged { status, count }` | admins and the scholars paid | payroll, payment history, dashboards |
+| `ComplianceChanged` (upload, status change, add/delete requirement) | `ComplianceChanged { scholarId, requirement, status, byScholar }` | admins and that scholar | compliance screens, payroll eligibility, toast when a scholar uploads |
+
+Payloads carry ids and what changed, never whole records.
+
+### Rules the code follows
+
+* **One connection per signed-in user.** The shells open it and close it on logout. Handlers are registered once, in `RealtimeService`, and pages subscribe with `takeUntilDestroyed()`, so revisiting a page never stacks listeners.
+* **Groups come from the token, not the client.** On connect the hub puts admins in `admins` and a scholar in `scholar-{id}`, so a scholar can only hear their own events. A reconnect is a new connection, which runs the same step again, so nothing needs re-joining.
+* **Missed events are reloaded.** SignalR does not store messages for offline clients. After any reconnect, `reconnected$` fires and every open page reloads over HTTP.
+* **The hub needs a JWT.** WebSockets cannot carry an `Authorization` header, so the client sends the token as `?access_token=`, which the API accepts on `/hubs/*` only. CORS lists exact origins with `AllowCredentials()`, as the SignalR browser client requires.
+* **A failing listener never fails the request.** Events are raised after the save, and errors in a subscriber or in a push are only logged.
+
+To watch it work, open the admin portal and a scholar portal in two browser windows, then compose a notification or release a payment. DevTools → Network → **WS** shows each frame. In development, the console also logs every API call as `[HTTP] GET /api/... -> 200 (12 ms)`.
 
 ## Know who can do what
 
@@ -137,3 +231,6 @@ Run `./run.sh test` before you push. It runs the API and web test suites in one 
 ## Known gaps
 
 [PARITY_CHECKLIST.md](PARITY_CHECKLIST.md) lists what was and was not tested.
+
+* Live updates run on a single API instance. Running several would need a SignalR backplane (Redis or Azure SignalR Service).
+* An open live connection is not cut when the sign-in token expires (8 hours by default). The next reconnect fails and the header shows **Offline**, and the next API call signs the user out as usual.
