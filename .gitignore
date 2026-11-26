@@ -368,3 +368,8 @@ api/**/uploads/
 web/dist/
 web/.angular/
 .run/
+screenshots/
+legacy-test/
+# Reference decks / guideline docs (local only)
+*.pptx
+*.pdf
