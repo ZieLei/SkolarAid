@@ -89,7 +89,7 @@ public class ScholarService(IskolarDbContext db, PasswordService passwords, Acti
 
         return new ScholarDetailDto(s.Id, s.UserId, s.ScholarNumber, s.StudentId, s.FirstName, s.MiddleName, s.LastName, s.Email,
             s.ContactNumber, s.DateOfBirth, s.Gender, s.Address, s.Course, s.YearLevel, s.ScholarshipTypeId, s.ScholarshipType?.Name,
-            s.StipendAmount ?? s.ScholarshipType?.StipendAmount ?? 0, s.StipendFrequency, s.ScholarshipFundSource, s.RenewalConditions,
+            s.ScholarshipType?.StipendAmount ?? s.StipendAmount ?? 0, s.ScholarshipType?.PaymentFrequency ?? s.StipendFrequency, s.ScholarshipFundSource, s.RenewalConditions,
             s.BankName, s.BankAccountNumber, s.EnrollmentDate, s.ExpectedGraduation, s.Status, s.CreatedAt,
             pays.Count, pays.Where(p => p.Status == "Released").Sum(p => p.Amount),
             comp.Count(c => c.Status is "Pending" or "Overdue"), comp.Count(c => c.Status == "Approved"), comp.Count, docs);
@@ -128,7 +128,7 @@ public class ScholarService(IskolarDbContext db, PasswordService passwords, Acti
             LastName = ScholarRules.LastNameWithSuffix(dto.LastName, dto.Suffix), Email = dto.Email.Trim(), ContactNumber = dto.ContactNumber?.Trim(),
             DateOfBirth = dto.DateOfBirth, Gender = dto.Gender ?? "Male", Address = dto.Address?.Trim(), Program = "Undergraduate",
             Hei = "Legacy College of Compostela", DegreeProgram = dto.Course, Course = dto.Course, YearLevel = dto.YearLevel,
-            ScholarshipTypeId = type.Id, StipendAmount = dto.StipendAmount, StipendFrequency = dto.StipendFrequency ?? type.PaymentFrequency,
+            ScholarshipTypeId = type.Id, StipendAmount = type.StipendAmount, StipendFrequency = type.PaymentFrequency, // always the type's: it is what payroll pays
             ScholarshipFundSource = dto.ScholarshipFundSource, RenewalConditions = dto.RenewalConditions, BankName = dto.BankName?.Trim(),
             BankAccountNumber = dto.BankAccountNumber?.Trim(), EnrollmentDate = dto.EnrollmentDate, ExpectedGraduation = dto.ExpectedGraduation,
             Status = "Active"
@@ -165,8 +165,8 @@ public class ScholarService(IskolarDbContext db, PasswordService passwords, Acti
         s.LastName = dto.LastName.Trim(); s.Email = dto.Email.Trim(); s.ContactNumber = dto.ContactNumber?.Trim();
         s.DateOfBirth = dto.DateOfBirth; s.Gender = dto.Gender ?? "Male"; s.Address = dto.Address?.Trim();
         s.Course = dto.Course; s.DegreeProgram = dto.Course; s.YearLevel = dto.YearLevel;
-        s.ScholarshipTypeId = type.Id; s.StipendAmount = dto.StipendAmount;
-        s.StipendFrequency = dto.StipendFrequency ?? "Monthly"; s.ScholarshipFundSource = dto.ScholarshipFundSource;
+        s.ScholarshipTypeId = type.Id; s.StipendAmount = type.StipendAmount; // amount and frequency are the type's: it is what payroll pays
+        s.StipendFrequency = type.PaymentFrequency; s.ScholarshipFundSource = dto.ScholarshipFundSource;
         s.RenewalConditions = dto.RenewalConditions; s.BankName = dto.BankName?.Trim(); s.BankAccountNumber = dto.BankAccountNumber?.Trim();
         s.EnrollmentDate = dto.EnrollmentDate; s.ExpectedGraduation = dto.ExpectedGraduation; s.Status = dto.Status ?? "Active";
         await db.SaveChangesAsync();

@@ -25,7 +25,7 @@ public static class HubGroups
 /// The one real-time endpoint (/hubs/notifications). Clients only LISTEN; the server raises these client events:
 /// <list type="bullet">
 /// <item>Scholars: NotificationReceived, PaymentsChanged, ComplianceChanged</item>
-/// <item>Admins: RegistrationSubmitted, RegistrationReviewed, NotificationsChanged, PaymentsChanged, ComplianceChanged</item>
+/// <item>Admins: NotificationsChanged, PaymentsChanged, ComplianceChanged</item>
 /// </list>
 /// Group membership comes from the signed-in user's token, never from the client, so a scholar can only hear their own events.
 /// A reconnect is a new connection, so OnConnectedAsync runs again and puts it back in its group automatically.

@@ -4,7 +4,7 @@
 // (scholars per scholarship) and a line chart (money paid per month).
 //
 // Data: 5 calls to /api/admin/dashboard/... (DashboardController -> DashboardService).
-// Live: reloads when payments, registrations or compliance change.
+// Live: reloads when payments or compliance change.
 // =====================================================================
 import { Component, ElementRef, OnDestroy, OnInit, inject, signal, viewChild } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
@@ -61,12 +61,25 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
 
     <div class="grid items-start gap-4 lg:grid-cols-2">
       <section class="card p-4"><h2 class="mb-2 text-[14pt] font-bold text-brand">Scholarship Distribution</h2><div class="h-[260px]"><canvas #pie></canvas></div></section>
-      <section class="card p-4"><h2 class="mb-2 text-[14pt] font-bold text-brand">Monthly Disbursements</h2><div class="h-[260px]"><canvas #line></canvas></div></section>
+      <section class="card p-4"><h2 class="mb-2 text-[14pt] font-bold text-brand">Monthly Disbursements</h2>
+        <div class="relative h-[260px]"><canvas #line></canvas>
+          @if (noReleases(); as why) {
+            <!-- Only RELEASED payments count. Say so instead of showing an empty chart. -->
+            <div class="absolute inset-0 flex items-center justify-center px-6" role="status">
+              <div class="max-w-[360px] rounded-xl bg-white/95 px-5 py-3 text-center shadow-sm ring-1 ring-line">
+                <p class="text-[14px] font-semibold text-ink">No payments released in the last 12 months</p>
+                <p class="mt-1 text-[12px] text-muted">{{ why }}</p>
+              </div>
+            </div>
+          }
+        </div></section>
     </div>
   `,
 })
 export class AdminDashboardPage implements OnInit, OnDestroy {
   auth = inject(AuthService);
+  /** Why the disbursement chart is empty (null when there is something to show). */
+  noReleases = signal<string | null>(null);
   private api = inject(Api);
   private dlg = inject(DialogService);
   // The <canvas> elements in the template where the charts are drawn.
@@ -84,7 +97,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   // Reload this page when the server says something changed (core/realtime.ts).
   constructor() {
     const rt = inject(RealtimeService);
-    reloadOn([rt.paymentsChanged$, rt.registrationReviewed$, rt.complianceChanged$], () => this.load());
+    reloadOn([rt.paymentsChanged$, rt.complianceChanged$], () => this.load());
   }
 
   // Load the data once when the page opens.
@@ -108,6 +121,9 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
         { label: 'Pending Payments', value: String(s.pendingPayments), icon: 'wall-clock', danger: true, tone: 'pending', hint: 'Processed, not yet released' },
       ]);
       this.recent.set(r); this.upcoming.set(u);
+      this.noReleases.set(m.some((x) => x.value > 0) ? null
+        : s.queuedAmount > 0 ? `${formatPeso(s.queuedAmount)} is processed and waiting to be released. Release it in Payroll and it will show here.`
+        : 'Payments appear here once they are processed and released in Payroll.');
       // Wait one tick so the <canvas> exists, remove old charts, then draw new ones.
       setTimeout(async () => {
         this.charts.forEach((c) => c.destroy()); this.charts = [];

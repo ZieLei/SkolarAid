@@ -29,7 +29,7 @@ public static class ComplianceRules
         "Signed and notarized scholarship contract"
     ];
 
-    /// <summary>Document keys used at creation/registration, in the same order as <see cref="DefaultTypes"/>.</summary>
+    /// <summary>Document keys used when a scholar is created, in the same order as <see cref="DefaultTypes"/>.</summary>
     public static readonly string[] DocKeys = ["PSA", "COE", "COR", "Grades", "Contract"];
 
     public static readonly string[] Statuses = ["Pending", "Submitted", "Approved", "Rejected", "Overdue"];
@@ -109,9 +109,55 @@ public static class PayrollRules
     public static string ReferenceNumber(DateTime now, int scholarId)
         => $"PAY-{now:yyyyMMdd}-{scholarId:D4}-{now:HHmmssfff}";
 
-    // A scholar can be paid when: Active + all documents Approved + has a stipend + not paid yet this period.
-    public static bool IsEligible(string scholarStatus, IReadOnlyCollection<string> complianceStatuses, decimal stipend, bool alreadyPaid)
-        => scholarStatus == "Active" && ComplianceRules.IsComplete(complianceStatuses) && stipend > 0 && !alreadyPaid;
+    // ---- How a scholar's payment FREQUENCY relates to the payroll PERIOD ----
+    // The scholarship's stipend amount is paid once per cycle: Monthly = every month, Quarterly = every 3 months,
+    // Semi-Annual = every 6 months, Annual = every 12 months. A payroll period is the cycle being paid right now,
+    // so it must last one cycle of the scholar's frequency. This stops, for example, a semester amount being paid for one month.
+
+    /// <summary>Months in one cycle of this frequency; null for anything else (older values such as "Weekly"), which is not checked.</summary>
+    public static int? CycleMonths(string? frequency) => frequency?.Trim().ToLowerInvariant() switch
+    {
+        "monthly" => 1, "quarterly" => 3, "semi-annual" => 6, "annual" => 12, _ => null
+    };
+
+    /// <summary>True when the period (first to last day, inclusive) lasts one cycle. Months have 28 to 31 days, so that is the allowed range per month.</summary>
+    public static bool PeriodFitsFrequency(string? frequency, DateTime start, DateTime end)
+    {
+        if (CycleMonths(frequency) is not { } months) return true;
+        var days = (end.Date - start.Date).Days + 1;
+        return days >= months * 28 && days <= months * 31;
+    }
+
+    /// <summary>
+    /// Why this period cannot be paid to this scholar, or null when it can: the period has not started yet,
+    /// or it is not as long as one cycle of the scholar's frequency.
+    /// </summary>
+    public static string? CycleProblem(string? frequency, DateTime start, DateTime end, DateTime today)
+    {
+        if (start.Date > today.Date) return "this period has not started yet";
+        if (PeriodFitsFrequency(frequency, start, end)) return null;
+        return $"paid {frequency}: needs a {CycleMonths(frequency)}-month period";
+    }
+
+    // Bank Transfer needs somewhere to send the money: a bank name AND an account number on the scholar's profile.
+    // Returns what is missing (shown to the admin), or null when the chosen method can be used.
+    // Cash and Mobile Wallet need nothing extra.
+    public static string? PayoutProblem(string? method, string? bankName, string? bankAccountNumber)
+    {
+        if (method != "Bank Transfer") return null;
+        var noName = string.IsNullOrWhiteSpace(bankName);
+        var noAccount = string.IsNullOrWhiteSpace(bankAccountNumber);
+        if (noName && noAccount) return "no bank details";
+        if (noName) return "bank name missing";
+        if (noAccount) return "bank account number missing";
+        return null;
+    }
+
+    // A scholar can be paid when: Active + all documents Approved + has a stipend + not paid yet this period
+    // + the payment method can be used for them (payoutReady, see PayoutProblem)
+    // + the period is one cycle of their frequency and has started (cycleFits, see CycleProblem).
+    public static bool IsEligible(string scholarStatus, IReadOnlyCollection<string> complianceStatuses, decimal stipend, bool alreadyPaid, bool payoutReady = true, bool cycleFits = true)
+        => scholarStatus == "Active" && ComplianceRules.IsComplete(complianceStatuses) && stipend > 0 && !alreadyPaid && payoutReady && cycleFits;
 }
 
 public static class ScholarRules

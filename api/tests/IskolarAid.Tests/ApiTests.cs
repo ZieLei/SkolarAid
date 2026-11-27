@@ -185,10 +185,26 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         byte[] png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0];
         using (var bad = new MultipartFormDataContent { { new ByteArrayContent([1, 2, 3]), "file", "x.png" } })
             Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsync("/api/me/picture", bad)).StatusCode);
+        // 5 MB is allowed; one byte more is refused with a clear message (not a 413 from the size limit).
+        var big = new byte[5 * 1024 * 1024 + 1]; png.CopyTo(big, 0);
+        using (var tooBig = new MultipartFormDataContent { { new ByteArrayContent(big), "file", "big.png" } })
+        {
+            var r = await admin.PutAsync("/api/me/picture", tooBig);
+            Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
+            Assert.Contains("max 5 MB", await r.Content.ReadAsStringAsync());
+        }
+        var max = new byte[5 * 1024 * 1024]; png.CopyTo(max, 0);
+        using (var atLimit = new MultipartFormDataContent { { new ByteArrayContent(max), "file", "max.png" } })
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsync("/api/me/picture", atLimit)).StatusCode);
         using (var good = new MultipartFormDataContent { { new ByteArrayContent(png), "file", "me.png" } })
             Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsync("/api/me/picture", good)).StatusCode);
         var mine = await admin.GetAsync("/api/me/picture");
         Assert.Equal("image/png", mine.Content.Headers.ContentType!.MediaType);
         Assert.Equal(HttpStatusCode.NoContent, (await admin.GetAsync($"/api/admin/scholars/{created!.Id}/picture")).StatusCode);
+        // Monthly disbursement chart: always the last 12 months (oldest first, this month last), 0 where nothing was released.
+        var monthly = await admin.GetFromJsonAsync<List<ChartPointDto>>("/api/admin/dashboard/monthly-disbursement");
+        Assert.Equal(12, monthly!.Count);
+        Assert.Equal(DateTime.Today.ToString("MMM yyyy", System.Globalization.CultureInfo.InvariantCulture), monthly[^1].Label);
+        Assert.Equal(DateTime.Today.AddMonths(-11).ToString("MMM yyyy", System.Globalization.CultureInfo.InvariantCulture), monthly[0].Label);
     }
 }

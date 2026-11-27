@@ -18,13 +18,13 @@ public class AppEventsTests
         var failures = new List<string>();
         var received = 0;
         events.SubscriberFailed = (name, _) => failures.Add(name);
-        events.RegistrationSubmitted += (_, _) => throw new InvalidOperationException("boom");
-        events.RegistrationSubmitted += (_, _) => received++;
+        events.NotificationsSent += (_, _) => throw new InvalidOperationException("boom");
+        events.NotificationsSent += (_, _) => received++;
 
-        events.RaiseRegistrationSubmitted(1, "Ana Lim");
+        events.RaiseNotificationsSent([1], "Reminder", "General");
 
         Assert.Equal(1, received);
-        Assert.Equal(["RegistrationSubmitted"], failures);
+        Assert.Equal(["NotificationsSent"], failures);
     }
 
     [Fact]
@@ -74,27 +74,6 @@ public class AppEventsTests
 
         var e = Assert.Single(got);
         Assert.Equal((s.Id, rec.RequirementType, "Submitted", true), (e.ScholarId, e.Requirement, e.Status, e.ByScholar));
-    }
-
-    [Fact]
-    public async Task Registration_submit_and_reject_raise_their_events()
-    {
-        using var f = new Fixture();
-        var got = new List<string>();
-        f.Events.RegistrationSubmitted += (_, e) => got.Add($"submitted {e.ApplicantName}");
-        f.Events.RegistrationReviewed += (_, e) => got.Add($"{e.Status} {e.ApplicantName}");
-        var t = await f.AddTypeAsync();
-        var files = new[] { "PSA", "COE", "COR" }.Select(k => new RegistrationFile { Key = k, FileName = $"{k}.pdf", Content = new MemoryStream([1]) }).ToList();
-        var svc = f.Registrations();
-
-        var id = await svc.SubmitAsync(new RegistrationSubmitDto
-        {
-            StudentId = "2026-888", FirstName = "Ana", LastName = "Lim", Email = "ana@x.ph", ContactNumber = "0917", Gender = "Female",
-            DegreeProgram = "Bachelor of Science in Criminology", YearLevel = "1st Year", ScholarshipTypeId = t.Id
-        }, files);
-        await svc.RejectAsync(id, "Incomplete", sendEmail: false);
-
-        Assert.Equal(["submitted Ana Lim", "Rejected Ana Lim"], got);
     }
 }
 

@@ -115,59 +115,10 @@ public record ComplianceScholarOptionDto(int Id, string Label);
 public record ComplianceScholarInfoDto(int Id, string FullName, string ScholarNumber, string? Course, string? YearLevel, string? Scholarship,
     IReadOnlyList<ComplianceItemDto> Items, string Overall);
 
-// ---- Registration ----
-public class RegistrationSubmitDto
-{
-    [Required, StringLength(50)] public string StudentId { get; set; } = "";
-    [Required, StringLength(100)] public string FirstName { get; set; } = "";
-    [StringLength(100)] public string? MiddleName { get; set; }
-    [Required, StringLength(100)] public string LastName { get; set; } = "";
-    [StringLength(30)] public string? Suffix { get; set; }
-    [Required, EmailAddress, StringLength(150)] public string Email { get; set; } = "";
-    [Required, StringLength(30)] public string ContactNumber { get; set; } = "";
-    public DateTime? DateOfBirth { get; set; }
-    [Required, StringLength(20)] public string Gender { get; set; } = "";
-    [StringLength(500)] public string? Address { get; set; }
-    [StringLength(50)] public string? Program { get; set; }
-    [StringLength(200)] public string? Hei { get; set; }
-    [Required, StringLength(200)] public string DegreeProgram { get; set; } = "";
-    [Required, StringLength(30)] public string YearLevel { get; set; } = "";
-    [Required, Range(1, int.MaxValue, ErrorMessage = "Please select a Scholarship Type.")] public int ScholarshipTypeId { get; set; }
-    public DateTime? EnrollmentDate { get; set; }
-    public DateTime? ExpectedGraduation { get; set; }
-    [StringLength(100)] public string? BankName { get; set; }
-    [StringLength(50)] public string? BankAccountNumber { get; set; }
-    [StringLength(2000)] public string? Notes { get; set; }
-}
-
-public class RegistrationFile
-{
-    public required string Key { get; init; }
-    public required string FileName { get; init; }
-    public required Stream Content { get; init; }
-}
-
-public record RegistrationListItemDto(int Id, string FullName, string Email, string ContactNumber, string? Course, string? YearLevel,
-    string Status, string? RejectionReason, DateTime CreatedAt);
-
-public record RegistrationDetailDto(int Id, string? StudentId, string FirstName, string? MiddleName, string LastName, string? Suffix,
-    string Email, string ContactNumber, DateTime? DateOfBirth, string? Gender, string? Address, string? Program, string? Hei,
-    string? DegreeProgram, string? YearLevel, int? ScholarshipTypeId, string? ScholarshipName, decimal? StipendAmount,
-    string? StipendFrequency, string? ScholarshipFundSource, string? RenewalConditions, DateTime? EnrollmentDate,
-    DateTime? ExpectedGraduation, string? BankName, string? BankAccountNumber, IReadOnlyList<string> Files, string? Notes,
-    string Status, string? RejectionReason, DateTime CreatedAt);
-
-public class RejectRegistrationDto
-{
-    [Required, StringLength(1000)] public string Reason { get; set; } = "";
-    public bool SendEmail { get; set; } = true;
-}
-
-public record RegistrationApprovedDto(int ScholarId, string ScholarNumber, string StudentId, string FullName, bool EmailSent);
-
 // ---- Payroll ----
 public record PayrollCandidateDto(int Id, string ScholarNumber, string FullName, string? Course, string? YearLevel,
-    string ScholarshipType, decimal StipendAmount, string ComplianceStatus, string PaymentStatus, bool IsEligible);
+    string ScholarshipType, decimal StipendAmount, string ComplianceStatus, string PaymentStatus, bool IsEligible,
+    string? PayoutProblem = null, string Frequency = "", string? CycleProblem = null);
 
 public class PayrollRequestDto
 {
@@ -175,13 +126,21 @@ public class PayrollRequestDto
     [Required] public DateTime PeriodStart { get; set; }
     [Required] public DateTime PeriodEnd { get; set; }
     [Required, RegularExpression("^(Bank Transfer|Cash|Mobile Wallet)$")] public string Method { get; set; } = "Bank Transfer";
+    // The day the money is expected to go out. Empty = 3 working days after processing (PayrollRules.CalculateReleaseDate).
+    public DateTime? ReleaseDate { get; set; }
     [Required, MinLength(1, ErrorMessage = "Please select at least one eligible scholar.")] public List<int> ScholarIds { get; set; } = [];
 }
 
 public record PayrollPreviewDto(string Period, string Method, int Selected, int AlreadyPaid, int New, decimal TotalAmount,
-    IReadOnlyList<PayrollPreviewLine> Lines);
+    IReadOnlyList<PayrollPreviewLine> Lines, DateTime ReleaseDate);
 public record PayrollPreviewLine(int ScholarId, string FullName, decimal Amount, bool AlreadyPaid);
-public record PayrollResultDto(string Period, string Method, int Processed, int Skipped, decimal Total, int EmailsSent);
+public record PayrollResultDto(string Period, string Method, int Processed, int Skipped, decimal Total, int EmailsSent, DateTime ReleaseDate);
+
+// Body of POST /payments/{id}/reschedule: the new expected release date of a payment that is still "Processed".
+public class RescheduleRequestDto
+{
+    [Required] public DateTime ReleaseDate { get; set; }
+}
 
 public record ProcessedPaymentDto(int PaymentId, int ScholarId, string ScholarName, string ScholarNumber, string Period, decimal Amount,
     DateTime? ReleaseDate, string? PaymentMethod, string? ReferenceNumber);
@@ -193,7 +152,7 @@ public record PayrollStatsDto(int ProcessedToday, int ReadyForRelease, decimal R
 // ---- Notifications ----
 public record NotificationDto(int Id, string Title, string Message, string Type, DateTime DateCreated, bool IsRead, DateTime? ReadAt,
     string SenderName, string? RecipientName, string? ScholarNumber);
-public record NotificationStatsDto(int Total, int Unread, int Read, int PendingRegistrations);
+public record NotificationStatsDto(int Total, int Unread, int Read);
 
 public class ComposeNotificationDto
 {

@@ -7,7 +7,9 @@ import { HugeiconsIconComponent } from '@hugeicons/angular';
 import {
   Analytics01Icon, Attachment01Icon, CheckmarkCircle02Icon, ChartBarLineIcon, Clock01Icon, DashboardSquare01Icon,
   File01Icon, GraduationScrollIcon, Invoice01Icon, Money01Icon, MoneyBag02Icon, Note01Icon, Notification01Icon,
-  Task01Icon, UserCircleIcon, UserGroupIcon, UserIcon, Wallet01Icon, Cancel01Icon, AlarmClockIcon, Calendar03Icon, Mail01Icon, SmartPhone01Icon, InformationCircleIcon, Search01Icon, Menu01Icon, Logout01Icon, Alert02Icon, FolderOpenIcon, Folder01Icon,
+  Task01Icon, UserCircleIcon, UserGroupIcon, UserIcon, Wallet01Icon, Cancel01Icon,
+  PrinterIcon, Download04Icon, RefreshIcon, Xls01Icon, Doc01Icon, Pdf01Icon, FilterHorizontalIcon, ArrowRight01Icon, PieChartIcon,
+  ChartLineData02Icon, ChartColumnIcon, FileSearchIcon, MoneyReceive02Icon, Table01Icon, AlarmClockIcon, Calendar03Icon, Mail01Icon, SmartPhone01Icon, InformationCircleIcon, Search01Icon, Menu01Icon, Logout01Icon, Alert02Icon, FolderOpenIcon, Folder01Icon,
 } from '@hugeicons/core-free-icons';
 
 /** Maps the semantic names used across the app (formerly PNG file names) to Hugeicons. */
@@ -43,6 +45,21 @@ export const ICONS: Record<string, typeof UserIcon> = {
   chart: ChartBarLineIcon,
   invoice: Invoice01Icon,
   money: MoneyBag02Icon,
+  // reports page
+  printer: PrinterIcon,
+  download: Download04Icon,
+  refresh: RefreshIcon,
+  'file-xls': Xls01Icon,
+  'file-doc': Doc01Icon,
+  'file-pdf': Pdf01Icon,
+  filter: FilterHorizontalIcon,
+  'arrow-right': ArrowRight01Icon,
+  'pie-chart': PieChartIcon,
+  'line-chart': ChartLineData02Icon,
+  'bar-chart': ChartColumnIcon,
+  'file-search': FileSearchIcon,
+  receipt: MoneyReceive02Icon,
+  table: Table01Icon,
 };
 
 /** `<app-icon name="bell" />` — size it with width/height classes; colour follows the text colour. */

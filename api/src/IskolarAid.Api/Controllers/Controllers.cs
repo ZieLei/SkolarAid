@@ -6,7 +6,7 @@
 // in IskolarAid.Core/Services. Controllers hold almost no logic.
 //
 // Access rules:
-// [AllowAnonymous]               -> anyone (login, registration)
+// [AllowAnonymous]               -> anyone (login, sign-up)
 // [Authorize(Policy = "Admin")]  -> only admin accounts
 // [Authorize(Policy = "Scholar")]-> only scholar accounts
 //
@@ -183,30 +183,6 @@ public class ComplianceController(ComplianceService svc) : ControllerBase
 }
 
 // ---------------------------------------------------------------------
-// Admin > Registrations: review applications sent from the Register page.
-// Approve = create the scholar + user account. Reject = optionally email a reason.
-// ---------------------------------------------------------------------
-[ApiController, Route("api/admin/registrations"), Authorize(Policy = "Admin")]
-public class RegistrationsController(RegistrationService svc) : ControllerBase
-{
-    [HttpGet] public Task<List<RegistrationListItemDto>> List() => svc.ListAsync();
-    [HttpGet("{id:int}")] public Task<RegistrationDetailDto> Get(int id) => svc.GetAsync(id);
-
-    // Open one uploaded document of an application (key = PSA, COE, ...).
-    [HttpGet("{id:int}/files/{key}")]
-    public async Task<IActionResult> GetFile(int id, string key)
-    {
-        var f = await svc.GetFileAsync(id, key);
-        return File(f.Data, f.ContentType, f.Name);
-    }
-
-    [HttpPost("{id:int}/approve")] public Task<RegistrationApprovedDto> Approve(int id) => svc.ApproveAsync(id);
-
-    [HttpPost("{id:int}/reject")]
-    public async Task<object> Reject(int id, RejectRegistrationDto dto) => new { emailSent = await svc.RejectAsync(id, dto.Reason, dto.SendEmail) };
-}
-
-// ---------------------------------------------------------------------
 // Admin > Payroll. The money flow has two steps:
 // 1. "process": pick scholars for a period -> creates Processed payments.
 // 2. "release": hand the money out -> payments become Released.
@@ -217,15 +193,19 @@ public class PayrollController(PayrollService svc) : ControllerBase
 {
     // Scholars who can be paid for the period from..to (defaults to the current month).
     [HttpGet("candidates")]
-    public Task<List<PayrollCandidateDto>> Candidates(DateTime? from, DateTime? to, int? scholarshipTypeId, string? yearLevel, string? search)
+    public Task<List<PayrollCandidateDto>> Candidates(DateTime? from, DateTime? to, int? scholarshipTypeId, string? yearLevel, string? search, string? method)
     {
         var (start, end) = Period(from, to);
-        return svc.CandidatesAsync(start, end, scholarshipTypeId, yearLevel, search);
+        return svc.CandidatesAsync(start, end, scholarshipTypeId, yearLevel, search, method);
     }
 
     [HttpPost("preview")] public Task<PayrollPreviewDto> Preview(PayrollRequestDto dto) => svc.PreviewAsync(dto);
     [HttpPost("process")] public Task<PayrollResultDto> Process(PayrollRequestDto dto) => svc.ProcessAsync(dto);
     [HttpGet("ready-for-release")] public Task<List<ProcessedPaymentDto>> Ready() => svc.ReadyForReleaseAsync();
+
+    // Move the expected release date of a payment that is still "Processed" (the scholar is notified).
+    [HttpPost("payments/{id:int}/reschedule")]
+    public Task<ProcessedPaymentDto> Reschedule(int id, RescheduleRequestDto dto) => svc.RescheduleAsync(id, dto.ReleaseDate);
     [HttpPost("release")] public Task<ReleaseResultDto> Release([FromBody] ReleaseRequest? req) => svc.ReleaseAsync(req?.PaymentIds);
     [HttpGet("history")]
     public Task<List<DisbursementHistoryDto>> History(DateTime? from, DateTime? to)
@@ -385,7 +365,8 @@ public class ProfilePictureController(ProfilePictureService pictures, ICurrentUs
     public async Task<IActionResult> Mine() => Picture(await pictures.GetAsync(Me));
 
     // PUT /api/me/picture - upload or replace your picture (form field "file").
-    [HttpPut("me/picture"), Authorize, RequestSizeLimit(3 * 1024 * 1024)]
+    // The request may be a little bigger than the 5 MB picture (form overhead); the service enforces the real 5 MB limit.
+    [HttpPut("me/picture"), Authorize, RequestSizeLimit(6 * 1024 * 1024)]
     public async Task<IActionResult> Upload(IFormFile file)
     {
         var (_, data) = await Files.ReadAsync(file);

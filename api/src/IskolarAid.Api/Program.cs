@@ -67,14 +67,12 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddSingleton<PasswordService>();
 builder.Services.AddSingleton<JwtTokenService>();
-builder.Services.AddSingleton<IFileStore, LocalFileStore>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<ActivityLogService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ScholarshipTypeService>();
 builder.Services.AddScoped<ComplianceService>();
 builder.Services.AddScoped<ScholarService>();
-builder.Services.AddScoped<RegistrationService>();
 builder.Services.AddScoped<PayrollService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<DashboardService>();
@@ -123,7 +121,7 @@ var origins = (config["Cors:Origins"] ?? "http://localhost:4200").Split(',', Str
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()
     .WithExposedHeaders("Content-Disposition").AllowCredentials()));
 
-// ---- Rate limiting (login brute force, public registration spam) ----
+// ---- Rate limiting (login brute force, sign-up spam) ----
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

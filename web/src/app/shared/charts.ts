@@ -28,6 +28,19 @@ export function shortCourse(name: string): string {
     .replace(/^Bachelor of Science in /, 'BS ');
 }
 
+/**
+ * Doughnut with no built-in legend (pages draw their own legend list, which handles long names and many slices).
+ * `colors` lines up with `data`.
+ */
+export const doughnutConfig = (labels: string[], data: number[], colors: string[]): ChartConfiguration => ({
+  type: 'doughnut',
+  data: { labels, datasets: [{ data, backgroundColor: colors, borderColor: '#fff', borderWidth: 3, hoverOffset: 6 }] },
+  options: {
+    responsive: true, maintainAspectRatio: false, cutout: '70%',
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${c.label}: ${c.parsed}` } } },
+  } as ChartConfiguration['options'],
+});
+
 export const lineConfig = (labels: string[], data: number[], label = 'Disbursed (₱)'): ChartConfiguration => ({
   type: 'line',
   data: { labels, datasets: [{ label, data, borderColor: '#00444f', backgroundColor: 'rgba(0,68,79,.12)', fill: true, tension: 0, pointRadius: 4, pointBackgroundColor: '#00444f' }] },

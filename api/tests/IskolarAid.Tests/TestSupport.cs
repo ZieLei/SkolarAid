@@ -48,12 +48,10 @@ public sealed class Fixture : IDisposable
     public ComplianceService Compliance => new(Db, Log, Current, Opt(new UploadOptions()), Events);
     public ScholarService Scholars => new(Db, Passwords, Log, Email, Opt(new SmtpOptions()));
     public PayrollService Payroll => new(Db, Log, Current, Email, Events);
-    public RegistrationService Registrations(IFileStore? store = null) =>
-        new(Db, store ?? new MemoryFileStore(), Passwords, Log, Email, Opt(new SmtpOptions()), Opt(new UploadOptions()), Events);
 
-    public async Task<ScholarshipType> AddTypeAsync(string name = "Academic", decimal amount = 5000, bool active = true)
+    public async Task<ScholarshipType> AddTypeAsync(string name = "Academic", decimal amount = 5000, bool active = true, string frequency = "Monthly")
     {
-        var t = new ScholarshipType { Name = name, StipendAmount = amount, PaymentFrequency = "Monthly", IsActive = active };
+        var t = new ScholarshipType { Name = name, StipendAmount = amount, PaymentFrequency = frequency, IsActive = active };
         Db.ScholarshipTypes.Add(t);
         await Db.SaveChangesAsync();
         return t;
@@ -68,9 +66,11 @@ public sealed class Fixture : IDisposable
     }
 
     /// <summary>A scholar whose 5 compliance records all carry <paramref name="complianceStatus"/>.</summary>
-    public async Task<Scholar> AddScholarAsync(int typeId, string complianceStatus = "Approved", string status = "Active", string number = "SCH-2026-001")
+    // Test scholars have bank details by default, so Bank Transfer payroll works; pass bank: false for one without.
+    public async Task<Scholar> AddScholarAsync(int typeId, string complianceStatus = "Approved", string status = "Active", string number = "SCH-2026-001", bool bank = true)
     {
-        var s = new Scholar { FirstName = "Juan", LastName = "Cruz", ScholarNumber = number, ScholarshipTypeId = typeId, Status = status, Email = "juan@x.ph", ContactNumber = "09171234567" };
+        var s = new Scholar { FirstName = "Juan", LastName = "Cruz", ScholarNumber = number, ScholarshipTypeId = typeId, Status = status, Email = "juan@x.ph", ContactNumber = "09171234567",
+            BankName = bank ? "BDO" : null, BankAccountNumber = bank ? "001234567890" : null };
         Db.Scholars.Add(s);
         await Db.SaveChangesAsync();
         for (var i = 0; i < 5; i++)
@@ -80,18 +80,4 @@ public sealed class Fixture : IDisposable
     }
 
     public void Dispose() { Db.Dispose(); _conn.Dispose(); }
-}
-
-public class MemoryFileStore : IFileStore
-{
-    public Dictionary<string, byte[]> Files { get; } = [];
-    public async Task<string> SaveAsync(string key, string originalName, Stream content)
-    {
-        using var ms = new MemoryStream();
-        await content.CopyToAsync(ms);
-        var path = $"registrations/{key}_{originalName}";
-        Files[path] = ms.ToArray();
-        return path;
-    }
-    public Task<byte[]?> ReadAsync(string relativePath) => Task.FromResult(Files.GetValueOrDefault(relativePath));
 }

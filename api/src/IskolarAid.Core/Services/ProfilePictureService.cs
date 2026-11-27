@@ -15,7 +15,7 @@ namespace IskolarAid.Core.Services;
 
 public class ProfilePictureService(IskolarDbContext db, ActivityLogService log)
 {
-    public const long MaxBytes = 2 * 1024 * 1024;
+    public const long MaxBytes = 5 * 1024 * 1024;
 
     // The picture of a user, or null if they have none.
     public async Task<(byte[] Data, string ContentType)?> GetAsync(int userId)
@@ -31,11 +31,11 @@ public class ProfilePictureService(IskolarDbContext db, ActivityLogService log)
         return userId is null ? null : await GetAsync(userId.Value);
     }
 
-    // Save (or replace) a user's picture. Only JPG, PNG and WebP images up to 2 MB.
+    // Save (or replace) a user's picture. Only JPG, PNG and WebP images up to 5 MB.
     public async Task SetAsync(int userId, byte[] data)
     {
         if (data.Length == 0) throw new AppException("The image is empty.");
-        if (data.Length > MaxBytes) throw new AppException("The picture is too large (max 2 MB).");
+        if (data.Length > MaxBytes) throw new AppException("The picture is too large (max 5 MB).");
         // Check the file's first bytes, not its name, so only real images are accepted.
         var type = ImageType(data) ?? throw new AppException("Please choose a JPG, PNG or WebP image.");
 

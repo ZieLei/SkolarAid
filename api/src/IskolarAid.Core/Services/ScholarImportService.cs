@@ -160,7 +160,7 @@ public static class ScholarImporter
         var userIds = seeded.Where(s => s.UserId != null).Select(s => s.UserId!.Value).ToList();
         // Seeded log lines all carry a 192.168.1.x address (real ones are 127.0.0.1 / ::1).
         db.ActivityLogs.RemoveRange(db.ActivityLogs.Where(a => (a.IpAddress != null && a.IpAddress.StartsWith("192.168.1.")) || (a.UserId != null && userIds.Contains(a.UserId.Value))));
-        db.ScholarRegistrations.RemoveRange(db.ScholarRegistrations.Where(r => r.Email.EndsWith(suffix)));
+        db.ScholarRegistrations.RemoveRange(db.ScholarRegistrations.Where(r => r.Email.EndsWith(suffix))); // left by older versions of the seeder
         await db.SaveChangesAsync();
         db.Scholars.RemoveRange(seeded); // payments, requirements, files and notifications go with them (cascade)
         await db.SaveChangesAsync();

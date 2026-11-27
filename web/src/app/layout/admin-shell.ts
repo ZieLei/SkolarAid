@@ -4,24 +4,23 @@
 // and <router-outlet> in the middle where the current page is shown.
 //
 // It also:
-// - keeps the "Registrations" badge count up to date
 // - opens the live-update connection (RealtimeService) while an admin is logged in
-// - pops up a toast when a new registration arrives or a scholar uploads a document
+// - pops up a toast when a scholar uploads a document for review
 // =====================================================================
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { filter, firstValueFrom, map, merge } from 'rxjs';
+import { filter, firstValueFrom, map } from 'rxjs';
 import { Api, errorMessage } from '../core/api';
 import { AuthService } from '../core/auth';
 import { DialogService } from '../core/dialog';
-import { NotificationStats } from '../core/models';
 import { RealtimeService } from '../core/realtime';
 import { ToastService } from '../core/toast';
 import { LiveStatus } from '../shared/live-status';
 import { AppIcon } from '../shared/icon';
 import { SidebarState } from './sidebar';
 import { Avatar, ProfilePictures } from '../shared/avatar';
+import { MAX_PICTURE_BYTES, shrinkImage } from '../shared/image';
 
 
 @Component({
@@ -41,11 +40,10 @@ import { Avatar, ProfilePictures } from '../shared/avatar';
       </div>
       @for (n of nav; track n.label) {
         <a [routerLink]="n.link" routerLinkActive="!bg-white/15 !text-white font-semibold shadow-inner ring-1 ring-white/10"
-           [queryParams]="n.query" [routerLinkActiveOptions]="{ paths: 'subset', queryParams: 'exact', fragment: 'ignored', matrixParams: 'ignored' }"
+           [routerLinkActiveOptions]="{ paths: 'subset', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' }"
            [attr.title]="side.iconsOnly() ? n.label : null" [attr.aria-label]="n.label"
            class="relative mx-3 mb-1 flex h-[46px] items-center gap-3 whitespace-nowrap rounded-xl px-3 text-[14px] text-white/75 transition-colors hover:bg-white/10 hover:text-white" style="width: calc(100% - 24px)">
           <app-icon [name]="n.icon" class="h-[22px] w-[22px] shrink-0"></app-icon>@if (!side.iconsOnly()) { {{ n.label }} }
-          @if (n.badge && pendingRegs() > 0) { <span class="rounded-full bg-[#ffd166] px-2 text-[11px] font-bold text-[#4a3000]" [class.ml-auto]="!side.iconsOnly()" [class.absolute]="side.iconsOnly()" [class.right-1]="side.iconsOnly()" [class.top-1]="side.iconsOnly()" [attr.aria-label]="pendingRegs() + ' waiting'">{{ pendingRegs() }}</span> }
         </a>
       }
     </aside>
@@ -77,7 +75,7 @@ export class AdminShell {
   }
   // Sidebar: fixed on wide screens, a drawer on phones (layout/sidebar.ts).
   side = new SidebarState('admin-sidebar-collapsed');
-  // Sidebar menu items. "Registrations" is the Notifications page opened on its registrations tab.
+  // Sidebar menu items.
   nav = [
     { link: '/admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { link: '/admin/scholars', label: 'Scholar Management', icon: 'scholar' },
@@ -85,38 +83,25 @@ export class AdminShell {
     { link: '/admin/reports', label: 'Reports & Analytics', icon: 'analysis' },
     { link: '/admin/activity-logs', label: 'Activity Log', icon: 'file' },
     { link: '/admin/notifications', label: 'Notifications', icon: 'bell' },
-    { link: '/admin/notifications', query: { tab: 'reg' }, label: 'Registrations', icon: 'user-groups', badge: true },
-  ] as { link: string; label: string; icon: string; query?: Record<string, string>; badge?: boolean }[];
+  ];
 
   private api = inject(Api);
   private router = inject(Router);
-  pendingRegs = signal(0);
   private url = toSignal(this.router.events.pipe(filter((e) => e instanceof NavigationEnd), map((e) => (e as NavigationEnd).urlAfterRedirects)), { initialValue: this.router.url });
   /** Shown in the header, as in the scholar portal. */
   // Page title in the top bar, based on the current URL.
   title = computed(() => {
     const u = this.url();
-    if (u.includes('tab=reg')) return 'Scholar Registrations';
-    return this.nav.find((n) => !n.query && u.startsWith(n.link))?.label ?? '';
+    return this.nav.find((n) => u.startsWith(n.link))?.label ?? '';
   });
 
   constructor() {
-    // Keep the "Registrations" badge fresh as the admin moves around.
-    // Ask the API how many registrations are waiting (for the badge).
-    const load = () => void firstValueFrom(this.api.get<NotificationStats>('/admin/notifications/stats')).then((s) => this.pendingRegs.set(s.pendingRegistrations)).catch(() => undefined);
-    load();
-    this.router.events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed()).subscribe(load);
-
     // Live updates: one connection while the admin portal is open.
     // Open the live connection now; close it when the admin leaves (logout).
     const rt = inject(RealtimeService);
     const toast = inject(ToastService);
     rt.connect();
     inject(DestroyRef).onDestroy(() => rt.disconnect());
-    // Refresh the badge when a registration is sent or reviewed.
-    merge(rt.registrationSubmitted$, rt.registrationReviewed$, rt.reconnected$).pipe(takeUntilDestroyed()).subscribe(load);
-    rt.registrationSubmitted$.pipe(takeUntilDestroyed()).subscribe((r) =>
-      toast.show(`New scholar registration from ${r.name}.`, { actionLabel: 'Review', onAction: () => void this.router.navigate(['/admin/notifications'], { queryParams: { tab: 'reg' } }) }));
     rt.complianceChanged$.pipe(filter((c) => c.byScholar), takeUntilDestroyed()).subscribe((c) =>
       toast.show(`A scholar submitted ${c.requirement} for review.`));
   }
@@ -127,7 +112,10 @@ export class AdminShell {
   async changePicture(ev: Event): Promise<void> {
     const input = ev.target as HTMLInputElement; const file = input.files?.[0]; input.value = '';
     if (!file) return;
-    const fd = new FormData(); fd.append('file', file, file.name);
+    if (file.size > MAX_PICTURE_BYTES) { void this.dialog.warning('The picture is too large (max 5 MB).'); return; }
+    // Shrink first so the upload is quick and every avatar stays small (see shared/image.ts).
+    const pic = await shrinkImage(file);
+    const fd = new FormData(); fd.append('file', pic, pic === file ? file.name : file.name.replace(/\.\w+$/, '') + '.jpg');
     try { await firstValueFrom(this.api.put('/me/picture', fd)); this.pictures.changed(); this.toastSvc.show('Profile picture updated.'); }
     catch (e) { void this.dialog.error(errorMessage(e), 'Could not upload picture'); }
   }

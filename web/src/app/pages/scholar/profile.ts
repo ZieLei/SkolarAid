@@ -15,6 +15,7 @@ import { DatePipeShort, PesoPipe } from '../../core/format';
 import { ScholarProfile } from '../../core/models';
 import { AppIcon } from '../../shared/icon';
 import { Avatar, ProfilePictures } from '../../shared/avatar';
+import { MAX_PICTURE_BYTES, shrinkImage } from '../../shared/image';
 import { BANKS } from '../../core/options';
 
 /** Read-only facts are plain text; the four fields a scholar may change are real inputs with their own Save button. */
@@ -31,7 +32,7 @@ import { BANKS } from '../../core/options';
             <label class="btn btn-outline !h-[32px] !px-3 !text-[13px]" [class.opacity-60]="photoBusy()">{{ photoBusy() ? 'Uploading…' : 'Change picture' }}
               <input type="file" class="hidden" accept="image/jpeg,image/png,image/webp" [disabled]="photoBusy()" (change)="uploadPhoto($event)" /></label>
             <button class="btn btn-gray !h-[32px] !px-3 !text-[13px]" [disabled]="photoBusy()" (click)="removePhoto()">Remove</button>
-            <span class="text-[12px] text-muted">JPG, PNG or WebP, up to 2 MB</span>
+            <span class="text-[12px] text-muted">JPG, PNG or WebP, up to 5 MB</span>
           </div></div>
       </section>
 
@@ -149,9 +150,11 @@ export class ScholarProfilePage implements OnInit {
   async uploadPhoto(ev: Event): Promise<void> {
     const input = ev.target as HTMLInputElement; const file = input.files?.[0]; input.value = '';
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { void this.dlg.warning('The picture is too large (max 2 MB).'); return; }
-    const fd = new FormData(); fd.append('file', file, file.name);
+    if (file.size > MAX_PICTURE_BYTES) { void this.dlg.warning('The picture is too large (max 5 MB).'); return; }
     this.photoBusy.set(true);
+    // Shrink on the phone first: uploads in a second instead of minutes over Wi-Fi (see shared/image.ts).
+    const pic = await shrinkImage(file);
+    const fd = new FormData(); fd.append('file', pic, pic === file ? file.name : file.name.replace(/\.\w+$/, '') + '.jpg');
     try { await firstValueFrom(this.api.put('/me/picture', fd)); this.pictures.changed(); this.toast.show('Profile picture updated.'); }
     catch (e) { void this.dlg.error(errorMessage(e), 'Could not upload picture'); } finally { this.photoBusy.set(false); }
   }

@@ -82,7 +82,7 @@ public class ScholarshipTypeService(IskolarDbContext db, ActivityLogService log)
         return added;
     }
 
-    // Turn a type on or off. Inactive types are hidden from new registrations.
+    // Turn a type on or off. Inactive types are hidden when adding scholars.
     public async Task SetActiveAsync(int id, bool active)
     {
         var t = await db.ScholarshipTypes.FindAsync(id) ?? throw AppException.NotFound("Scholarship type");

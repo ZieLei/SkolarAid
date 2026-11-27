@@ -59,7 +59,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
             @for (p of filtered(); track p.id) {
               <li><button class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[#f0f7f8]" [class.bg-[#e6f5f5]]="sel()?.id === p.id" (click)="sel.set(p)">
                 <div class="min-w-0 flex-1"><p class="font-bold text-ink">{{ p.period }}</p>
-                  <p class="text-[12px] text-[#4b5563]">{{ p.releaseDate | dmy: 'Release date pending' }}{{ p.paymentMethod ? ' · ' + p.paymentMethod : '' }}</p></div>
+                  <p class="text-[12px] text-[#4b5563]">{{ p.status === 'Released' ? 'Released' : 'Expected' }} {{ p.releaseDate | dmy: 'date pending' }}{{ p.paymentMethod ? ' · ' + p.paymentMethod : '' }}</p></div>
                 <div class="shrink-0 text-right"><p class="font-bold text-ink">{{ p.amount | peso }}</p>
                   <span class="rounded-full px-2 py-[1px] text-[11px] font-bold" [style.background]="tint(color(p.status))" [style.color]="color(p.status)">{{ p.status }}</span></div>
               </button></li>
@@ -67,12 +67,12 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
           </ul>
           <!-- Tablets and up: the full table -->
           <div scrollCue class="grid-wrap hidden max-h-[560px] md:block"><table class="dgrid">
-            <thead><tr><th>Period</th><th class="!text-right">Amount</th><th>Status</th><th>Release date</th><th>Method</th><th>Reference</th></tr></thead>
+            <thead><tr><th>Period</th><th class="!text-right">Amount</th><th>Status</th><th>Release</th><th>Method</th><th>Reference</th></tr></thead>
             <tbody>@for (p of filtered(); track p.id; let i = $index) {
               <tr class="cursor-pointer" [class.alt]="i % 2 === 1" [class.sel]="sel()?.id === p.id" (click)="sel.set(p)" (keydown.enter)="sel.set(p)" tabindex="0" [attr.aria-label]="'Details of ' + p.period + ' payment'">
                 <td class="font-bold">{{ p.period }}</td><td class="text-right">{{ p.amount | peso }}</td>
                 <td><span class="rounded-full px-2 py-[2px] text-[12px] font-bold" [style.background]="tint(color(p.status))" [style.color]="color(p.status)">{{ p.status }}</span></td>
-                <td>{{ p.releaseDate | dmy: 'Pending' }}</td><td>{{ p.paymentMethod || '—' }}</td><td class="font-mono text-[12px] text-[#4b5563]">{{ p.referenceNumber || '—' }}</td></tr>
+                <td>{{ p.status === 'Released' ? 'Released' : 'Expected' }} {{ p.releaseDate | dmy: 'date pending' }}</td><td>{{ p.paymentMethod || '—' }}</td><td class="font-mono text-[12px] text-[#4b5563]">{{ p.referenceNumber || '—' }}</td></tr>
             } @empty { <tr><td colspan="6" class="!py-8 text-center text-[#4b5563]">No payments match these filters.</td></tr> }</tbody></table></div>
           <p class="px-3 py-2 text-[12px] text-[#4b5563]">Showing {{ filtered().length }} {{ filtered().length === 1 ? 'payment' : 'payments' }} · click a row for details</p>
         </section>
@@ -87,7 +87,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
             <p class="text-[13px] font-bold text-[#4b5563]">Period:</p><p class="mb-2 text-[14px]">{{ p.period }}</p>
             <p class="text-[13px] font-bold text-[#4b5563]">Amount:</p><p class="mb-2 text-[18px] font-bold text-brand">{{ p.amount | peso }}</p>
             <p class="text-[13px] font-bold text-[#4b5563]">Status:</p><p class="mb-2 text-[14px] font-bold" [style.color]="color(p.status)">{{ p.status }}</p>
-            <p class="text-[13px] font-bold text-[#4b5563]">Release Date:</p><p class="mb-2 text-[14px]">{{ p.releaseDate | dmy: 'Pending' }}</p>
+            <p class="text-[13px] font-bold text-[#4b5563]">{{ p.status === 'Released' ? 'Released on:' : 'Expected release:' }}</p><p class="mb-2 text-[14px]">{{ p.releaseDate | dmy: 'Pending' }}</p>
             <p class="text-[13px] font-bold text-[#4b5563]">Payment Method:</p><p class="mb-2 text-[14px]">{{ p.paymentMethod || '-' }}</p>
             <p class="text-[13px] font-bold text-[#4b5563]">Reference Number:</p><p class="mb-2 break-all text-[14px]">{{ p.referenceNumber || '-' }}</p>
             <p class="text-[13px] font-bold text-[#4b5563]">Processed By:</p><p class="text-[14px]">{{ p.processedBy || '-' }}</p>

@@ -91,17 +91,13 @@ public static class MessageTemplates
 
     private static string E(string? s) => System.Net.WebUtility.HtmlEncode(s ?? "");
 
-    // Sent when an admin adds a scholar (or approves an old application). The scholar then
+    // Sent when an admin adds a scholar. The scholar then
     // signs up on the website with their Scholar ID and chooses their own password.
     public static (string subject, string body) SignUpInvite(string fullName, string scholarNumber, string studentId, string signUpUrl)
         => ($"IskolarAid - Activate your scholar account - {fullName}", Wrap("Welcome to IskolarAid!",
             $@"<p>Dear <b>{E(fullName)}</b>,</p><p>The Scholarship Office has added you to IskolarAid.</p>
 <p><b>Your Scholar ID:</b> {E(scholarNumber)}<br/><b>Your Student ID (username):</b> {E(studentId)}</p>
 <p>To start, open <a href=""{E(signUpUrl)}"">{E(signUpUrl)}</a>, enter your Scholar ID and your Student ID or this email address, then choose your password.</p>"));
-
-    public static (string subject, string body) Rejection(string name, string reason)
-        => ("IskolarAid - Registration Update", Wrap("Registration Update",
-            $@"<p>Dear <b>{E(name)}</b>,</p><p>We regret to inform you that your scholarship registration was not approved.</p><p><b>Reason:</b> {E(reason)}</p><p>You may contact the Scholarship Office for more information.</p>"));
 
     public static (string subject, string body) PaymentProcessed(string name, string period, decimal amount, string method, string scholarNumber, string reference, DateTime releaseDate)
         => ($"IskolarAid - Stipend Processed ({period})", Wrap("Stipend Processed",

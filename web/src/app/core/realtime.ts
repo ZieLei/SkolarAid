@@ -19,7 +19,6 @@ import { AuthService } from './auth';
 // ---- Server events (names and payloads match api/src/IskolarAid.Api/Realtime/RealtimeNotifier.cs) ----
 export interface NotificationReceived { title: string; type: string; }
 export interface CountChanged { count: number; }
-export interface RegistrationEvent { id: number; name: string; status?: string; }
 export interface PaymentsChanged { status: 'Processed' | 'Released'; count: number; }
 export interface ComplianceChanged { scholarId: number; requirement: string; status: string; byScholar: boolean; }
 
@@ -53,8 +52,6 @@ export class RealtimeService {
 
   readonly notificationReceived$ = new Subject<NotificationReceived>();
   readonly notificationsChanged$ = new Subject<CountChanged>();
-  readonly registrationSubmitted$ = new Subject<RegistrationEvent>();
-  readonly registrationReviewed$ = new Subject<RegistrationEvent>();
   readonly paymentsChanged$ = new Subject<PaymentsChanged>();
   readonly complianceChanged$ = new Subject<ComplianceChanged>();
   readonly reconnected$ = new Subject<void>();
@@ -87,8 +84,6 @@ export class RealtimeService {
     // Register handlers ONCE. Registering again would make every event fire twice.
     c.on('NotificationReceived', (e: NotificationReceived) => this.notificationReceived$.next(e));
     c.on('NotificationsChanged', (e: CountChanged) => this.notificationsChanged$.next(e));
-    c.on('RegistrationSubmitted', (e: RegistrationEvent) => this.registrationSubmitted$.next(e));
-    c.on('RegistrationReviewed', (e: RegistrationEvent) => this.registrationReviewed$.next(e));
     c.on('PaymentsChanged', (e: PaymentsChanged) => this.paymentsChanged$.next(e));
     c.on('ComplianceChanged', (e: ComplianceChanged) => this.complianceChanged$.next(e));
 

@@ -1,15 +1,25 @@
 // =====================================================================
 // PayrollService.cs - paying scholars their stipend (Admin > Payroll).
 //
+// The ideas behind payroll:
+// - A scholarship pays its stipend amount once per CYCLE, set by its payment frequency
+//   (Monthly, Quarterly, Semi-Annual, Annual). The payroll PERIOD is the cycle being paid now,
+//   so it must last one cycle of the scholar's frequency (PayrollRules.CycleProblem), and it must have started.
+// - A payment is never paid twice for the same days (InPeriod), and a payment is released only once.
+//
 // Two-step money flow:
-// 1. ProcessAsync: admin picks scholars and a period (start and end date).
-// Each eligible scholar gets a Payment with Status = "Processed"
-// and a release date (3 working days later).
-// 2. ReleaseAsync: on/after the release date the admin releases them.
-// Status becomes "Released" (= money given out).
+// 1. ProcessAsync: admin picks scholars, a period and (optionally) the expected release date.
+//    Each eligible scholar gets a Payment with Status = "Processed" and that expected release date
+//    (default: 3 working days later; the admin can choose another day, or move it later with RescheduleAsync).
+// 2. ReleaseAsync: on/after the expected release date the admin releases them: the admin confirms the money
+//    was handed out. Nothing is released automatically. Status becomes "Released" and the release date
+//    becomes the day it really happened.
 //
 // Eligible = Active scholar + all compliance Approved + stipend > 0
-// + no payment yet that covers any day of the period (PayrollRules.IsEligible).
+// + no payment yet that covers any day of the period
+// + the period is one cycle of the scholar's frequency and has started
+// + for "Bank Transfer": a bank name and account number on file (PayrollRules.PayoutProblem).
+// (all combined in PayrollRules.IsEligible).
 // Scholars get an in-app notification and an email.
 // =====================================================================
 using Microsoft.EntityFrameworkCore;
@@ -41,7 +51,8 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
     // The table of scholars on the Payroll page, with filters.
     // For each scholar: stipend, compliance summary, "Already Paid"/"Not Paid", and eligible yes/no.
     // "Already Paid" = a Processed or Released payment already covers part of the chosen dates.
-    public async Task<List<PayrollCandidateDto>> CandidatesAsync(DateTime start, DateTime end, int? scholarshipTypeId, string? yearLevel, string? search)
+    // method = the payment method chosen on the page; null = do not check payout details.
+    public async Task<List<PayrollCandidateDto>> CandidatesAsync(DateTime start, DateTime end, int? scholarshipTypeId, string? yearLevel, string? search, string? method = null)
     {
         var q = db.Scholars.AsNoTracking().Include(s => s.ScholarshipType).Where(s => s.Status == "Active");
         if (scholarshipTypeId is > 0) q = q.Where(s => s.ScholarshipTypeId == scholarshipTypeId);
@@ -62,29 +73,49 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
         return scholars.Select(s =>
         {
             var statuses = comp.GetValueOrDefault(s.Id) ?? [];
-            var stipend = s.ScholarshipType?.StipendAmount ?? 0; // legacy: amount comes from the scholarship type
+            var stipend = s.ScholarshipType?.StipendAmount ?? 0; // the amount (and the frequency) come from the scholarship type
             var already = paid.Contains(s.Id);
+            var payout = PayrollRules.PayoutProblem(method, s.BankName, s.BankAccountNumber);
+            var frequency = FrequencyOf(s);
+            var cycle = PayrollRules.CycleProblem(frequency, start, end, DateTime.Today);
             return new PayrollCandidateDto(s.Id, s.ScholarNumber, s.FullName, s.Course, s.YearLevel, s.ScholarshipType?.Name ?? "N/A",
                 stipend, ComplianceRules.Summarize(statuses), already ? "Already Paid" : "Not Paid",
-                PayrollRules.IsEligible(s.Status, statuses, stipend, already));
+                PayrollRules.IsEligible(s.Status, statuses, stipend, already, payout is null, cycle is null), payout, frequency, cycle);
         }).ToList();
+    }
+
+    // How often this scholar is paid: the scholarship type's frequency (the stipend amount comes from the same place).
+    private static string FrequencyOf(Scholar s)
+        => !string.IsNullOrWhiteSpace(s.ScholarshipType?.PaymentFrequency) ? s.ScholarshipType!.PaymentFrequency
+         : !string.IsNullOrWhiteSpace(s.StipendFrequency) ? s.StipendFrequency! : "Monthly";
+
+    // The expected release date: the one the admin chose (never in the past), or 3 working days after processing.
+    private static DateTime ReleaseDateFor(DateTime? chosen, DateTime now)
+    {
+        if (chosen is null) return PayrollRules.CalculateReleaseDate(now);
+        if (chosen.Value.Date < now.Date) throw new AppException("The expected release date cannot be in the past.");
+        return chosen.Value.Date;
     }
 
     // "Preview" button: shows what processing would do. Saves nothing.
     public async Task<PayrollPreviewDto> PreviewAsync(PayrollRequestDto req)
     {
         var period = CheckPeriod(req);
-        var all = await CandidatesAsync(req.PeriodStart, req.PeriodEnd, null, null, null);
+        var all = await CandidatesAsync(req.PeriodStart, req.PeriodEnd, null, null, null, req.Method);
         var picked = all.Where(c => req.ScholarIds.Contains(c.Id)).ToList();
         var lines = picked.Select(c => new PayrollPreviewLine(c.Id, c.FullName, c.StipendAmount, c.PaymentStatus == "Already Paid")).ToList();
         var fresh = picked.Where(c => c.IsEligible).ToList();
-        return new PayrollPreviewDto(period, req.Method, picked.Count, lines.Count(l => l.AlreadyPaid), fresh.Count, fresh.Sum(c => c.StipendAmount), lines);
+        return new PayrollPreviewDto(period, req.Method, picked.Count, lines.Count(l => l.AlreadyPaid), fresh.Count, fresh.Sum(c => c.StipendAmount), lines,
+            ReleaseDateFor(req.ReleaseDate, DateTime.Now));
     }
 
     // Checks the chosen dates and returns the period label saved on each payment.
+    // A period that has not started yet cannot be paid (no paying in advance), so a release can never come before its period.
     private static string CheckPeriod(PayrollRequestDto req)
     {
         if (PayrollRules.PeriodProblem(req.PeriodStart, req.PeriodEnd) is { } problem) throw new AppException(problem);
+        if (req.PeriodStart.Date > DateTime.Today)
+            throw new AppException($"The period {PayrollRules.PeriodLabel(req.PeriodStart, req.PeriodEnd)} has not started yet (it starts on {req.PeriodStart:MMM dd, yyyy}). Payroll can only be processed for a period that has already started.");
         return PayrollRules.PeriodLabel(req.PeriodStart, req.PeriodEnd);
     }
 
@@ -94,6 +125,7 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
     {
         var period = CheckPeriod(req);
         var now = DateTime.Now;
+        var release = ReleaseDateFor(req.ReleaseDate, now);
         var processed = new List<(Scholar S, Payment P)>();
         var skipped = 0;
 
@@ -106,9 +138,10 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
             var statuses = await db.ComplianceRecords.Where(c => c.ScholarId == id).Select(c => c.Status).ToListAsync();
             var already = await InPeriod(req.PeriodStart, req.PeriodEnd).AnyAsync(p => p.ScholarId == id && PaidStatuses.Contains(p.Status));
             var stipend = s.ScholarshipType?.StipendAmount ?? 0;
-            if (!PayrollRules.IsEligible(s.Status, statuses, stipend, already)) { skipped++; continue; }
+            var payoutReady = PayrollRules.PayoutProblem(req.Method, s.BankName, s.BankAccountNumber) is null;
+            var cycleFits = PayrollRules.CycleProblem(FrequencyOf(s), req.PeriodStart, req.PeriodEnd, now) is null;
+            if (!PayrollRules.IsEligible(s.Status, statuses, stipend, already, payoutReady, cycleFits)) { skipped++; continue; }
 
-            var release = PayrollRules.CalculateReleaseDate(now);
             var reference = PayrollRules.ReferenceNumber(now, s.Id);
             var pay = new Payment
             {
@@ -142,7 +175,7 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
             var (subject, body) = MessageTemplates.PaymentProcessed(s.FullName, period, p.Amount, req.Method, s.ScholarNumber, p.ReferenceNumber!, p.ReleaseDate!.Value);
             if (!string.IsNullOrEmpty(s.Email) && await email.SendAsync(s.Email, s.FullName, subject, body)) emails++;
         }
-        return new PayrollResultDto(period, req.Method, processed.Count, skipped, total, emails);
+        return new PayrollResultDto(period, req.Method, processed.Count, skipped, total, emails, release);
     }
 
     // Payments waiting to be released whose release date is today or earlier.
@@ -165,7 +198,13 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
             .Where(p => p.Status == "Processed" && p.ReleaseDate != null && p.ReleaseDate <= today);
         if (paymentIds is { Count: > 0 }) q = q.Where(p => paymentIds.Contains(p.Id));
         var due = await q.ToListAsync();
-        if (due.Count == 0) throw new AppException("No payments are ready for release. Payments must be 'Processed' with a release date of today or earlier.");
+        if (due.Count == 0)
+        {
+            // Asked for specific payments that are already out: say so (a payment can only be released once).
+            if (paymentIds is { Count: > 0 } && await db.Payments.AnyAsync(p => paymentIds.Contains(p.Id) && p.Status == "Released"))
+                throw AppException.Conflict("That payment was already released. A payment can only be released once.");
+            throw new AppException("No payments are ready for release. Payments must be 'Processed' with an expected release date of today or earlier.");
+        }
 
         await using var tx = await db.Database.BeginTransactionAsync();
         foreach (var p in due)
@@ -197,6 +236,35 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
         }
         return new ReleaseResultDto(due.Count, emails, total);
     }
+
+    // Move the expected release date of a payment that is still "Processed" (for example when the funds are not ready on time).
+    // Released payments cannot be changed. The scholar is told the new date.
+    public async Task<ProcessedPaymentDto> RescheduleAsync(int paymentId, DateTime newDate)
+    {
+        var p = await db.Payments.Include(x => x.Scholar).FirstOrDefaultAsync(x => x.Id == paymentId) ?? throw AppException.NotFound("Payment");
+        if (p.Status != "Processed")
+            throw AppException.Conflict($"Only a payment that is still 'Processed' can be rescheduled. This one is {p.Status}.");
+        newDate = newDate.Date;
+        if (newDate < DateTime.Today) throw new AppException("The new release date cannot be in the past.");
+        if (p.ReleaseDate?.Date == newDate) return ToDto(p);
+
+        var old = p.ReleaseDate;
+        p.ReleaseDate = newDate;
+        db.Notifications.Add(new Notification
+        {
+            SenderId = current.UserId, RecipientId = p.ScholarId, Title = "Payment Release Date Changed", NotificationType = "Update",
+            Message = $"The expected release of your stipend for {p.PaymentPeriod} has moved to {newDate:MMM dd, yyyy}" + (old is null ? "." : $" (it was {old:MMM dd, yyyy}).") +
+                      $"\nAmount: ₱{p.Amount:N2}\nReference: {p.ReferenceNumber}"
+        });
+        await db.SaveChangesAsync();
+        await log.LogUpdate("payments", p.Id, $"Moved the expected release of {p.Scholar!.FullName}'s {p.PaymentPeriod} stipend to {newDate:MMM dd, yyyy}");
+        events.RaisePaymentsChanged([p.ScholarId], "Processed");
+        events.RaiseNotificationsSent([p.ScholarId], "Payment Release Date Changed", "Update");
+        return ToDto(p);
+    }
+
+    private static ProcessedPaymentDto ToDto(Payment p) => new(p.Id, p.ScholarId, p.Scholar!.FullName, p.Scholar.ScholarNumber, p.PaymentPeriod,
+        p.Amount, p.ReleaseDate, p.PaymentMethod, p.ReferenceNumber);
 
     // All payments whose period overlaps the chosen dates (the history table on the Payroll page).
     public async Task<List<DisbursementHistoryDto>> HistoryAsync(DateTime start, DateTime end)

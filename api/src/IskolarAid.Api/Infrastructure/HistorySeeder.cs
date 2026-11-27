@@ -1,7 +1,7 @@
 // =====================================================================
 // HistorySeeder.cs - DEVELOPMENT ONLY. Creates about two years of fake
 // but realistic data. Called by DbSeeder when Seed__HistoricalData=true.
-// Order of work: scholars -> registrations -> compliance -> payments
+// Order of work: scholars -> compliance -> payments
 // -> notifications -> activity logs. See the summary on the class below.
 // =====================================================================
 using System.Text;
@@ -15,7 +15,7 @@ namespace IskolarAid.Api.Infrastructure;
 
 /// <summary>
 /// Development-only: fills an empty-ish database with two years of believable history
-/// (scholars, registrations, compliance, monthly payroll, notifications, activity logs).
+/// (scholars, compliance, monthly payroll, notifications, activity logs).
 /// Idempotent: does nothing if seeded scholars already exist. Deterministic (fixed random seed).
 /// All seeded scholars share the password "Scholar#123" and an email ending in @seed.iskolaraid.test.
 /// </summary>
@@ -132,31 +132,6 @@ public static class HistorySeeder
         db.Scholars.AddRange(scholars.Select(x => x.S));
         await db.SaveChangesAsync();
 
-        // approved registrations (the application each scholar originally filed) + a few still waiting / turned down
-        foreach (var (s, _, joined, _) in scholars)
-            db.ScholarRegistrations.Add(new ScholarRegistration
-            {
-                StudentId = s.StudentId, FirstName = s.FirstName, MiddleName = s.MiddleName, LastName = s.LastName, Email = s.Email!, ContactNumber = s.ContactNumber!,
-                DateOfBirth = s.DateOfBirth, Gender = s.Gender, Address = s.Address, Program = s.Program, Hei = s.Hei, DegreeProgram = s.DegreeProgram, Course = s.Course,
-                YearLevel = s.YearLevel, ScholarshipTypeId = s.ScholarshipTypeId, StipendAmount = s.StipendAmount, StipendFrequency = s.StipendFrequency,
-                ScholarshipFundSource = s.ScholarshipFundSource, RenewalConditions = s.RenewalConditions, EnrollmentDate = s.EnrollmentDate, ExpectedGraduation = s.ExpectedGraduation,
-                BankName = s.BankName, BankAccountNumber = s.BankAccountNumber, Status = "Approved", CreatedAt = joined.AddDays(-rng.Next(2, 6)),
-            });
-        for (var i = 0; i < 8; i++)
-        {
-            var first = FirstNames[rng.Next(FirstNames.Length)]; var last = LastNames[rng.Next(LastNames.Length)]; var type = types[rng.Next(types.Count)];
-            var rejected = i >= 5; var course = Courses[rng.Next(Courses.Length)];
-            db.ScholarRegistrations.Add(new ScholarRegistration
-            {
-                StudentId = $"{today.Year}-9{i:D5}", FirstName = first, LastName = last, Email = $"{first}.{last}.new{i}{EmailSuffix}".ToLowerInvariant().Replace(' ', '-'),
-                ContactNumber = "09" + rng.Next(100000000, 999999999), Gender = rng.Next(2) == 0 ? "Male" : "Female", Program = "Undergraduate", Hei = "Legacy College of Compostela",
-                DegreeProgram = course, Course = course, YearLevel = new[] { "1st Year", "2nd Year", "3rd Year" }[rng.Next(3)],
-                ScholarshipTypeId = type.Id, StipendAmount = type.StipendAmount, StipendFrequency = type.PaymentFrequency, ScholarshipFundSource = type.FundSource,
-                RenewalConditions = type.RenewalConditions, Status = rejected ? "Rejected" : "Pending",
-                RejectionReason = rejected ? "Incomplete documents: the Certificate of Registration was unreadable." : null, CreatedAt = today.AddDays(-rng.Next(1, rejected ? 40 : 10)),
-            });
-        }
-
         // compliance: five requirements each, status depending on how long ago the scholar joined
         foreach (var (s, _, joined, ends) in scholars)
         {
@@ -220,7 +195,7 @@ public static class HistorySeeder
         }
         await db.SaveChangesAsync();
 
-        // activity log: payroll batches, registrations, and logins spread across the two years
+        // activity log: payroll batches, new scholars, and logins spread across the two years
         var logs = new List<ActivityLog>();
         void Log(DateTime at, string action, string? table, string details, User u) =>
             logs.Add(new ActivityLog { UserId = u.Id, UserName = u.Name, ActionType = action, TableAffected = table, Details = details, IpAddress = $"192.168.1.{rng.Next(10, 60)}", CreatedAt = at });
@@ -232,7 +207,7 @@ public static class HistorySeeder
         }
         foreach (var (s, u, joined, _) in scholars)
         {
-            Log(joined.AddHours(11), "CREATE", "scholars", $"Approved registration: {s.FullName} ({s.ScholarNumber})", admin);
+            Log(joined.AddHours(11), "CREATE", "scholars", $"Created new scholar: {s.FullName}", admin);
             var logins = rng.Next(6, 40);
             for (var n = 0; n < logins; n++)
             {

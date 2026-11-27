@@ -46,7 +46,18 @@ The site is for people who are already scholars; it does not take scholarship ap
 2. The scholar gets an email with their **Scholar ID** (e.g. `SCH-2026-001`). The account stays locked until step 3.
 3. On **Sign up** (`/signup`) the scholar enters the Scholar ID plus their Student ID or email and chooses a password (8+ characters, a letter and a number). They are signed in straight away and log in with their Student ID from then on.
 
-Older scholars from the desktop app can sign up the same way. Each scholar can sign up only once. Applications already in the database still show under **Registrations**.
+Older scholars from the desktop app can sign up the same way. Each scholar can sign up only once.
+
+## How payroll works
+
+Admin > **Payroll Processing**. These rules answer the questions people ask about it:
+
+* **Frequency and period.** A scholarship pays its stipend amount **once per cycle**: Monthly (1 month), Quarterly (3), Semi-Annual (6) or Annual (12). The payroll period is the cycle being paid now, so it must last one cycle of the scholar's frequency (`PayrollRules.PeriodFitsFrequency`). A Semi-Annual scholar cannot be paid for a single month, and the amount is never multiplied or split. The stipend amount and the frequency both come from the scholarship type, and the scholar form shows them read-only for an existing type.
+* **Not in advance.** A period that has not started yet cannot be paid, so a release never comes before its period.
+* **Process, then release.** *Process* creates payments with status `Processed` and an **expected release date**: 3 working days away unless the admin picks another day (`PayrollRules.CalculateReleaseDate`). *Release* is the admin confirming the money was handed out. Nothing is released automatically, and the release date then becomes the real day.
+* **When the money is late.** The admin moves the expected date with **Change** (`POST /api/admin/payroll/payments/{id}/reschedule`). The scholar is notified and the change is logged. Only `Processed` payments can be moved.
+* **No double payment.** A payment can be released only once, and a scholar cannot be paid again for any day a payment already covers, even with a different period.
+* **Payment method.** Bank Transfer needs a bank name and an account number on the scholar's profile. Cash and Mobile Wallet need nothing extra.
 
 ## HTTPS
 
@@ -132,7 +143,7 @@ Set these in `.env` before `./run.sh dev`:
 | Variable | Effect |
 | --- | --- |
 | `SEED_DEMO_LOGINS=true` | Creates `Adachi` (admin, `adachi123`) and `Shimamura` (scholar, `shimamura123`) on every start. On by default in dev, so turn it off anywhere real. |
-| `SEED_HISTORICAL_DATA=true` | Adds two years of scholars, registrations, payroll, notifications and logs once. Seeded scholars sign in with their student ID and `Scholar#123`. |
+| `SEED_HISTORICAL_DATA=true` | Adds two years of scholars, compliance, payroll, notifications and logs once. Seeded scholars sign in with their student ID and `Scholar#123`. |
 
 ## Keep an existing desktop database
 
@@ -153,7 +164,7 @@ ASP.NET reads `Section__Key` as `Section:Key`. Docker reads the names in [.env.e
 | `Seed__AdminUsername` / `Seed__AdminPassword` | first run | Creates the first admin if none exists |
 | `Seed__SampleData` | no | Adds sample scholarship types to an empty table |
 | `Smtp__Host`, `Port`, `User`, `Password`, `FromAddress`, `LoginUrl` | no | Sends email (welcome, approval, rejection, payroll). No host, no email |
-| `Uploads__Directory` / `Uploads__MaxBytes` | no, `uploads` and 10 MB | Stores registration documents |
+| `Uploads__MaxBytes` | no, 10 MB | Largest compliance document a scholar or admin can upload |
 
 > The desktop app's public source contains a Gmail app password and a Semaphore API key. This version does not use them, but they are still exposed upstream, so revoke them.
 
@@ -215,7 +226,6 @@ flowchart LR
 
 | C# event (raised by) | SignalR event | Who hears it | What reacts |
 | --- | --- | --- | --- |
-| `RegistrationReviewed` (approve / reject) | `RegistrationReviewed { id, name, status }` | admins | badge count, Registrations list, dashboard |
 | `NotificationsSent` (compose, compliance reminder, payroll) | `NotificationReceived { title, type }` | each recipient scholar | toast with **View**, notifications, dashboard |
 | | `NotificationsChanged { count }` | admins | Notifications page |
 | `PaymentsChanged` (process, release) | `PaymentsChanged { status, count }` | admins and the scholars paid | payroll, payment history, dashboards |
@@ -238,7 +248,7 @@ To watch it work, open the admin portal and a scholar portal in two browser wind
 * `ADMIN` reaches every `/api/admin/*` endpoint and `/admin/*` route.
 * `SCHOLAR` reaches `/api/scholar/*` only. The API reads the scholar from the JWT and never trusts an id from the client.
 * Passwords go through ASP.NET's `PasswordHasher` (PBKDF2). Login errors never say whether a username exists, and login and sign-up are rate limited. Sign-up gives the same answer for a wrong Scholar ID and a wrong Student ID or email.
-* Uploads accept PDF, Word, JPG and PNG up to 10 MB, and registration files are saved under generated names.
+* Compliance uploads accept PDF, Word, JPG and PNG up to 10 MB (stored in the database). Profile pictures accept JPG, PNG and WebP up to 5 MB.
 * CSV exports defuse spreadsheet formula injection.
 
 ## Known gaps

@@ -13,8 +13,7 @@ RUN dotnet publish src/IskolarAid.Api -c Release -o /app --no-restore
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=build /app .
-RUN mkdir -p /app/uploads && chown -R $APP_UID /app/uploads
 USER $APP_UID
-ENV ASPNETCORE_URLS=http://+:8080 Uploads__Directory=/app/uploads
+ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "IskolarAid.Api.dll"]

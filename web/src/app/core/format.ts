@@ -43,8 +43,10 @@ export const toIso = (d: Date | string | null | undefined): string | null => {
 /** yyyy-MM-dd for <input type="date"> from an API date string. */
 export const dateInput = (s: string | null | undefined): string => (s ? s.slice(0, 10) : '');
 // Today / n days ago as "yyyy-MM-dd" (default values for date filters).
-export const today = (): string => new Date().toISOString().slice(0, 10);
-export const daysAgo = (n: number): string => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+// Uses the LOCAL date: toISOString() is UTC, which in the Philippines (UTC+8) gave yesterday's date before 8 AM.
+const localIso = (d: Date): string => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+export const today = (): string => localIso(new Date());
+export const daysAgo = (n: number): string => { const d = new Date(); d.setDate(d.getDate() - n); return localIso(d); };
 
 // "Just now", "5m ago", "3h ago", "2d ago", or a normal date if older than a week.
 export function relativeTime(iso: string): string {

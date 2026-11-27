@@ -53,7 +53,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
                 <li class="flex items-center gap-3 py-3">
                   <span class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full" [style.background]="tint(color(p.status))" [style.color]="color(p.status)"><app-icon name="wallet" class="h-5 w-5"></app-icon></span>
                   <div class="min-w-0 flex-1"><p class="text-[14px] font-bold text-ink">{{ p.period }}</p>
-                    <p class="text-[12px] text-[#4b5563]">{{ p.status === 'Released' ? 'Released' : 'Release' }} {{ p.releaseDate | dmy: 'date pending' }}</p></div>
+                    <p class="text-[12px] text-[#4b5563]">{{ p.status === 'Released' ? 'Released' : 'Expected' }} {{ p.releaseDate | dmy: 'date pending' }}</p></div>
                   <div class="text-right"><p class="text-[14px] font-bold text-ink">{{ p.amount | peso }}</p>
                     <span class="rounded-full px-2 py-[1px] text-[11px] font-bold" [style.background]="tint(color(p.status))" [style.color]="color(p.status)">{{ p.status }}</span></div>
                 </li>

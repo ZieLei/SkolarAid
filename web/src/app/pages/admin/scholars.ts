@@ -14,13 +14,14 @@
 // Edit        -> openEdit() -> select() fills the form -> save() -> PUT
 // (De)activate-> toggleStatus() -> POST .../toggle-status
 // =====================================================================
-import { Component, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
-import { DatePipeShort, PesoPipe, dateInput, statusColor } from '../../core/format';
+import { DatePipeShort, PesoPipe, dateInput, formatPeso, statusColor } from '../../core/format';
 import { ComplianceItem, Paged, ScholarCreated, ScholarDetail, ScholarFilters, ScholarListItem, ScholarSave, ScholarshipType } from '../../core/models';
 import { Modal } from '../../shared/modal';
 import { ErrorSummary, FieldError, FormErrors, focusField } from '../../shared/form-errors';
@@ -30,6 +31,7 @@ import { Avatar } from '../../shared/avatar';
 import { ScholarshipTypesDialog } from './scholarship-types';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
+import { SuggestInput, SuggestOption } from '../../shared/suggest-input';
 
 // The five documents that can be attached when adding a scholar.
 const DOCS = [
@@ -55,7 +57,7 @@ const blank = (): Form => ({
 
 @Component({
   selector: 'app-scholars',
-  imports: [Avatar, ErrorSummary, ScrollCue, AppIcon, ScrollingModule, FormsModule, Modal, PesoPipe, DatePipeShort, ComplianceTab, ScholarshipTypesDialog],
+  imports: [Avatar, ErrorSummary, ScrollCue, AppIcon, ScrollingModule, NgTemplateOutlet, SuggestInput, FormsModule, Modal, PesoPipe, DatePipeShort, ComplianceTab, ScholarshipTypesDialog],
   template: `
     <div class="mb-4 flex gap-1 border-b-2 border-[#d9d9d9]">
       @for (t of tabs; track t.id) {
@@ -91,18 +93,35 @@ const blank = (): Form => ({
                 @for (h of heads; track h) { <div role="columnheader" class="h-[42px] truncate px-[14px] leading-[42px]">{{ h }}</div> }
               </div>
               @if (!list().length) { <div class="py-8 text-center text-[12px] text-[#595959]">No scholars found</div> }
-              <cdk-virtual-scroll-viewport [itemSize]="rowH" [style.height.px]="viewportH()" class="max-h-[max(260px,calc(100vh-330px))] [scrollbar-gutter:stable]">
-                <div *cdkVirtualFor="let s of list(); trackBy: trackId; let i = index; templateCacheSize: 0" role="row"
-                     class="grid cursor-pointer text-[12px]" [style.grid-template-columns]="cols" [style.height.px]="rowH"
-                     [style.background]="rowBg(i)" (click)="openDetails(s.id)" [attr.title]="'Open ' + s.fullName">
+              <!-- The cells of one row, shared by the phone list and the desktop virtual list. -->
+              <ng-template #rowCells let-s>
                   <div role="cell" class="cell">{{ s.scholarNumber }}</div><div role="cell" class="cell">{{ s.studentId }}</div>
                   <div role="cell" class="cell font-bold" [title]="s.fullName"><span class="line-clamp-2 break-words">{{ s.fullName }}</span></div>
                   <div role="cell" class="cell" [title]="s.course ?? ''"><span class="line-clamp-2 break-words">{{ s.course }}</span></div><div role="cell" class="cell">{{ s.yearLevel }}</div>
                   <div role="cell" class="cell" [title]="s.scholarship ?? ''"><span class="line-clamp-2 break-words">{{ s.scholarship || '—' }}</span></div>
                   <div role="cell" class="cell"><span class="font-bold" [style.color]="color(s.status)">{{ s.status }}</span></div>
                   <div role="cell" class="cell"><button class="btn btn-outline !h-[28px] !px-3 !text-[12px]" (click)="$event.stopPropagation(); openEdit(s.id)" [attr.aria-label]="'Edit ' + s.fullName">Edit</button></div>
+              </ng-template>
+              @if (narrow()) {
+                <!-- Phones and tablets: a plain list that scrolls with the page. A virtual list in its own scroll box
+                     cannot keep up with a finger fling and shows blank space ("scrolling into nothing"). -->
+                <div>
+                  @for (s of list(); track s.id; let i = $index) {
+                    <div role="row" class="grid cursor-pointer text-[12px]" [style.grid-template-columns]="cols" [style.height.px]="rowH"
+                         [style.background]="rowBg(i)" (click)="openDetails(s.id)" [attr.title]="'Open ' + s.fullName">
+                      <ng-container *ngTemplateOutlet="rowCells; context: { $implicit: s }" />
+                    </div>
+                  }
                 </div>
-              </cdk-virtual-scroll-viewport>
+              } @else {
+                <cdk-virtual-scroll-viewport [itemSize]="rowH" [style.height.px]="viewportH()" class="max-h-[max(260px,calc(100vh-330px))] [scrollbar-gutter:stable]">
+                  <div *cdkVirtualFor="let s of list(); trackBy: trackId; let i = index; templateCacheSize: 0" role="row"
+                       class="grid cursor-pointer text-[12px]" [style.grid-template-columns]="cols" [style.height.px]="rowH"
+                       [style.background]="rowBg(i)" (click)="openDetails(s.id)" [attr.title]="'Open ' + s.fullName">
+                    <ng-container *ngTemplateOutlet="rowCells; context: { $implicit: s }" />
+                  </div>
+                </cdk-virtual-scroll-viewport>
+              }
             </div>
           </div>
           <p class="px-3 py-2 text-[12px] text-muted">Showing {{ list().length }} of {{ total() }} scholars · click a row to see everything about a scholar</p>
@@ -121,17 +140,17 @@ const blank = (): Form => ({
           <div><label class="field-label req">First Name</label><input id="sf-fn" class="input" [class.input-invalid]="errs.has('sf-fn')" [attr.aria-invalid]="errs.has('sf-fn')" [(ngModel)]="f.firstName" maxlength="100" />@if (errs.get('sf-fn'); as m) { <p class="field-err">{{ m }}</p> }</div>
           <div><label class="field-label req">Last Name</label><input id="sf-ln" class="input" [class.input-invalid]="errs.has('sf-ln')" [attr.aria-invalid]="errs.has('sf-ln')" [(ngModel)]="f.lastName" maxlength="100" />@if (errs.get('sf-ln'); as m) { <p class="field-err">{{ m }}</p> }</div>
           <div><label class="field-label">Middle Name</label><input class="input" [(ngModel)]="f.middleName" maxlength="100" /></div>
-          <div class="col-span-2"><label class="field-label req">Email</label><input id="sf-em" class="input" [class.input-invalid]="errs.has('sf-em')" [attr.aria-invalid]="errs.has('sf-em')" type="email" [(ngModel)]="f.email" maxlength="150" />@if (errs.get('sf-em'); as m) { <p class="field-err">{{ m }}</p> }</div>
+          <div class="sm:col-span-2"><label class="field-label req">Email</label><input id="sf-em" class="input" [class.input-invalid]="errs.has('sf-em')" [attr.aria-invalid]="errs.has('sf-em')" type="email" [(ngModel)]="f.email" maxlength="150" />@if (errs.get('sf-em'); as m) { <p class="field-err">{{ m }}</p> }</div>
           <div><label class="field-label">Contact Number</label><input class="input" [(ngModel)]="f.contactNumber" maxlength="30" /></div>
           <div><label class="field-label">Date of Birth</label><input class="input" type="date" [(ngModel)]="f.dateOfBirth" [max]="todayIso" /></div>
           <div><label class="field-label req">Gender</label><select id="sf-gd" class="input" [class.input-invalid]="errs.has('sf-gd')" [attr.aria-invalid]="errs.has('sf-gd')" [(ngModel)]="f.gender"><option value="">Select…</option>@for (g of genders; track g) { <option>{{ g }}</option> }</select>@if (errs.get('sf-gd'); as m) { <p class="field-err">{{ m }}</p> }</div>
-          @if (!selectedId()) { <div><label class="field-label">Suffixes</label><input class="input" [(ngModel)]="f.suffix" maxlength="30" /></div> } @else { <div></div> }
-          <div class="col-span-2"><label class="field-label">Address</label><input class="input" [(ngModel)]="f.address" maxlength="500" /></div>
+          @if (!selectedId()) { <div><label class="field-label">Suffixes</label><input class="input" [(ngModel)]="f.suffix" maxlength="30" /></div> } @else { <div class="hidden lg:block"></div> }
+          <div class="sm:col-span-2"><label class="field-label">Address</label><input class="input" [(ngModel)]="f.address" maxlength="500" /></div>
           <div><label class="field-label">Student ID #</label><input class="input" [(ngModel)]="f.studentId" maxlength="50" placeholder="auto if blank" /></div>
         </div>
 
         <h3 class="section-title">Academic Details</h3>
-        <div class="grid grid-cols-[1fr_110px] gap-x-3">
+        <div class="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-[1fr_110px]">
           <div><label class="field-label req">Course</label><select id="sf-co" class="input" [class.input-invalid]="errs.has('sf-co')" [attr.aria-invalid]="errs.has('sf-co')" [(ngModel)]="f.course"><option value="">Select...</option>@for (c of courses; track c) { <option>{{ c }}</option> }</select>@if (errs.get('sf-co'); as m) { <p class="field-err">{{ m }}</p> }</div>
           <div><label class="field-label req">Year Level</label><select id="sf-yl" class="input" [class.input-invalid]="errs.has('sf-yl')" [attr.aria-invalid]="errs.has('sf-yl')" [(ngModel)]="f.yearLevel"><option value="">-</option>@for (y of years; track y) { <option>{{ y }}</option> }</select>@if (errs.get('sf-yl'); as m) { <p class="field-err">{{ m }}</p> }</div>
         </div>
@@ -139,16 +158,20 @@ const blank = (): Form => ({
         <h3 class="section-title">Scholarship Details</h3>
         <div class="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2">
           <div><label class="field-label req" for="sf-st">Scholarship Type</label>
-            <input id="sf-st" class="input" list="sf-st-options" autocomplete="off" maxlength="150" placeholder="Type to search, e.g. CHED, DOST, TES…"
-                   [class.input-invalid]="errs.has('sf-st')" [attr.aria-invalid]="errs.has('sf-st')" [ngModel]="f.scholarshipTypeName" (ngModelChange)="onTypeChange($event)" />
-            <datalist id="sf-st-options">@for (t of types(); track t.id) { <option [value]="t.name">{{ t.stipendAmount ? (t.stipendAmount | peso) + ' / ' + t.paymentFrequency : 'amount not set' }}</option> }</datalist>
+            <!-- Suggestions from the existing scholarship types; any other typed name becomes a new type when saved. -->
+            <app-suggest-input inputId="sf-st" [maxLength]="150" placeholder="Pick from the list or type a new one" newLabel="scholarship type"
+                               [options]="typeOptions()" [invalid]="errs.has('sf-st')" [value]="f.scholarshipTypeName" (valueChange)="onTypeChange($event)" />
             @if (errs.get('sf-st'); as m) { <p class="field-err">{{ m }}</p> }
-            @else if (f.scholarshipTypeName.trim() && !f.scholarshipTypeId) { <p class="mt-1 text-[12px] text-[#8a5300]">New scholarship type: it will be added with the stipend amount and frequency below.</p> }</div>
-          <div><label class="field-label" for="sf-amt">Stipend Amount</label><input id="sf-amt" class="input" type="number" min="0" step="0.01" [(ngModel)]="f.stipendAmount" placeholder="Set by scholarship type" [class.input-invalid]="errs.has('sf-amt')" [attr.aria-invalid]="errs.has('sf-amt')" />
+            @else if (f.scholarshipTypeName.trim() && !f.scholarshipTypeId) { <p class="mt-1 text-[12px] text-[#8a5300]">New scholarship type: it will be added with the stipend amount and frequency below.</p> }
+            @else if (f.scholarshipTypeId) { <p class="mt-1 text-[12px] text-muted">Existing type: stipend details were filled in from it.</p> }</div>
+          <div><label class="field-label" for="sf-amt">Stipend Amount</label><input id="sf-amt" class="input" type="number" min="0" step="0.01" [(ngModel)]="f.stipendAmount" [disabled]="!!f.scholarshipTypeId" placeholder="Set by scholarship type" [class.input-invalid]="errs.has('sf-amt')" [attr.aria-invalid]="errs.has('sf-amt')" />
             @if (errs.get('sf-amt'); as m) { <p class="field-err">{{ m }}</p> }</div>
-          <div><label class="field-label">Stipend Frequency</label><select class="input" [(ngModel)]="f.stipendFrequency">@for (x of freqs; track x) { <option>{{ x }}</option> }</select></div>
+          <div><label class="field-label">Stipend Frequency</label><select class="input" [(ngModel)]="f.stipendFrequency" [disabled]="!!f.scholarshipTypeId">@for (x of freqs; track x) { <option>{{ x }}</option> }</select></div>
+          @if (f.scholarshipTypeId) {
+            <p class="text-[12px] text-muted sm:col-span-2">The stipend amount and how often it is paid come from the scholarship type, because that is what payroll uses. To change them, edit the type under <b>Manage scholarships</b>, or type a new scholarship name for a different amount.</p>
+          }
           <div><label class="field-label">Scholarship Fund Source</label><select class="input" [(ngModel)]="f.scholarshipFundSource">@for (x of funds; track x) { <option>{{ x }}</option> }</select></div>
-          <div class="col-span-2"><label class="field-label">Renewal Conditions</label><input class="input" [(ngModel)]="f.renewalConditions" maxlength="1000" /></div>
+          <div class="sm:col-span-2"><label class="field-label">Renewal Conditions</label><input class="input" [(ngModel)]="f.renewalConditions" maxlength="1000" /></div>
         </div>
 
         <h3 class="section-title">Bank Information</h3>
@@ -167,7 +190,7 @@ const blank = (): Form => ({
             <div>
               <label class="field-label">{{ d.label }}</label>
               @if (!selectedId()) {
-                <label class="btn btn-outline !h-[30px] w-full cursor-pointer justify-start !text-[12px]" [class.!text-ok]="!!pending[d.key]" [attr.title]="pending[d.key]?.name ?? 'Attach file'">
+                <label class="btn btn-outline !h-[42px] lg:!h-[30px] w-full cursor-pointer justify-start !text-[12px]" [class.!text-ok]="!!pending[d.key]" [attr.title]="pending[d.key]?.name ?? 'Attach file'">
                   <app-icon [name]="pending[d.key] ? 'checked' : 'attachment'" class="h-4 w-4 shrink-0"></app-icon><span class="truncate">{{ pending[d.key] ? pending[d.key]!.name : 'Attach file' }}</span>
                   <input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="pickPending(d.key, $event)" />
                 </label>
@@ -176,7 +199,7 @@ const blank = (): Form => ({
                 @if (doc; as dc) {
                   <div class="flex gap-1">
                     <button type="button" class="input !text-left !text-[12px]" [disabled]="!dc.hasFile" (click)="openDoc(dc.complianceId)">{{ dc.hasFile ? dc.fileName : 'Not uploaded' }}</button>
-                    <label class="btn btn-outline !h-[30px] !px-2 !text-[12px]" title="Replace file"><app-icon name="attachment" class="h-4 w-4"></app-icon><input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="replaceDoc(dc.complianceId, $event)" /></label>
+                    <label class="btn btn-outline !h-[42px] lg:!h-[30px] !px-3 !text-[12px]" title="Replace file"><app-icon name="attachment" class="h-4 w-4"></app-icon><input type="file" class="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="replaceDoc(dc.complianceId, $event)" /></label>
                   </div>
                 } @else { <span class="text-[12px] text-muted">Not uploaded</span> }
               }
@@ -264,10 +287,21 @@ export class ScholarsPage implements OnInit {
     if (v) setTimeout(() => v.checkViewportSize());
   });
   rowBg = (i: number) => (i % 2 ? '#f5fafa' : '#fff');
+  /** Below the desktop breakpoint (1024 px) the list is a plain page-scrolling list instead of a virtual one. */
+  private narrowQuery = window.matchMedia('(max-width: 1023px)');
+  narrow = signal(this.narrowQuery.matches);
+  private watchNarrow = (() => {
+    const update = (e: MediaQueryListEvent) => this.narrow.set(e.matches);
+    this.narrowQuery.addEventListener('change', update);
+    inject(DestroyRef).onDestroy(() => this.narrowQuery.removeEventListener('change', update));
+  })();
   trackId = (_: number, s: ScholarListItem) => s.id;
   total = signal(0);
   filters = signal<ScholarFilters | null>(null);
   types = signal<ScholarshipType[]>([]);
+  /** Suggestions for the scholarship type box: each active type with its stipend, e.g. "₱4,000.00 / Monthly". */
+  typeOptions = computed<SuggestOption[]>(() => this.types().map((t) => ({
+    value: t.name, hint: t.stipendAmount ? `${formatPeso(t.stipendAmount)} / ${t.paymentFrequency}` : 'amount not set' })));
   search = signal(''); filterType = signal(0); filterStatus = signal('All');
   selectedId = signal<number | null>(null);
   complianceFor = signal<number | null>(null);

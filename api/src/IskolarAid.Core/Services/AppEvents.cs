@@ -18,14 +18,6 @@ public sealed class NotificationsSentEventArgs(IReadOnlyCollection<int> scholarI
     public string Type { get; } = type;
 }
 
-/// <summary>A registration was submitted (Status = "Pending") or reviewed ("Approved" / "Rejected").</summary>
-public sealed class RegistrationEventArgs(int registrationId, string applicantName, string status) : EventArgs
-{
-    public int RegistrationId { get; } = registrationId;
-    public string ApplicantName { get; } = applicantName;
-    public string Status { get; } = status;
-}
-
 /// <summary>Payments of these scholars changed status ("Processed" or "Released").</summary>
 public sealed class PaymentsChangedEventArgs(IReadOnlyCollection<int> scholarIds, string status) : EventArgs
 {
@@ -50,8 +42,6 @@ public sealed class ComplianceChangedEventArgs(int scholarId, string requirement
 public class AppEvents
 {
     public event EventHandler<NotificationsSentEventArgs>? NotificationsSent;
-    public event EventHandler<RegistrationEventArgs>? RegistrationSubmitted;
-    public event EventHandler<RegistrationEventArgs>? RegistrationReviewed;
     public event EventHandler<PaymentsChangedEventArgs>? PaymentsChanged;
     public event EventHandler<ComplianceChangedEventArgs>? ComplianceChanged;
 
@@ -60,12 +50,6 @@ public class AppEvents
 
     public void RaiseNotificationsSent(IReadOnlyCollection<int> scholarIds, string title, string type)
     { if (scholarIds.Count > 0) Raise(NotificationsSent, nameof(NotificationsSent), new NotificationsSentEventArgs(scholarIds, title, type)); }
-
-    public void RaiseRegistrationSubmitted(int id, string name) =>
-        Raise(RegistrationSubmitted, nameof(RegistrationSubmitted), new RegistrationEventArgs(id, name, "Pending"));
-
-    public void RaiseRegistrationReviewed(int id, string name, string status) =>
-        Raise(RegistrationReviewed, nameof(RegistrationReviewed), new RegistrationEventArgs(id, name, status));
 
     public void RaisePaymentsChanged(IReadOnlyCollection<int> scholarIds, string status)
     { if (scholarIds.Count > 0) Raise(PaymentsChanged, nameof(PaymentsChanged), new PaymentsChangedEventArgs(scholarIds, status)); }

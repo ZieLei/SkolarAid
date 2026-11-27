@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using IskolarAid.Core.Common;
 using IskolarAid.Core.Dtos;
+using IskolarAid.Core.Rules;
 using IskolarAid.Core.Services;
 using IskolarAid.Data.Entities;
 
@@ -269,80 +270,168 @@ public class PayrollServiceTests
     }
 
     [Fact]
+    public async Task Bank_transfer_skips_scholars_without_bank_details_but_cash_does_not()
+    {
+        using var f = new Fixture();
+        var t = await f.AddTypeAsync();
+        var withBank = await f.AddScholarAsync(t.Id, number: "SCH-2026-001");
+        var noBank = await f.AddScholarAsync(t.Id, number: "SCH-2026-002", bank: false);
+        var (start, end) = (new DateTime(2026, 3, 1), new DateTime(2026, 3, 31));
+
+        // The table: Bank Transfer blocks the scholar with no bank details and says why; Cash and "no method" do not.
+        var bank = await f.Payroll.CandidatesAsync(start, end, null, null, null, "Bank Transfer");
+        Assert.True(bank.Single(c => c.Id == withBank.Id).IsEligible);
+        var blocked = bank.Single(c => c.Id == noBank.Id);
+        Assert.False(blocked.IsEligible);
+        Assert.Equal("no bank details", blocked.PayoutProblem);
+        Assert.True((await f.Payroll.CandidatesAsync(start, end, null, null, null, "Cash")).Single(c => c.Id == noBank.Id).IsEligible);
+        Assert.True((await f.Payroll.CandidatesAsync(start, end, null, null, null)).Single(c => c.Id == noBank.Id).IsEligible);
+
+        // The server checks again when processing (the page could be out of date): only the scholar with details is paid.
+        var r = await f.Payroll.ProcessAsync(Req(withBank.Id, noBank.Id));
+        Assert.Equal((1, 1), (r.Processed, r.Skipped));
+
+        // The same scholar can be paid by cash.
+        var cash = await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = start, PeriodEnd = end, Method = "Cash", ScholarIds = [noBank.Id] });
+        Assert.Equal(1, cash.Processed);
+    }
+
+    [Fact]
+    public async Task A_scholar_is_only_paid_for_a_period_that_matches_their_frequency()
+    {
+        using var f = new Fixture();
+        var semester = await f.AddScholarAsync((await f.AddTypeAsync("TES", 13500, frequency: "Semi-Annual")).Id, number: "SCH-2026-001");
+        var monthly = await f.AddScholarAsync((await f.AddTypeAsync("DOST", 8000, frequency: "Monthly")).Id, number: "SCH-2026-002");
+        DateTime mar1 = new(2026, 3, 1), mar31 = new(2026, 3, 31), jan1 = new(2026, 1, 1), jun30 = new(2026, 6, 30);
+
+        // One month: the monthly scholar is due, the semi-annual one is told what period they need.
+        var march = await f.Payroll.CandidatesAsync(mar1, mar31, null, null, null);
+        Assert.True(march.Single(c => c.Id == monthly.Id).IsEligible);
+        var notDue = march.Single(c => c.Id == semester.Id);
+        Assert.False(notDue.IsEligible);
+        Assert.Equal(("Semi-Annual", "paid Semi-Annual: needs a 6-month period"), (notDue.Frequency, notDue.CycleProblem));
+        // Six months: the other way round.
+        var half = await f.Payroll.CandidatesAsync(jan1, jun30, null, null, null);
+        Assert.True(half.Single(c => c.Id == semester.Id).IsEligible);
+        Assert.Equal("paid Monthly: needs a 1-month period", half.Single(c => c.Id == monthly.Id).CycleProblem);
+
+        // The server checks again on Process (the page could be out of date) ...
+        var wrong = await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = mar1, PeriodEnd = mar31, Method = "Cash", ScholarIds = [semester.Id] });
+        Assert.Equal((0, 1), (wrong.Processed, wrong.Skipped));
+        // ... and the amount is one cycle's stipend, not multiplied by the length of the period.
+        var right = await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = jan1, PeriodEnd = jun30, Method = "Cash", ScholarIds = [semester.Id] });
+        Assert.Equal((1, 13500m), (right.Processed, right.Total));
+    }
+
+    [Fact]
+    public async Task A_period_that_has_not_started_cannot_be_paid()
+    {
+        using var f = new Fixture();
+        var s = await f.AddScholarAsync((await f.AddTypeAsync()).Id);
+        var start = DateTime.Today.AddDays(1);
+        var req = new PayrollRequestDto { PeriodStart = start, PeriodEnd = start.AddMonths(1).AddDays(-1), Method = "Cash", ScholarIds = [s.Id] };
+
+        var row = (await f.Payroll.CandidatesAsync(req.PeriodStart, req.PeriodEnd, null, null, null)).Single();
+        Assert.False(row.IsEligible);
+        Assert.Equal("this period has not started yet", row.CycleProblem);
+        Assert.Contains("has not started", (await Assert.ThrowsAsync<AppException>(() => f.Payroll.PreviewAsync(req))).Message);
+        Assert.Contains("has not started", (await Assert.ThrowsAsync<AppException>(() => f.Payroll.ProcessAsync(req))).Message);
+        Assert.Equal(0, await f.Db.Payments.CountAsync());
+
+        // A period that started today is fine.
+        req.PeriodStart = DateTime.Today; req.PeriodEnd = DateTime.Today.AddMonths(1).AddDays(-1);
+        Assert.Equal(1, (await f.Payroll.ProcessAsync(req)).Processed);
+    }
+
+    [Fact]
+    public async Task The_expected_release_date_defaults_to_three_working_days_and_can_be_chosen()
+    {
+        using var f = new Fixture();
+        var t = await f.AddTypeAsync();
+        var a = await f.AddScholarAsync(t.Id, number: "SCH-2026-001");
+        var b = await f.AddScholarAsync(t.Id, number: "SCH-2026-002");
+
+        var chosen = DateTime.Today.AddDays(10);
+        var r1 = await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = new DateTime(2026, 3, 1), PeriodEnd = new DateTime(2026, 3, 31), Method = "Cash", ScholarIds = [a.Id], ReleaseDate = chosen });
+        var r2 = await f.Payroll.ProcessAsync(Req(b.Id));
+        Assert.Equal(chosen, r1.ReleaseDate);
+        Assert.Equal(PayrollRules.CalculateReleaseDate(DateTime.Now), r2.ReleaseDate);
+        Assert.Equal(chosen, (await f.Db.Payments.SingleAsync(p => p.ScholarId == a.Id)).ReleaseDate);
+
+        // Not in the past, and the preview shows the same date the payment will get.
+        var c = await f.AddScholarAsync(t.Id, number: "SCH-2026-003");
+        var past = new PayrollRequestDto { PeriodStart = new DateTime(2026, 3, 1), PeriodEnd = new DateTime(2026, 3, 31), Method = "Cash", ScholarIds = [c.Id], ReleaseDate = DateTime.Today.AddDays(-1) };
+        await Assert.ThrowsAsync<AppException>(() => f.Payroll.ProcessAsync(past));
+        past.ReleaseDate = DateTime.Today.AddDays(4);
+        Assert.Equal(DateTime.Today.AddDays(4), (await f.Payroll.PreviewAsync(past)).ReleaseDate);
+    }
+
+    [Fact]
+    public async Task A_processed_payment_can_be_rescheduled_until_it_is_released()
+    {
+        using var f = new Fixture();
+        var s = await f.AddScholarAsync((await f.AddTypeAsync()).Id);
+        await f.Payroll.ProcessAsync(Req(s.Id));
+        var pay = await f.Db.Payments.SingleAsync();
+        pay.ReleaseDate = DateTime.Today.AddDays(-1); await f.Db.SaveChangesAsync();
+        Assert.Single(await f.Payroll.ReadyForReleaseAsync()); // due, but the funds are not ready ...
+
+        var moved = await f.Payroll.RescheduleAsync(pay.Id, DateTime.Today.AddDays(2)); // ... so the admin moves the date
+        Assert.Equal(DateTime.Today.AddDays(2), moved.ReleaseDate);
+        Assert.Empty(await f.Payroll.ReadyForReleaseAsync());
+        await Assert.ThrowsAsync<AppException>(() => f.Payroll.ReleaseAsync(null));
+        var note = await f.Db.Notifications.SingleAsync(n => n.Title == "Payment Release Date Changed");
+        Assert.Equal(s.Id, note.RecipientId);
+        Assert.Contains($"{DateTime.Today.AddDays(2):MMM dd, yyyy}", note.Message);
+
+        await Assert.ThrowsAsync<AppException>(() => f.Payroll.RescheduleAsync(pay.Id, DateTime.Today.AddDays(-1))); // not in the past
+        pay.ReleaseDate = DateTime.Today; await f.Db.SaveChangesAsync();
+        await f.Payroll.ReleaseAsync(null);
+        Assert.Equal(409, (await Assert.ThrowsAsync<AppException>(() => f.Payroll.RescheduleAsync(pay.Id, DateTime.Today.AddDays(3)))).StatusCode); // released: fixed
+    }
+
+    [Fact]
+    public async Task A_released_payment_cannot_be_released_again_or_paid_again_for_the_same_days()
+    {
+        using var f = new Fixture();
+        var s = await f.AddScholarAsync((await f.AddTypeAsync()).Id);
+        await f.Payroll.ProcessAsync(Req(s.Id));
+        var pay = await f.Db.Payments.SingleAsync();
+        pay.ReleaseDate = DateTime.Today; await f.Db.SaveChangesAsync();
+        await f.Payroll.ReleaseAsync([pay.Id]);
+
+        var again = await Assert.ThrowsAsync<AppException>(() => f.Payroll.ReleaseAsync([pay.Id]));
+        Assert.Equal(409, again.StatusCode);
+        Assert.Contains("already released", again.Message);
+        // The same stipend cannot be paid again, not even with a period that only partly overlaps it.
+        Assert.Equal(0, (await f.Payroll.ProcessAsync(Req(s.Id))).Processed);
+        var overlapping = await f.Payroll.CandidatesAsync(new DateTime(2026, 3, 16), new DateTime(2026, 4, 15), null, null, null);
+        Assert.Equal("Already Paid", overlapping.Single().PaymentStatus);
+        Assert.Equal(1, await f.Db.Payments.CountAsync());
+    }
+
+    [Fact]
+    public async Task A_scholars_stipend_amount_and_frequency_always_come_from_their_scholarship_type()
+    {
+        using var f = new Fixture();
+        var t = await f.AddTypeAsync("TES", 13500, frequency: "Semi-Annual");
+        var created = await f.Scholars.CreateAsync(new ScholarSaveDto
+        {
+            FirstName = "Ana", LastName = "Lim", Email = "ana@x.ph", Course = "Bachelor of Science in Criminology", YearLevel = "1st Year",
+            ScholarshipTypeId = t.Id, StipendAmount = 99, StipendFrequency = "Monthly" // typed by mistake: ignored for an existing type
+        });
+        var s = await f.Db.Scholars.SingleAsync(x => x.Id == created.Id);
+        Assert.Equal((13500m, "Semi-Annual"), (s.StipendAmount, s.StipendFrequency));
+        var detail = await f.Scholars.GetAsync(created.Id);
+        Assert.Equal((13500m, "Semi-Annual"), (detail.StipendAmount, detail.StipendFrequency));
+    }
+
+    [Fact]
     public async Task Inactive_scholar_is_never_paid()
     {
         using var f = new Fixture();
         var s = await f.AddScholarAsync((await f.AddTypeAsync()).Id, status: "Inactive");
         Assert.Equal(0, (await f.Payroll.ProcessAsync(Req(s.Id))).Processed);
-    }
-}
-
-public class RegistrationServiceTests
-{
-    private static RegistrationSubmitDto Dto(int typeId) => new()
-    {
-        StudentId = "2026-777", FirstName = "Ana", LastName = "Lim", Email = "ana@x.ph", ContactNumber = "0917", Gender = "Female",
-        DegreeProgram = "Bachelor of Science in Criminology", YearLevel = "1st Year", ScholarshipTypeId = typeId
-    };
-
-    private static List<RegistrationFile> Files(params string[] keys) =>
-        keys.Select(k => new RegistrationFile { Key = k, FileName = $"{k}.pdf", Content = new MemoryStream([1, 2, 3]) }).ToList();
-
-    [Fact]
-    public async Task Required_documents_are_enforced()
-    {
-        using var f = new Fixture();
-        var t = await f.AddTypeAsync();
-        await Assert.ThrowsAsync<AppException>(() => f.Registrations().SubmitAsync(Dto(t.Id), Files("PSA", "COE")));
-    }
-
-    [Fact]
-    public async Task Submit_copies_stipend_from_type_and_keeps_student_id()
-    {
-        using var f = new Fixture();
-        var t = await f.AddTypeAsync(amount: 6100);
-        var id = await f.Registrations().SubmitAsync(Dto(t.Id), Files("PSA", "COE", "COR"));
-        var r = await f.Db.ScholarRegistrations.FindAsync(id);
-        Assert.Equal("Pending", r!.Status);
-        Assert.Equal(6100, r.StipendAmount);
-        Assert.Equal("2026-777", r.StudentId);
-    }
-
-    [Fact]
-    public async Task Approve_creates_account_with_documents_and_cannot_be_repeated()
-    {
-        using var f = new Fixture();
-        var store = new MemoryFileStore();
-        var t = await f.AddTypeAsync();
-        var svc = f.Registrations(store);
-        var id = await svc.SubmitAsync(Dto(t.Id), Files("PSA", "COE", "COR"));
-
-        var res = await svc.ApproveAsync(id);
-        Assert.Equal("2026-777", res.StudentId);
-        Assert.True(res.EmailSent);
-        Assert.Equal("Approved", (await f.Db.ScholarRegistrations.FindAsync(id))!.Status);
-        var scholar = await f.Db.Scholars.SingleAsync();
-        Assert.NotNull(scholar.UserId);
-        Assert.Equal(3, await f.Db.ComplianceRecords.CountAsync(c => c.ScholarId == scholar.Id && c.Status == "Submitted"));
-        Assert.Equal(2, await f.Db.ComplianceRecords.CountAsync(c => c.ScholarId == scholar.Id && c.Status == "Pending"));
-        Assert.Equal(3, await f.Db.FileAttachments.CountAsync());
-
-        var ex = await Assert.ThrowsAsync<AppException>(() => svc.ApproveAsync(id));
-        Assert.Equal(409, ex.StatusCode);
-        Assert.Equal(1, await f.Db.Scholars.CountAsync());
-    }
-
-    [Fact]
-    public async Task Reject_stores_reason_and_blocks_later_approval()
-    {
-        using var f = new Fixture();
-        var t = await f.AddTypeAsync();
-        var svc = f.Registrations();
-        var id = await svc.SubmitAsync(Dto(t.Id), Files("PSA", "COE", "COR"));
-        Assert.True(await svc.RejectAsync(id, "Incomplete documents", true));
-        var r = await f.Db.ScholarRegistrations.FindAsync(id);
-        Assert.Equal(("Rejected", "Incomplete documents"), (r!.Status, r.RejectionReason));
-        await Assert.ThrowsAsync<AppException>(() => svc.ApproveAsync(id));
     }
 }
 
@@ -426,18 +515,20 @@ public class SignUpAndPeriodTests
         f.Db.Payments.Add(new Payment { ScholarId = s.Id, PaymentPeriod = "March 2026", Amount = 5000, Status = "Released" });
         await f.Db.SaveChangesAsync();
 
-        var march2nd = await f.Payroll.CandidatesAsync(new DateTime(2026, 3, 16), new DateTime(2026, 3, 31), null, null, null);
-        Assert.False(march2nd.Single().IsEligible);
-        var april = await f.Payroll.CandidatesAsync(new DateTime(2026, 4, 1), new DateTime(2026, 4, 15), null, null, null);
+        // A one-month period that starts mid-March still overlaps March; April does not.
+        var overlapsMarch = await f.Payroll.CandidatesAsync(new DateTime(2026, 3, 16), new DateTime(2026, 4, 15), null, null, null);
+        Assert.False(overlapsMarch.Single().IsEligible);
+        Assert.Equal("Already Paid", overlapsMarch.Single().PaymentStatus);
+        var april = await f.Payroll.CandidatesAsync(new DateTime(2026, 4, 1), new DateTime(2026, 4, 30), null, null, null);
         Assert.True(april.Single().IsEligible);
 
-        var result = await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = new DateTime(2026, 4, 1), PeriodEnd = new DateTime(2026, 4, 15), Method = "Cash", ScholarIds = [s.Id] });
-        Assert.Equal("Apr 01-15, 2026", result.Period);
+        var result = await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = new DateTime(2026, 4, 1), PeriodEnd = new DateTime(2026, 4, 30), Method = "Cash", ScholarIds = [s.Id] });
+        Assert.Equal("April 2026", result.Period);
         var p = await f.Db.Payments.SingleAsync(x => x.PaymentPeriod == result.Period);
-        Assert.Equal((new DateTime(2026, 4, 1), new DateTime(2026, 4, 15)), (p.PeriodStart, p.PeriodEnd));
-        // The second half of April does not overlap, the whole of April does.
-        Assert.True((await f.Payroll.CandidatesAsync(new DateTime(2026, 4, 16), new DateTime(2026, 4, 30), null, null, null)).Single().IsEligible);
-        Assert.False((await f.Payroll.CandidatesAsync(new DateTime(2026, 4, 1), new DateTime(2026, 4, 30), null, null, null)).Single().IsEligible);
+        Assert.Equal((new DateTime(2026, 4, 1), new DateTime(2026, 4, 30)), (p.PeriodStart, p.PeriodEnd));
+        // A month that starts mid-April overlaps April; the next whole month does not.
+        Assert.False((await f.Payroll.CandidatesAsync(new DateTime(2026, 4, 16), new DateTime(2026, 5, 15), null, null, null)).Single().IsEligible);
+        Assert.True((await f.Payroll.CandidatesAsync(new DateTime(2026, 5, 1), new DateTime(2026, 5, 31), null, null, null)).Single().IsEligible);
     }
 
     [Fact]

@@ -1,37 +1,29 @@
 // =====================================================================
 // notifications.ts - Admin > Notifications (/admin/notifications).
-// Two tabs:
-// "notifs" -> list, read, compose, delete in-app notifications
+// List, read, compose, resend and delete in-app notifications.
 // API: /api/admin/notifications (NotificationsController)
-// "reg"    -> review scholarship applications (approve / reject)
-// API: /api/admin/registrations (RegistrationsController)
-// The sidebar "Registrations" link opens this page with ?tab=reg.
-// Live: reloads when notifications or registrations change.
+// Live: reloads when notifications change.
 // =====================================================================
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { RealtimeService, reloadOn } from '../../core/realtime';
 import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { ToastService } from '../../core/toast';
-import { DatePipeShort, DateTimePipe, NOTIFICATION_COLORS, PesoPipe, relativeTime, statusColor } from '../../core/format';
-import { ComposeResult, NotificationItem, NotificationStats, Option, RegistrationApproved, RegistrationDetail, RegistrationListItem } from '../../core/models';
+import { DateTimePipe, NOTIFICATION_COLORS, relativeTime } from '../../core/format';
+import { ComposeResult, NotificationItem, NotificationStats, Option } from '../../core/models';
 import { Modal } from '../../shared/modal';
-import { Fact, FactGrid } from '../../shared/fact-grid';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
-import { StatItem, StatStrip } from '../../shared/stat-strip';
+import { StatStrip } from '../../shared/stat-strip';
 
 @Component({
   selector: 'app-notifications',
-  imports: [FactGrid, StatStrip, ScrollCue, AppIcon, FormsModule, DateTimePipe, DatePipeShort, PesoPipe, Modal],
+  imports: [StatStrip, ScrollCue, AppIcon, FormsModule, DateTimePipe, Modal],
   template: `
-    @if (tab() === 'notifs') { <app-stat-strip [items]="cards()" /> }
+    <app-stat-strip [items]="cards()" />
 
-    @if (tab() === 'notifs') {
       <div class="card mb-4 flex flex-wrap items-end gap-3 p-4">
         <div><label class="field-label-b">Search</label><input class="input !w-[170px]" [ngModel]="search()" (ngModelChange)="search.set($event); reloadSoon()" /></div>
         <div><label class="field-label-b">Recipient</label>
@@ -100,122 +92,28 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
           </div>
         </app-modal>
       }
-    } @else {
-      <div class="grid items-start gap-4" [class]="regSel() ? 'xl:grid-cols-[480px_1fr]' : ''">
-        <section class="card max-h-[640px] overflow-auto p-3">
-          @for (r of regs(); track r.id) {
-            <div class="mb-2 w-full rounded-lg border p-3" [class.border-accent]="regSel()?.id === r.id" [class.bg-[#f0f7f8]]="regSel()?.id === r.id" [class.border-[#e6e6e6]]="regSel()?.id !== r.id">
-              <div class="flex items-center"><b class="text-[14px] text-brand">{{ r.fullName }}</b><span class="ml-auto text-[12px] font-bold" [style.color]="color(r.status)">{{ r.status }}</span></div>
-              <p class="text-[12px] text-muted">{{ r.email }} · {{ r.contactNumber }}</p>
-              <p class="text-[12px]">{{ r.course }} — {{ r.yearLevel }}</p>
-              <div class="mt-1 flex items-center"><p class="text-[12px] text-[#595959]">Submitted {{ rel(r.createdAt) }}</p>
-                <button class="btn btn-brand ml-auto !h-[28px] !px-3 !text-[12px]" (click)="openReg(r.id)" [attr.aria-label]="'View registration of ' + r.fullName">View</button></div>
-            </div>
-          } @empty { <p class="p-6 text-center text-[13px] text-[#595959]">No registrations</p> }
-        </section>
-
-        @if (regSel()) { <section class="card p-5">
-          @if (regSel(); as r) {
-            <div class="mb-3 flex items-center"><h2 class="text-[14pt] font-bold text-accent">{{ r.firstName }} {{ r.middleName }} {{ r.lastName }}</h2>
-              <span class="ml-3 text-[13px] font-bold" [style.color]="color(r.status)">{{ r.status }}</span>
-              <button class="ml-auto flex h-[32px] w-[32px] items-center justify-center rounded-full text-[22px] leading-none text-muted hover:bg-black/5 hover:text-black" aria-label="Close registration" title="Close" (click)="regSel.set(null)">×</button></div>
-            <dl class="grid grid-cols-[110px_1fr] gap-x-2 gap-y-1 text-[13px] sm:grid-cols-[160px_1fr]">
-              <dt class="text-muted">Student ID</dt><dd>{{ r.studentId || '(will be generated)' }}</dd>
-              <dt class="text-muted">Email</dt><dd>{{ r.email || '—' }}</dd><dt class="text-muted">Contact</dt><dd>{{ r.contactNumber || '—' }}</dd>
-              <dt class="text-muted">Date of Birth</dt><dd>{{ r.dateOfBirth | dmy: '—' }}</dd><dt class="text-muted">Gender</dt><dd>{{ r.gender || '—' }}</dd>
-              <dt class="text-muted">Address</dt><dd>{{ r.address || '—' }}</dd><dt class="text-muted">Program / HEI</dt><dd>{{ r.program || '—' }} · {{ r.hei || '—' }}</dd>
-              <dt class="text-muted">Degree Program</dt><dd>{{ r.degreeProgram || '—' }}</dd><dt class="text-muted">Year Level</dt><dd>{{ r.yearLevel || '—' }}</dd>
-              <dt class="text-muted">Scholarship</dt><dd>{{ r.scholarshipName }} — {{ r.stipendAmount | peso }} / {{ r.stipendFrequency }}</dd>
-              <dt class="text-muted">Fund Source</dt><dd>{{ r.scholarshipFundSource || '—' }}</dd><dt class="text-muted">Renewal</dt><dd>{{ r.renewalConditions || '—' }}</dd>
-              <dt class="text-muted">Enrollment / Graduation</dt><dd>{{ r.enrollmentDate || r.expectedGraduation ? (r.enrollmentDate | dmy: '—') + ' to ' + (r.expectedGraduation | dmy: '—') : '—' }}</dd>
-              <dt class="text-muted">Bank</dt><dd>{{ r.bankName || r.bankAccountNumber ? (r.bankName ?? '') + ' ' + (r.bankAccountNumber ?? '') : '—' }}</dd><dt class="text-muted">Notes</dt><dd>{{ r.notes || '—' }}</dd>
-              @if (r.rejectionReason) { <dt class="text-muted">Rejection reason</dt><dd class="text-danger">{{ r.rejectionReason }}</dd> }
-            </dl>
-            <h3 class="section-title mt-4">Attached Documents</h3>
-            <div class="mb-4 flex flex-wrap gap-2">
-              @for (k of r.files; track k) { <button class="btn btn-brand" (click)="openFile(r.id, k)"><app-icon name="attachment" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>{{ fileLabel(k) }}</button> } @empty { <span class="text-[13px] text-[#4b5563]">No documents attached.</span> }
-            </div>
-            @if (r.status === 'Pending' && missingDocs(r).length) {
-              <div class="mb-4 flex items-start gap-3 rounded-lg border-l-4 border-warn bg-[#fff8e6] px-4 py-3" role="alert">
-                <app-icon name="alert" class="mt-[2px] h-5 w-5 shrink-0 text-[#8a5300]"></app-icon>
-                <p class="text-[13px] text-[#333]">Required documents missing: <b>{{ missingDocs(r).join(', ') }}</b>. You can still approve, but the scholar will have these requirements marked as not submitted.</p>
-              </div>
-            }
-            @if (r.status === 'Pending') {
-              <div class="flex gap-3"><button class="btn btn-ok !h-[40px]" [disabled]="busy()" (click)="approve(r)"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Approve</button><button class="btn btn-danger !h-[40px]" [disabled]="busy()" (click)="rejectOpen.set(true)"><app-icon name="reject" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon>Reject</button></div>
-            }
-          }
-        </section> }
-      </div>
-    }
-
-    @if (rejectOpen()) {
-      <app-modal title="Reject this application" [width]="520" (closed)="rejectOpen.set(false); rejectErr.set('')">
-        <p class="mb-2 text-[14px]">Tell the applicant why. The reason is saved with the application and can be emailed to:</p>
-        <p class="mb-3 text-[14px] font-bold text-brand">{{ regSel()?.email }}</p>
-        <label class="field-label-b" for="rej-reason">Reason <span class="text-[#c62828]">*</span></label>
-        <textarea id="rej-reason" class="input" [class.input-invalid]="!!rejectErr()" rows="5" [(ngModel)]="rejectReason" (ngModelChange)="rejectErr.set('')" maxlength="1000"></textarea>
-        @if (rejectErr()) { <p class="field-err">{{ rejectErr() }}</p> }
-        <label class="mt-3 flex items-center gap-2 text-[14px]"><input type="checkbox" [(ngModel)]="rejectEmail" /> Send the reason to the applicant by email</label>
-        <div class="mt-5 flex justify-end gap-2"><button class="btn btn-gray" (click)="rejectOpen.set(false); rejectErr.set('')">Cancel</button><button class="btn btn-danger" (click)="reject()">Reject application</button></div>
-      </app-modal>
-    }
-
-    @if (approvedDlg(); as v) {
-      <app-modal title="Registration approved" [width]="560" (closed)="approvedDlg.set(null)">
-        <div class="mb-4 flex items-center gap-3"><app-icon name="checked" class="h-[40px] w-[40px] text-ok"></app-icon>
-          <p class="text-[14px] text-[#333]">A scholar account was created for {{ v.a.fullName }}.</p></div>
-        <app-fact-grid [facts]="approvedFacts(v)" />
-        <div class="mt-4 flex items-start gap-3 rounded-lg px-4 py-3" [class.bg-[#eef8f8]]="v.a.emailSent" [class.bg-[#fff8e6]]="!v.a.emailSent" [attr.role]="v.a.emailSent ? null : 'alert'">
-          <app-icon [name]="v.a.emailSent ? 'mail' : 'alert'" class="mt-[2px] h-5 w-5 shrink-0" [class.text-accent]="v.a.emailSent" [class.text-[#8a5300]]="!v.a.emailSent"></app-icon>
-          <p class="text-[13px] text-[#333]">@if (v.a.emailSent) { Login details were emailed to <b>{{ v.email }}</b>. } @else { The email could not be sent. Reset the scholar's credentials manually and give them to {{ v.a.fullName }}. }</p>
-        </div>
-        <div class="mt-5 flex justify-end"><button class="btn btn-brand !h-[40px]" (click)="approvedDlg.set(null)">Done</button></div>
-      </app-modal>
-    }
-
-    @if (rejectedDlg(); as v) {
-      <app-modal title="Registration rejected" [width]="520" (closed)="rejectedDlg.set(null)">
-        <div class="mb-4 flex items-center gap-3"><app-icon name="reject" class="h-[40px] w-[40px] text-[#b42318]"></app-icon>
-          <p class="text-[14px] text-[#333]">{{ v.name }}'s application was rejected.</p></div>
-        @if (v.asked) {
-          <div class="flex items-start gap-3 rounded-lg px-4 py-3" [class.bg-[#eef8f8]]="v.sent" [class.bg-[#fff8e6]]="!v.sent">
-            <app-icon [name]="v.sent ? 'mail' : 'alert'" class="mt-[2px] h-5 w-5 shrink-0" [class.text-accent]="v.sent" [class.text-[#8a5300]]="!v.sent"></app-icon>
-            <p class="text-[13px] text-[#333]">@if (v.sent) { A rejection email with your reason was sent to <b>{{ v.email }}</b>. } @else { The rejection email to {{ v.email }} could not be sent. }</p>
-          </div>
-        }
-        <div class="mt-5 flex justify-end"><button class="btn btn-brand !h-[40px]" (click)="rejectedDlg.set(null)">Done</button></div>
-      </app-modal>
-    }
   `,
 })
 export class NotificationsPage implements OnInit, OnDestroy {
   private api = inject(Api);
   private dlg = inject(DialogService);
   private toast = inject(ToastService);
-  private route = inject(ActivatedRoute);
-  // Pick the tab from the URL (?tab=reg) and set up live reloads.
+  // Reload when notifications change on the server.
   constructor() {
-    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.tab.set(q.get('tab') === 'reg' ? 'reg' : 'notifs'));
     const rt = inject(RealtimeService);
-    reloadOn([rt.notificationsChanged$, rt.registrationSubmitted$, rt.registrationReviewed$], () => this.refresh());
+    reloadOn([rt.notificationsChanged$], () => this.refresh());
   }
-  tab = signal<'notifs' | 'reg'>('notifs');
   stats = signal<NotificationStats | null>(null);
   list = signal<NotificationItem[]>([]);
   recipients = signal<Option[]>([]);
-  regs = signal<RegistrationListItem[]>([]);
-  regSel = signal<RegistrationDetail | null>(null);
   sel = signal<NotificationItem | null>(null);
   busy = signal(false);
   composeOpen = signal(false);
-  rejectOpen = signal(false);
-  rejectReason = ''; rejectEmail = true;
   search = signal(''); recipientFilter = signal(0); typeFilter = signal('All Types'); unreadOnly = signal(false);
   types = ['Reminder', 'Alert', 'Update', 'Announcement']; composeTypes = this.types;
   // The compose form values.
   c = { recipientId: 0, type: 'Update', title: '', message: '', sendEmail: false };
-  color = statusColor; tcolor = (t: string) => NOTIFICATION_COLORS[t] ?? '#646464'; rel = relativeTime;
+  tcolor = (t: string) => NOTIFICATION_COLORS[t] ?? '#646464'; rel = relativeTime;
   private timer: ReturnType<typeof setTimeout> | undefined;
 
   cards = computed(() => {
@@ -224,7 +122,6 @@ export class NotificationsPage implements OnInit, OnDestroy {
       { label: 'Total Sent', value: s?.total ?? 0, icon: 'bell', color: '#0a5c5c', hint: 'All in-app notifications sent (not affected by the filters below)' },
       { label: 'Unread', value: s?.unread ?? 0, icon: 'wall-clock', color: '#8a5300', tone: 'pending' as const, hint: 'In-app notifications scholars have not opened yet' },
       { label: 'Read', value: s?.read ?? 0, icon: 'checked', color: '#17692c', hint: 'In-app notifications scholars have opened' },
-      { label: 'Awaiting Approval', value: s?.pendingRegistrations ?? 0, icon: 'file', color: '#b42318', tone: 'pending' as const, hint: 'New scholar registrations waiting for review' },
     ];
   });
 
@@ -233,10 +130,9 @@ export class NotificationsPage implements OnInit, OnDestroy {
     await this.refresh();
   }
 
-  // Reload the list, the numbers and the registrations together.
-  async refresh(): Promise<void> { await Promise.all([this.loadList(), this.loadStats(), this.loadRegs()]); }
+  // Reload the list and the numbers together.
+  async refresh(): Promise<void> { await Promise.all([this.loadList(), this.loadStats()]); }
   async loadStats(): Promise<void> { this.stats.set(await firstValueFrom(this.api.get<NotificationStats>('/admin/notifications/stats'))); }
-  async loadRegs(): Promise<void> { this.regs.set(await firstValueFrom(this.api.get<RegistrationListItem[]>('/admin/registrations'))); }
   reloadSoon(): void { clearTimeout(this.timer); this.timer = setTimeout(() => void this.loadList(), 300); }
 
   // Load notifications with the current filters.
@@ -310,48 +206,5 @@ export class NotificationsPage implements OnInit, OnDestroy {
     if (!(await this.dlg.confirm(`Mark ${n} unread notification${n === 1 ? '' : 's'} as read for all scholars?\n\nThis can't be reversed.`, 'Mark all as read', 'Mark as read', 'Cancel'))) return;
     try { await firstValueFrom(this.api.post('/admin/notifications/read-all')); await this.refresh(); this.toast.show(`${n} notification${n === 1 ? '' : 's'} marked as read.`); }
     catch (e) { void this.dlg.error(errorMessage(e)); }
-  }
-
-  // Open one application in the review pop-up.
-  async openReg(id: number): Promise<void> {
-    try { this.regSel.set(await firstValueFrom(this.api.get<RegistrationDetail>(`/admin/registrations/${id}`))); } catch (e) { void this.dlg.error(errorMessage(e)); }
-  }
-  fileLabel(k: string): string { return ({ PSA: 'PSA Birth Certificate', COE: 'Certificate of Enrollment', COR: 'Certificate of Registration', Grades: 'Latest Grades/TOR', Contract: 'Scholarship Contract' } as Record<string, string>)[k] ?? k; }
-  async openFile(id: number, key: string): Promise<void> { try { await this.api.open(`/admin/registrations/${id}/files/${key}`); } catch (e) { void this.dlg.error(errorMessage(e)); } }
-
-  /** PSA, COE and COR are required at registration; list any that are not attached. */
-  missingDocs(r: RegistrationDetail): string[] { return ['PSA', 'COE', 'COR'].filter((k) => !r.files.includes(k)).map((k) => this.fileLabel(k)); }
-  rejectErr = signal('');
-  approvedDlg = signal<{ a: RegistrationApproved; email: string } | null>(null);
-  rejectedDlg = signal<{ name: string; email: string; asked: boolean; sent: boolean } | null>(null);
-  private rejectEmailAsked = false;
-  approvedFacts(v: { a: RegistrationApproved }): Fact[] {
-    return [{ icon: 'user', label: 'Scholar', value: v.a.fullName }, { icon: 'scholar', label: 'Scholar number', value: v.a.scholarNumber, tone: 'strong' },
-      { icon: 'file', label: 'Username (Student ID)', value: v.a.studentId, tone: 'strong' }];
-  }
-
-  // Approve: the API creates the scholar + login and emails the password.
-  // Then we show a box with the new scholar's details.
-  async approve(r: RegistrationDetail): Promise<void> {
-    const missing = this.missingDocs(r);
-    if (!(await this.dlg.confirm(`Approve registration for ${r.firstName} ${r.lastName}?\n\nThis will create a scholar account and send a welcome email.${missing.length ? `\n\nMissing required documents: ${missing.join(', ')}.` : ''}`, 'Confirm Approval'))) return;
-    this.busy.set(true);
-    try {
-      const a = await firstValueFrom(this.api.post<RegistrationApproved>(`/admin/registrations/${r.id}/approve`));
-      this.regSel.set(null); await this.refresh();
-      this.approvedDlg.set({ a, email: r.email });
-    } catch (e) { void this.dlg.error(errorMessage(e)); } finally { this.busy.set(false); }
-  }
-
-  // Reject: a reason is required; the email to the applicant is optional.
-  async reject(): Promise<void> {
-    const r = this.regSel(); if (!r) return;
-    this.rejectEmailAsked = this.rejectEmail;
-    if (!this.rejectReason.trim()) { this.rejectErr.set('Please enter a reason for the rejection.'); document.getElementById('rej-reason')?.focus(); return; }
-    try {
-      const res = await firstValueFrom(this.api.post<{ emailSent: boolean }>(`/admin/registrations/${r.id}/reject`, { reason: this.rejectReason.trim(), sendEmail: this.rejectEmail }));
-      this.rejectOpen.set(false); this.rejectReason = ''; this.regSel.set(null); await this.refresh();
-      this.rejectedDlg.set({ name: `${r.firstName} ${r.lastName}`, email: r.email, asked: this.rejectEmailAsked, sent: res.emailSent });
-    } catch (e) { void this.dlg.error(errorMessage(e)); }
   }
 }

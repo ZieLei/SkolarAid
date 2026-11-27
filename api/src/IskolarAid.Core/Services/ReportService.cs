@@ -79,13 +79,18 @@ public class DashboardService(IskolarDbContext db)
         return rows.OrderByDescending(r => r.C).Select(r => new ChartPointDto(r.Key, r.C)).ToList();
     }
 
+    // Money RELEASED per month for the last 12 months (this month included), oldest first.
+    // Every month is listed, with 0 when nothing was released, so the chart always has a full time axis.
+    // Processed-but-not-released payments are not counted (the money has not gone out yet).
     public async Task<List<ChartPointDto>> MonthlyDisbursementAsync()
     {
-        var since = DateTime.Today.AddMonths(-12);
-        var rows = await db.Payments.Where(p => p.Status == "Released" && p.ReleaseDate != null && p.ReleaseDate >= since)
+        var first = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(-11);
+        var rows = await db.Payments.Where(p => p.Status == "Released" && p.ReleaseDate != null && p.ReleaseDate >= first)
             .Select(p => new { p.ReleaseDate, p.Amount }).ToListAsync();
-        return rows.GroupBy(r => new { r.ReleaseDate!.Value.Year, r.ReleaseDate!.Value.Month }).OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
-            .Select(g => new ChartPointDto(new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM yyyy", CultureInfo.InvariantCulture), g.Sum(x => x.Amount))).ToList();
+        var byMonth = rows.GroupBy(r => new DateTime(r.ReleaseDate!.Value.Year, r.ReleaseDate!.Value.Month, 1))
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
+        return Enumerable.Range(0, 12).Select(i => first.AddMonths(i))
+            .Select(m => new ChartPointDto(m.ToString("MMM yyyy", CultureInfo.InvariantCulture), byMonth.GetValueOrDefault(m))).ToList();
     }
 
     public async Task<AnalyticsDto> AnalyticsAsync()
@@ -326,7 +331,7 @@ public class ScholarPortalService(IskolarDbContext db, ComplianceService complia
         var queued = payments.Items.Where(p => p.Status is "Processed" or "Pending").OrderBy(p => p.ReleaseDate ?? DateTime.MaxValue).FirstOrDefault();
         var nextDate = queued is { ReleaseDate: not null }
             ? queued.ReleaseDate.Value.ToString("MMM dd, yyyy", CultureInfo.InvariantCulture)
-            : ScholarRules.NextPaymentDate(s.StipendFrequency, DateTime.Now);
+            : ScholarRules.NextPaymentDate(s.ScholarshipType?.PaymentFrequency ?? s.StipendFrequency, DateTime.Now);
         var nextNote = queued is { ReleaseDate: not null } ? $"{queued.Period} stipend · {queued.Status}, releases on this date" : "Estimated · no payment processed yet";
         var due = comp.Items.Where(i => i.Status is "Pending" or "Rejected" or "Overdue").ToList();
         return new ScholarDashboardDto(s.FullName, s.ScholarNumber, s.ScholarshipType?.Name ?? "N/A", s.ScholarshipType?.StipendAmount ?? 0,

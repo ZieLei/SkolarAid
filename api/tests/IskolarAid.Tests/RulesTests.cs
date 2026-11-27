@@ -51,6 +51,52 @@ public class PayrollRulesTests
     [InlineData("Active", true, 5000, true, false)]
     public void Eligibility(string status, bool complete, decimal stipend, bool paid, bool expected)
         => Assert.Equal(expected, PayrollRules.IsEligible(status, complete ? ["Approved"] : ["Pending"], stipend, paid));
+
+    [Theory]
+    [InlineData("Monthly", 1)] [InlineData("Quarterly", 3)] [InlineData("Semi-Annual", 6)] [InlineData("Annual", 12)] [InlineData(" semi-annual ", 6)]
+    [InlineData("Weekly", null)] [InlineData(null, null)]
+    public void Each_frequency_is_a_number_of_months(string? frequency, int? months) => Assert.Equal(months, PayrollRules.CycleMonths(frequency));
+
+    [Theory]
+    [InlineData("Monthly", "2026-11-01", "2026-11-30", true)]
+    [InlineData("Monthly", "2026-02-01", "2026-02-28", true)]   // February is a month too
+    [InlineData("Monthly", "2026-03-16", "2026-04-15", true)]   // a cut-off month
+    [InlineData("Monthly", "2026-11-01", "2026-11-15", false)]  // half a month
+    [InlineData("Monthly", "2026-10-01", "2026-12-31", false)]  // a quarter
+    [InlineData("Quarterly", "2026-10-01", "2026-12-31", true)]
+    [InlineData("Semi-Annual", "2026-07-01", "2026-12-31", true)]
+    [InlineData("Semi-Annual", "2026-11-01", "2026-11-30", false)]
+    [InlineData("Annual", "2026-01-01", "2026-12-31", true)]
+    [InlineData("Annual", "2026-07-01", "2026-12-31", false)]
+    [InlineData("Weekly", "2026-11-01", "2026-11-03", true)]    // unknown (older) frequencies are not checked
+    public void A_period_must_last_one_cycle_of_the_frequency(string frequency, string start, string end, bool fits)
+        => Assert.Equal(fits, PayrollRules.PeriodFitsFrequency(frequency, DateTime.Parse(start), DateTime.Parse(end)));
+
+    [Fact]
+    public void The_reason_a_period_cannot_be_paid_is_a_sentence_the_admin_can_act_on()
+    {
+        var today = new DateTime(2026, 11, 27);
+        Assert.Null(PayrollRules.CycleProblem("Monthly", new DateTime(2026, 11, 1), new DateTime(2026, 11, 30), today));
+        Assert.Equal("paid Semi-Annual: needs a 6-month period", PayrollRules.CycleProblem("Semi-Annual", new DateTime(2026, 11, 1), new DateTime(2026, 11, 30), today));
+        Assert.Equal("this period has not started yet", PayrollRules.CycleProblem("Monthly", new DateTime(2026, 12, 1), new DateTime(2026, 12, 31), today));
+        Assert.Null(PayrollRules.CycleProblem("Monthly", today, today.AddDays(29), today)); // starting today is fine
+    }
+
+    [Fact]
+    public void A_scholar_whose_payment_method_cannot_be_used_is_not_eligible()
+        => Assert.False(PayrollRules.IsEligible("Active", ["Approved"], 5000, false, payoutReady: false));
+
+    [Theory]
+    [InlineData("Bank Transfer", "BDO", "0012345", null)]
+    [InlineData("Bank Transfer", null, null, "no bank details")]
+    [InlineData("Bank Transfer", "", "  ", "no bank details")]
+    [InlineData("Bank Transfer", null, "0012345", "bank name missing")]
+    [InlineData("Bank Transfer", "BDO", " ", "bank account number missing")]
+    [InlineData("Cash", null, null, null)]
+    [InlineData("Mobile Wallet", null, null, null)]
+    [InlineData(null, null, null, null)]
+    public void Bank_transfer_needs_a_bank_name_and_account_number(string? method, string? bank, string? account, string? expected)
+        => Assert.Equal(expected, PayrollRules.PayoutProblem(method, bank, account));
 }
 
 public class ScholarRulesTests

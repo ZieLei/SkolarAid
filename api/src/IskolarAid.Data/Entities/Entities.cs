@@ -6,7 +6,7 @@
 // User (login)  1 --- 1  Scholar (profile)  --- ScholarshipType
 // Scholar 1 --- many  Payment, ComplianceRecord, Notification
 // ComplianceRecord 1 --- many  FileAttachment (the uploaded documents)
-// ScholarRegistration = an application that is not a scholar yet
+// ScholarRegistration = legacy table, no longer used by the app (see below)
 // ActivityLog = the audit trail ("who did what")
 // =====================================================================
 namespace IskolarAid.Data.Entities;
@@ -108,8 +108,9 @@ public class Scholar : IUpdatable
     public string FullName => $"{FirstName} {MiddleName} {LastName}".Replace("  ", " ").Trim();
 }
 
-// An application sent from the Register page. Status: Pending, Approved or Rejected.
-// The File* columns hold paths to the uploaded documents on disk.
+// LEGACY: applications from the old Register page (status Pending / Approved / Rejected).
+// New scholars are now added by the admin and activate their account on the Sign up page,
+// so nothing creates or reviews these any more. The table is kept so old data is not lost.
 public class ScholarRegistration : ITimestamped
 {
     public int Id { get; set; }

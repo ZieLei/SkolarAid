@@ -32,13 +32,12 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
             n.Sender?.Name ?? "System", n.Recipient?.FullName, n.Recipient?.ScholarNumber)).ToList();
     }
 
-    // Numbers for the cards on the admin Notifications page (also counts pending registrations).
+    // Numbers for the cards on the admin Notifications page.
     public async Task<NotificationStatsDto> StatsAsync()
     {
         var total = await db.Notifications.CountAsync();
         var unread = await db.Notifications.CountAsync(n => !n.IsRead);
-        var pending = await db.ScholarRegistrations.CountAsync(r => r.Status == "Pending");
-        return new NotificationStatsDto(total, unread, total - unread, pending);
+        return new NotificationStatsDto(total, unread, total - unread);
     }
 
     // Admin sends a message. No recipient = send to every active scholar.

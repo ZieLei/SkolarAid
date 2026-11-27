@@ -38,8 +38,6 @@ services:
       Smtp__Password: ${SMTP_PASSWORD:-}
       Smtp__FromAddress: ${SMTP_FROM_ADDRESS:-}
       Smtp__LoginUrl: ${SMTP_LOGIN_URL:-http://localhost:4200/login}
-    volumes:
-      - uploads:/app/uploads
     ports:
       - "5080:8080"
 
@@ -53,4 +51,3 @@ services:
 
 volumes:
   dbdata:
-  uploads:

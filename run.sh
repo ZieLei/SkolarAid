@@ -240,7 +240,6 @@ case "$cmd" in
     export ASPNETCORE_ENVIRONMENT=Development
     export Database__Provider=Sqlite
     export ConnectionStrings__Default="Data Source=$RUN_DIR/demo.db"
-    export Uploads__Directory="$RUN_DIR/uploads"
     export Seed__AdminUsername="${SEED_ADMIN_USERNAME:-admin}"
     export Seed__AdminPassword="${SEED_ADMIN_PASSWORD:-Admin#12345}"
     export Seed__SampleData=true
@@ -291,7 +290,6 @@ MSG
     export Seed__HistoricalData="${SEED_HISTORICAL_DATA:-false}"
     export Smtp__Host="${SMTP_HOST:-}" Smtp__Port="${SMTP_PORT:-587}" Smtp__User="${SMTP_USER:-}" Smtp__Password="${SMTP_PASSWORD:-}"
     export Smtp__FromAddress="${SMTP_FROM_ADDRESS:-}" Smtp__LoginUrl="${SMTP_LOGIN_URL:-$WEB_URL/login}"
-    export Uploads__Directory="$RUN_DIR/uploads"
     use_mail_catcher
     start_stack
     ;;

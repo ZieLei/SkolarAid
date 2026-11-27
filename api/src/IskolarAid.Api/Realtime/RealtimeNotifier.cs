@@ -3,8 +3,6 @@
 // services) and forwards each one to the right browsers via SignalR.
 // Which event goes to whom:
 // NotificationsSent     -> the scholars who got it + all admins
-// RegistrationSubmitted -> admins
-// RegistrationReviewed  -> admins
 // PaymentsChanged       -> admins + the scholars whose payments changed
 // ComplianceChanged     -> admins + that one scholar
 // =====================================================================
@@ -29,8 +27,6 @@ public sealed class RealtimeNotifier
         _hub = hub;
         _log = log;
         events.NotificationsSent += OnNotificationsSent;
-        events.RegistrationSubmitted += OnRegistrationSubmitted;
-        events.RegistrationReviewed += OnRegistrationReviewed;
         events.PaymentsChanged += OnPaymentsChanged;
         events.ComplianceChanged += OnComplianceChanged;
     }
@@ -40,12 +36,6 @@ public sealed class RealtimeNotifier
         Send("NotificationReceived", _hub.Clients.Groups(ScholarGroups(e.ScholarIds)).SendAsync("NotificationReceived", new { e.Title, e.Type }));
         Send("NotificationsChanged", _hub.Clients.Group(HubGroups.Admins).SendAsync("NotificationsChanged", new { Count = e.ScholarIds.Count }));
     }
-
-    private void OnRegistrationSubmitted(object? sender, RegistrationEventArgs e) =>
-        Send("RegistrationSubmitted", _hub.Clients.Group(HubGroups.Admins).SendAsync("RegistrationSubmitted", new { Id = e.RegistrationId, Name = e.ApplicantName }));
-
-    private void OnRegistrationReviewed(object? sender, RegistrationEventArgs e) =>
-        Send("RegistrationReviewed", _hub.Clients.Group(HubGroups.Admins).SendAsync("RegistrationReviewed", new { Id = e.RegistrationId, Name = e.ApplicantName, e.Status }));
 
     private void OnPaymentsChanged(object? sender, PaymentsChangedEventArgs e)
     {
