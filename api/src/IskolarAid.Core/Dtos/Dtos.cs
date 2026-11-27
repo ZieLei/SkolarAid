@@ -1,4 +1,13 @@
 // =====================================================================
+// TRACE GUIDE (same tags are used in every file under api/src - search them with Ctrl+Shift+F):
+//   [ENTRY]       the HTTP endpoint that starts a feature       (Controllers/Controllers.cs)
+//   [VALIDATION]  a line that checks input and rejects bad data
+//   [RULE]        a business rule (who may be paid, what is complete...)
+//   [DB]          reads or writes the database
+//   [SIDE-EFFECT] an email, activity log entry or real-time (SignalR) message
+// "Which line checks X?"  -> search "VALIDATION" + the field name, e.g. "VALIDATION" "FirstName".
+// =====================================================================
+// =====================================================================
 // Dtos.cs - the shapes of data sent between the browser and the API.
 //
 // DTO = "Data Transfer Object". Controllers receive and return these
@@ -15,10 +24,13 @@ using System.ComponentModel.DataAnnotations;
 namespace IskolarAid.Core.Dtos;
 
 // ---- Auth ----
+// [VALIDATION] login form: both fields required. The password itself is checked in AuthService.LoginAsync.
 public record LoginRequest([Required, StringLength(100)] string Username, [Required, StringLength(200)] string Password);
 public record UserInfoDto(int Id, string Username, string Role, string Name, int? ScholarId, string? ScholarNumber);
 public record LoginResponse(string Token, DateTime ExpiresAt, UserInfoDto User);
 
+// [VALIDATION] sign-up form: all three required. Identity + password rules are checked in AuthService.SignUpAsync
+// (ScholarRules.PasswordProblem: at least 8 characters, with a letter and a number).
 // Sign-up for a scholar who is already in the system: they prove who they are with their
 // Scholar ID plus their Student ID or email, then choose their own password.
 public record SignUpRequest(
@@ -33,6 +45,7 @@ public record OptionDto(int Id, string Name);
 public record ScholarshipTypeDto(int Id, string Name, string? Description, decimal StipendAmount, string PaymentFrequency,
     string? FundSource, string? RenewalConditions, bool IsActive, int ScholarCount);
 
+// [VALIDATION] Add / Edit Scholarship Type form. Further checks: ScholarshipTypeService.
 public class ScholarshipTypeSaveDto
 {
     [Required, StringLength(150)] public string Name { get; set; } = "";
@@ -57,24 +70,41 @@ public record ScholarDetailDto(int Id, int? UserId, string ScholarNumber, string
     int PaymentCount, decimal TotalReceived, int PendingCompliance, int ApprovedCompliance, int TotalCompliance,
     IReadOnlyList<ScholarDocumentDto> Documents);
 
+// The body of the Add / Edit Scholar modal (Admin > Scholars). [ENTRY] POST / PUT /api/admin/scholars (ScholarsController).
+//
+// WHERE THE SCHOLAR FORM IS VALIDATED (three layers, in the order a request meets them):
+//   1. Browser  : web/src/app/pages/admin/scholars.ts -> validate()   (required fields, shows red messages before sending)
+//   2. [VALIDATION] THIS CLASS: the [Required] / [StringLength] / [EmailAddress] / [Range] attributes below.
+//                  [ApiController] (see Controllers.cs) checks them BEFORE the controller method runs;
+//                  a bad field returns HTTP 400 and the service is never called.
+//   3. [VALIDATION] ScholarService.cs -> ResolveTypeAsync / CreateAsync / UpdateAsync: checks that need the database
+//                  (valid scholarship type, Student ID not already used, status in the allowed list).
+// Field by field: FirstName, LastName, Email, Course, YearLevel are mandatory here; everything else is optional.
 public class ScholarSaveDto
 {
+    // [VALIDATION] optional, max 50 characters. Duplicate check is in ScholarService.CreateAsync / UpdateAsync.
     [StringLength(50)] public string? StudentId { get; set; }
+    // [VALIDATION] FirstName: required (cannot be empty), max 100 characters.
     [Required, StringLength(100)] public string FirstName { get; set; } = "";
     [StringLength(100)] public string? MiddleName { get; set; }
+    // [VALIDATION] LastName: required, max 100 characters.
     [Required, StringLength(100)] public string LastName { get; set; } = "";
     [StringLength(30)] public string? Suffix { get; set; }
+    // [VALIDATION] Email: required, must look like an email address, max 150 characters.
     [Required, EmailAddress, StringLength(150)] public string Email { get; set; } = "";
     [StringLength(30)] public string? ContactNumber { get; set; }
     public DateTime? DateOfBirth { get; set; }
     [StringLength(20)] public string? Gender { get; set; }
     [StringLength(500)] public string? Address { get; set; }
+    // [VALIDATION] Course and YearLevel: required (picked from drop-downs; ScholarService.Courses lists the allowed courses).
     [Required, StringLength(200)] public string Course { get; set; } = "";
     [Required, StringLength(30)] public string YearLevel { get; set; } = "";
     // Either pick an existing type (ScholarshipTypeId) or type its name (ScholarshipTypeName).
     // See ScholarService.ResolveTypeAsync.
     public int? ScholarshipTypeId { get; set; }
     [StringLength(150)] public string? ScholarshipTypeName { get; set; }
+    // [VALIDATION] StipendAmount: 0 to 10,000,000. Only used when a NEW scholarship type name is typed
+    // (then ScholarService.ResolveTypeAsync requires it to be above 0). For an existing type the type's own amount wins.
     [Range(0, 10_000_000)] public decimal StipendAmount { get; set; }
     [StringLength(30)] public string? StipendFrequency { get; set; }
     [StringLength(100)] public string? ScholarshipFundSource { get; set; }
@@ -83,6 +113,7 @@ public class ScholarSaveDto
     [StringLength(50)] public string? BankAccountNumber { get; set; }
     public DateTime? EnrollmentDate { get; set; }
     public DateTime? ExpectedGraduation { get; set; }
+    // [VALIDATION] Status: max 20 characters here; ScholarService.UpdateAsync checks it is one of ScholarService.Statuses.
     [StringLength(20)] public string? Status { get; set; }
 }
 
@@ -95,12 +126,14 @@ public record ScholarFiltersDto(IReadOnlyList<string> Statuses, IReadOnlyList<Op
 public record ComplianceItemDto(int Id, string RequirementType, string? Description, DateTime DueDate, DateTime? DateSubmitted,
     string Status, string? Remarks, string? CheckedBy, int FileCount, string? FileName);
 
+// [VALIDATION] Approve / Reject / etc. on a compliance document: Status must be one of the five listed.
 public class ComplianceStatusDto
 {
     [Required, RegularExpression("^(Pending|Submitted|Approved|Rejected|Overdue)$")] public string Status { get; set; } = "";
     [StringLength(1000)] public string? Remarks { get; set; }
 }
 
+// [VALIDATION] Add Requirement form (compliance). RequirementType and DueDate are mandatory.
 public class AddRequirementDto
 {
     [Required, StringLength(150)] public string RequirementType { get; set; } = "";
@@ -120,6 +153,8 @@ public record PayrollCandidateDto(int Id, string ScholarNumber, string FullName,
     string ScholarshipType, decimal StipendAmount, string ComplianceStatus, string PaymentStatus, bool IsEligible,
     string? PayoutProblem = null, string Frequency = "", string? CycleProblem = null);
 
+// [VALIDATION] Payroll preview / process body. [Required] fields + the method list are checked here;
+// the period length, eligibility and "already paid" checks are in PayrollService.
 public class PayrollRequestDto
 {
     // The payment period: first and last day it covers (picked on the payroll page).
@@ -154,6 +189,7 @@ public record NotificationDto(int Id, string Title, string Message, string Type,
     string SenderName, string? RecipientName, string? ScholarNumber);
 public record NotificationStatsDto(int Total, int Unread, int Read);
 
+// [VALIDATION] Compose Notification form (Admin > Notifications). Type must be one of the four listed; Title 200 / Message 4000 max.
 public class ComposeNotificationDto
 {
     /// <summary>Null = every active scholar.</summary>
@@ -221,6 +257,7 @@ public record ScholarProfileDto(string FirstName, string? MiddleName, string Las
     string? Address, DateTime? DateOfBirth, string? Gender, string? BankName, string? BankAccountNumber, string? StudentId, string? Hei,
     string? Course, string? YearLevel, string ScholarNumber, string? ScholarshipType, DateTime? EnrollmentDate,
     DateTime? ExpectedGraduation, string Status, decimal StipendAmount, string? FundSource, string? RenewalConditions);
+// [VALIDATION] Scholar > Profile: the ONLY four fields a scholar can edit (length limits only. ScholarPortalService.UpdateProfileAsync adds no other check: it trims and normalises the phone number).
 /// <summary>The only fields a scholar may change themselves.</summary>
 public record ScholarProfileUpdateDto([StringLength(30)] string? ContactNumber, [StringLength(500)] string? Address,
     [StringLength(100)] string? BankName, [StringLength(50)] string? BankAccountNumber);

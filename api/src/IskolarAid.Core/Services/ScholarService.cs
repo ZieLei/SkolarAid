@@ -2,6 +2,16 @@
 // ScholarService.cs - admin work on scholars (Admin > Scholars page).
 // Called by ScholarsController (/api/admin/scholars).
 // List / view / create / edit / activate-deactivate.
+//
+// TRACE: "Add Scholar" button -> modal (web/.../admin/scholars.ts, validate())
+//        -> POST /api/admin/scholars (ScholarsController.Create)
+//        -> field checks on ScholarSaveDto (Dtos.cs, automatic, returns 400 before reaching here)
+//        -> CreateAsync below  [DB] Users + Scholars + ComplianceRecords, [SIDE-EFFECT] activity log + sign-up email
+// TRACE: "Edit Scholar" -> PUT /api/admin/scholars/{id} -> same ScholarSaveDto checks -> UpdateAsync below.
+// Checks that live in THIS file (they need the database):
+//   - ResolveTypeAsync : the scholarship type is valid / new type has an amount
+//   - CreateAsync      : Student ID not already used (users table AND scholars table)
+//   - UpdateAsync      : Student ID not used by another scholar, Status is in the allowed list
 // =====================================================================
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -70,6 +80,7 @@ public class ScholarService(IskolarDbContext db, PasswordService passwords, Acti
     public async Task<ScholarDetailDto> GetAsync(int id)
     {
         var s = await db.Scholars.AsNoTracking().Include(x => x.ScholarshipType).FirstOrDefaultAsync(x => x.Id == id)
+                // [VALIDATION] the record must exist, otherwise 404 Not Found (Scholar)
                 ?? throw AppException.NotFound("Scholar");
         var pays = await db.Payments.Where(p => p.ScholarId == id).Select(p => new { p.Amount, p.Status }).ToListAsync();
         var comp = await db.ComplianceRecords.Where(c => c.ScholarId == id).OrderBy(c => c.Id).ToListAsync();
@@ -95,6 +106,7 @@ public class ScholarService(IskolarDbContext db, PasswordService passwords, Acti
             comp.Count(c => c.Status is "Pending" or "Overdue"), comp.Count(c => c.Status == "Approved"), comp.Count, docs);
     }
 
+    // [ENTRY] called by ScholarsController.Create (POST /api/admin/scholars).
     // Add a new scholar (admin form). Steps:
     // 1. Make the next scholar number (SCH-2026-001) and a student id if none was given.
     // 2. Make sure the student id is not taken.
@@ -104,20 +116,23 @@ public class ScholarService(IskolarDbContext db, PasswordService passwords, Acti
     // 5. Write an activity log, then email the scholar how to sign up.
     public async Task<ScholarCreatedDto> CreateAsync(ScholarSaveDto dto)
     {
-        var type = await ResolveTypeAsync(dto);
+        var type = await ResolveTypeAsync(dto); // [VALIDATION] scholarship type must be valid (see ResolveTypeAsync)
         var year = DateTime.Now.Year;
         var fullName = ScholarRules.FullName(dto.FirstName, dto.MiddleName, dto.LastName, dto.Suffix);
 
         // Transaction: either everything below is saved, or nothing is.
         await using var tx = await db.Database.BeginTransactionAsync();
         var existing = await db.Scholars.Where(s => s.ScholarNumber.StartsWith($"SCH-{year}-")).Select(s => s.ScholarNumber).ToListAsync();
-        var number = ScholarRules.NextScholarNumber(year, existing);
+        var number = ScholarRules.NextScholarNumber(year, existing); // [RULE] number format SCH-{year}-{001...} (Rules.cs)
         var studentId = string.IsNullOrWhiteSpace(dto.StudentId)
             ? ScholarRules.GeneratedStudentId(year, ScholarRules.SequenceOf(number)) : dto.StudentId.Trim();
 
+        // [VALIDATION] Student ID must be unique: first among login accounts, then among scholars.
         if (await db.Users.AnyAsync(u => u.Username == studentId))
+            // [VALIDATION] duplicate / wrong-state check, otherwise 409 Conflict
             throw AppException.Conflict("An account with this Student ID already exists.");
         if (await db.Scholars.AnyAsync(s => s.StudentId == studentId))
+            // [VALIDATION] duplicate / wrong-state check, otherwise 409 Conflict
             throw AppException.Conflict("A scholar with this Student ID already exists.");
 
         // The random password is never shown to anyone; it only fills the column until the scholar signs up.
@@ -133,34 +148,42 @@ public class ScholarService(IskolarDbContext db, PasswordService passwords, Acti
             BankAccountNumber = dto.BankAccountNumber?.Trim(), EnrollmentDate = dto.EnrollmentDate, ExpectedGraduation = dto.ExpectedGraduation,
             Status = "Active"
         };
-        db.Scholars.Add(scholar);
+        db.Scholars.Add(scholar); // [DB] inserts the scholar row (and its login account via User = user)
         await db.SaveChangesAsync();
+        // [DB] the five default document requirements, all "Pending" (ComplianceRules.DefaultTypes)
         for (var i = 0; i < ComplianceRules.DefaultTypes.Length; i++)
             db.ComplianceRecords.Add(ComplianceService.NewDefault(scholar.Id, i, "Pending"));
         await db.SaveChangesAsync();
         await tx.CommitAsync();
 
-        await log.LogCreate("scholars", scholar.Id, $"Created new scholar: {fullName}");
+        await log.LogCreate("scholars", scholar.Id, $"Created new scholar: {fullName}"); // [SIDE-EFFECT] shows in Admin > Activity Logs
 
         // Sending happens after saving. If the email fails the scholar is still created;
         // the admin sees the Scholar ID on screen and can pass it on.
         var (subject, body) = MessageTemplates.SignUpInvite(fullName, number, studentId, smtp.Value.SignUpUrl);
+        // [SIDE-EFFECT] sign-up invitation email (Messaging.cs)
         var emailSent = await email.SendAsync(scholar.Email!, fullName, subject, body);
         if (emailSent) await log.LogCreate("notifications", 0, $"Sign-up email sent to {fullName} ({scholar.Email})");
 
         return new ScholarCreatedDto(scholar.Id, number, studentId, fullName, scholar.Email!, studentId, emailSent);
     }
 
+    // [ENTRY] called by ScholarsController.Update (PUT /api/admin/scholars/{id}).
     // Save changes from the admin edit form.
     public async Task UpdateAsync(int id, ScholarSaveDto dto)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Scholar)
         var s = await db.Scholars.FindAsync(id) ?? throw AppException.NotFound("Scholar");
         var studentId = dto.StudentId?.Trim();
         if (!string.IsNullOrEmpty(studentId) && await db.Scholars.AnyAsync(x => x.StudentId == studentId && x.Id != id))
+            // [VALIDATION] duplicate / wrong-state check, otherwise 409 Conflict
             throw AppException.Conflict("Another scholar already uses this Student ID.");
+        // [VALIDATION] rejects with 400: "Invalid status."
+        // [VALIDATION] Status, if sent, must be one of ScholarService.Statuses (Active, Inactive, Probation...).
         if (dto.Status is { Length: > 0 } st && !Statuses.Contains(st)) throw new AppException("Invalid status.");
-        var type = await ResolveTypeAsync(dto);
+        var type = await ResolveTypeAsync(dto); // [VALIDATION] scholarship type must be valid
 
+        // [DB] copy the form values onto the scholar row, then save below.
         s.StudentId = studentId; s.FirstName = dto.FirstName.Trim(); s.MiddleName = dto.MiddleName?.Trim();
         s.LastName = dto.LastName.Trim(); s.Email = dto.Email.Trim(); s.ContactNumber = dto.ContactNumber?.Trim();
         s.DateOfBirth = dto.DateOfBirth; s.Gender = dto.Gender ?? "Male"; s.Address = dto.Address?.Trim();
@@ -176,18 +199,25 @@ public class ScholarService(IskolarDbContext db, PasswordService passwords, Acti
     // The admin form lets you pick a scholarship type from the list OR type its name.
     // A typed name that matches a type (ignoring upper/lower case) uses that type;
     // a new name creates a new type, using the stipend amount and frequency from the form.
+    // [VALIDATION] This is where "scholarship type is missing / invalid" is decided:
+    //   picked an id that does not exist  -> "Please select a valid scholarship type."
+    //   nothing picked and nothing typed  -> "Please type or select a scholarship type."
+    //   typed a brand-new name, amount 0  -> "...is a new scholarship type. Please enter its stipend amount."
     private async Task<ScholarshipType> ResolveTypeAsync(ScholarSaveDto dto)
     {
         if (dto.ScholarshipTypeId is > 0)
             return await db.ScholarshipTypes.FindAsync(dto.ScholarshipTypeId.Value)
+                   // [VALIDATION] rejects with 400: "Please select a valid scholarship type."
                    ?? throw new AppException("Please select a valid scholarship type.");
 
         var name = dto.ScholarshipTypeName?.Trim();
+        // [VALIDATION] rejects with 400: "Please type or select a scholarship type."
         if (string.IsNullOrEmpty(name)) throw new AppException("Please type or select a scholarship type.");
         var lower = name.ToLower();
         var found = await db.ScholarshipTypes.FirstOrDefaultAsync(t => t.Name.ToLower() == lower);
         if (found is not null) return found;
 
+        // [VALIDATION] rejects with 400: "'{name}' is a new scholarship type. Please enter its stipend amount."
         if (dto.StipendAmount <= 0) throw new AppException($"'{name}' is a new scholarship type. Please enter its stipend amount.");
         var type = new ScholarshipType
         {
@@ -201,9 +231,11 @@ public class ScholarService(IskolarDbContext db, PasswordService passwords, Acti
         return type;
     }
 
+    // [ENTRY] ScholarsController.Toggle (POST /api/admin/scholars/{id}/toggle-status).
     // Active -> Inactive, anything else -> Active. Returns the new status.
     public async Task<string> ToggleStatusAsync(int id)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Scholar)
         var s = await db.Scholars.FindAsync(id) ?? throw AppException.NotFound("Scholar");
         var wasActive = s.Status == "Active";
         s.Status = wasActive ? "Inactive" : "Active";

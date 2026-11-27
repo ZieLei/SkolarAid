@@ -82,6 +82,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
     public async Task<ComplianceScholarInfoDto> GetForScholarAsync(int scholarId)
     {
         var s = await db.Scholars.Include(x => x.ScholarshipType).FirstOrDefaultAsync(x => x.Id == scholarId)
+                // [VALIDATION] the record must exist, otherwise 404 Not Found (Scholar)
                 ?? throw AppException.NotFound("Scholar");
         await EnsureDefaultsAsync(scholarId);
         var items = await ListItemsAsync(scholarId);
@@ -108,8 +109,11 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
     }
 
     // Admin approves / rejects / changes a requirement. Remembers which admin did it.
+    // [ENTRY] Approve / Reject buttons -> PUT /api/admin/compliance/{id}/status. [VALIDATION] Status list is checked in ComplianceStatusDto (Dtos.cs).
+    // [RULE] a scholar becomes payable only when ALL their requirements are Approved (ComplianceRules.Summarize).
     public async Task UpdateStatusAsync(int id, string status, string? remarks)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Compliance record)
         var c = await db.ComplianceRecords.FindAsync(id) ?? throw AppException.NotFound("Compliance record");
         c.Status = status;
         c.Remarks = remarks;
@@ -126,6 +130,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
     // Admin adds an extra requirement (beyond the default five).
     public async Task<ComplianceItemDto> AddRequirementAsync(int scholarId, AddRequirementDto dto)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Scholar)
         if (!await db.Scholars.AnyAsync(s => s.Id == scholarId)) throw AppException.NotFound("Scholar");
         var c = new ComplianceRecord
         {
@@ -142,6 +147,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
     // Delete a requirement and its files.
     public async Task DeleteRequirementAsync(int id)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Compliance record)
         var c = await db.ComplianceRecords.FindAsync(id) ?? throw AppException.NotFound("Compliance record");
         db.FileAttachments.RemoveRange(db.FileAttachments.Where(f => f.ComplianceId == id));
         db.ComplianceRecords.Remove(c);
@@ -151,6 +157,8 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
     }
 
     /// <summary>Stores the file (replacing any existing one), marks the record Submitted. Used by admin and scholar uploads.</summary>
+    // [VALIDATION] file type and size: UploadRules.Validate (UploadRules.cs) - PDF / Word / JPG / PNG only, not empty, within the size limit.
+    // [DB] replaces the stored file and sets the requirement to "Submitted". Used by both admin and scholar uploads.
     public async Task AttachFileAsync(ComplianceRecord c, string fileName, byte[] data)
     {
         var name = UploadRules.Validate(fileName, data.Length, MaxBytes);
@@ -167,9 +175,11 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         await db.SaveChangesAsync();
     }
 
+    // [ENTRY] Admin > Compliance upload -> POST /api/admin/compliance/{id}/file (ComplianceController.Upload; 15 MB request cap).
     // Admin uploads a file for a scholar's requirement.
     public async Task UploadAsync(int id, string fileName, byte[] data)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Compliance record)
         var c = await db.ComplianceRecords.FindAsync(id) ?? throw AppException.NotFound("Compliance record");
         await AttachFileAsync(c, fileName, data);
         await log.LogCreate("file_attachments", id, $"File uploaded: {fileName}");
@@ -181,6 +191,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
     public async Task<(string Name, string ContentType, byte[] Data)> DownloadAsync(int id, int? ownerScholarId = null)
     {
         var f = await db.FileAttachments.Where(x => x.ComplianceId == id && (ownerScholarId == null || x.ScholarId == ownerScholarId))
+            // [VALIDATION] the record must exist, otherwise 404 Not Found (File)
             .OrderByDescending(x => x.Id).FirstOrDefaultAsync() ?? throw AppException.NotFound("File");
         return (f.FileName, UploadRules.ContentType(f.FileName), f.FileData);
     }
@@ -188,6 +199,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
     // Remove the file and put the requirement back to Pending.
     public async Task DeleteFileAsync(int id)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Compliance record)
         var c = await db.ComplianceRecords.FindAsync(id) ?? throw AppException.NotFound("Compliance record");
         db.FileAttachments.RemoveRange(db.FileAttachments.Where(f => f.ComplianceId == id));
         c.Status = "Pending"; c.FilePath = null; c.DateSubmitted = null;
@@ -199,6 +211,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
     // Send the scholar an in-app "please submit your documents" notification.
     public async Task RemindAsync(int scholarId)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Scholar)
         if (!await db.Scholars.AnyAsync(s => s.Id == scholarId)) throw AppException.NotFound("Scholar");
         db.Notifications.Add(new Notification
         {
@@ -236,13 +249,17 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
             items.Count(i => i.Status == "Overdue"), ComplianceRules.ComplianceRate(total, completed));
     }
 
+    // [ENTRY] Scholar > Compliance upload -> POST /api/scholar/compliance/{id}/file (ScholarPortalController.Upload).
+    // [VALIDATION] the requirement must belong to this scholar (id comes from the login token), and its status must be Pending / Rejected / Overdue.
     // Scholar uploads their own document. Only allowed while the item still needs a file.
     public async Task UploadForSelfAsync(int scholarId, int complianceId, string fileName, byte[] data)
     {
         var c = await db.ComplianceRecords.FirstOrDefaultAsync(x => x.Id == complianceId && x.ScholarId == scholarId)
+                // [VALIDATION] the record must exist, otherwise 404 Not Found (Requirement)
                 ?? throw AppException.NotFound("Requirement");
         // The desktop UI only offered upload for Pending/Rejected items; Overdue is also allowed so late documents can still be sent.
         if (c.Status is not ("Pending" or "Rejected" or "Overdue"))
+            // [VALIDATION] rejects with 400: "This requirement can no longer be changed."
             throw new AppException("This requirement can no longer be changed.");
         await AttachFileAsync(c, fileName, data);
         await log.LogCreate("file_attachments", complianceId, $"Scholar uploaded document: {fileName}");

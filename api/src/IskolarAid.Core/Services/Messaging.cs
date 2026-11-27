@@ -46,15 +46,17 @@ public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSen
         }
         try
         {
+            // Build the email: From = SMTP_FROM_ADDRESS (.env), To = the scholar's address, Subject/Body come from MessageTemplates below.
             var msg = new MimeMessage();
             msg.From.Add(new MailboxAddress(o.FromName, o.FromAddress));
             msg.To.Add(new MailboxAddress(toName, toAddress));
             msg.Subject = subject;
             msg.Body = new BodyBuilder { HtmlBody = htmlBody }.ToMessageBody();
             using var client = new SmtpClient();
-            await client.ConnectAsync(o.Host, o.Port, TlsMode(o), ct);
+            await client.ConnectAsync(o.Host, o.Port, TlsMode(o), ct); // connect to SMTP_HOST:SMTP_PORT (.env)
+            // log in with SMTP_USER / SMTP_PASSWORD (.env) - this is where "uses my account" happens.
             if (!string.IsNullOrEmpty(o.User)) await client.AuthenticateAsync(o.User, o.Password, ct);
-            await client.SendAsync(msg, ct);
+            await client.SendAsync(msg, ct); // <-- the actual hand-over of the email to the SMTP server (Gmail when .env has SMTP_HOST=smtp.gmail.com)
             await client.DisconnectAsync(true, ct);
             return true;
         }
@@ -109,6 +111,7 @@ public static class MessageTemplates
             $@"<p>Dear <b>{E(name)}</b>,</p><p>Your stipend for <b>{E(period)}</b> has been <b>released</b>.</p>
 <p><b>Amount:</b> ₱{amount:N2}<br/><b>Method:</b> {E(method)}<br/><b>Reference:</b> {E(reference)}</p><p>Funds should reflect within 1-3 business days.</p>"));
 
+    // [TRACE] the email for Admin > Notifications (called by NotificationService.ComposeAsync).
     public static (string subject, string body) Notification(string name, string title, string message)
         => ($"IskolarAid - {title}", Wrap(title, $"<p>Dear <b>{E(name)}</b>,</p><p>{E(message).Replace("\n", "<br/>")}</p>"));
 }

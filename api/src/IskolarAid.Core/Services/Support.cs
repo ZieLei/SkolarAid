@@ -87,6 +87,8 @@ public class PasswordService
 // Sign-up (for scholars the admin already added) is SignUpAsync below.
 public class AuthService(IskolarDbContext db, PasswordService passwords, ActivityLogService log)
 {
+    // [ENTRY] AuthController.Login (POST /api/auth/login). [VALIDATION] unknown user / wrong password -> 401,
+    // not activated yet -> 401, inactive account or scholar -> 403. [DB] updates LastLogin. [SIDE-EFFECT] LOGIN activity log.
     public async Task<UserInfoDtoInternal> LoginAsync(string username, string password)
     {
         username = username.Trim();
@@ -95,11 +97,13 @@ public class AuthService(IskolarDbContext db, PasswordService passwords, Activit
         var fail = new AppException("Invalid Student ID or Password.", 401);
         if (user is null) throw fail;
         if (user.AccountStatus == AccountStatuses.Pending)
+            // [VALIDATION] rejects with 401 Unauthorized: "You have not activated your account yet. Choose \ …"
             throw new AppException("You have not activated your account yet. Choose \"Sign up\" and enter your Scholar ID to set your password.", 401);
 
         var (ok, rehash) = passwords.Verify(user.Password, password);
         if (!ok) throw fail;
         if (user.AccountStatus != "Active")
+            // [VALIDATION] access check, otherwise 403 Forbidden
             throw AppException.Forbidden("Your account is inactive or locked. Please contact the administrator.");
 
         Scholar? scholar = null;
@@ -107,6 +111,7 @@ public class AuthService(IskolarDbContext db, PasswordService passwords, Activit
         {
             scholar = await db.Scholars.FirstOrDefaultAsync(s => s.UserId == user.Id);
             if (scholar is null || scholar.Status != "Active")
+                // [VALIDATION] access check, otherwise 403 Forbidden
                 throw AppException.Forbidden("Scholar profile not found or inactive.");
         }
 
@@ -123,6 +128,7 @@ public class AuthService(IskolarDbContext db, PasswordService passwords, Activit
     // 3. The scholar must be Active and must not have a working account yet.
     // 4. Save their chosen password and switch the account to Active.
     // The controller then logs them in straight away (returns a token).
+    // [ENTRY] AuthController.SignUp (POST /api/auth/signup).
     public async Task<UserInfoDtoInternal> SignUpAsync(string scholarNumber, string studentIdOrEmail, string password)
     {
         var number = scholarNumber.Trim().ToUpperInvariant();
@@ -135,9 +141,12 @@ public class AuthService(IskolarDbContext db, PasswordService passwords, Activit
         var matches = (scholar.StudentId != null && scholar.StudentId == id) || (scholar.Email != null && scholar.Email.ToLower() == idLower);
         if (!matches) throw notFound;
         if (scholar.Status != "Active")
+            // [VALIDATION] access check, otherwise 403 Forbidden
             throw AppException.Forbidden("Your scholarship is not active, so you cannot sign up. Please contact the Scholarship Office.");
         if (scholar.User is { AccountStatus: not AccountStatuses.Pending })
+            // [VALIDATION] duplicate / wrong-state check, otherwise 409 Conflict
             throw AppException.Conflict("This scholar already has an account. Please log in with your Student ID instead.");
+        // [VALIDATION] new password must pass ScholarRules.PasswordProblem (8+ characters, a letter and a number) -> 400 with the reason.
         if (ScholarRules.PasswordProblem(password) is { } problem) throw new AppException(problem);
 
         var user = scholar.User;
@@ -146,6 +155,7 @@ public class AuthService(IskolarDbContext db, PasswordService passwords, Activit
             // Older scholars (from the desktop app) may have no login row at all: make one.
             var username = scholar.StudentId ?? scholar.ScholarNumber;
             if (await db.Users.AnyAsync(u => u.Username == username))
+                // [VALIDATION] duplicate / wrong-state check, otherwise 409 Conflict
                 throw AppException.Conflict("An account with this Student ID already exists. Please contact the Scholarship Office.");
             user = new User { Username = username, Role = Roles.Scholar, Name = scholar.FullName };
             scholar.User = user;

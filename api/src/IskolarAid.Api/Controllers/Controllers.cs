@@ -10,6 +10,14 @@
 // [Authorize(Policy = "Admin")]  -> only admin accounts
 // [Authorize(Policy = "Scholar")]-> only scholar accounts
 //
+// TRACE: where input is checked, in order of a request's journey:
+//   1. [Authorize] / policy on the controller  -> not logged in = 401, wrong role = 403
+//   2. [ApiController] + the DTO attributes (Dtos.cs: [Required], [StringLength], [EmailAddress]...)
+//      -> a bad body is rejected with 400 BEFORE the controller method runs (the "Add Scholar" field checks are here)
+//   3. The service (IskolarAid.Core/Services/*) -> database-dependent checks; search "VALIDATION" to list them all
+//   4. Rules (IskolarAid.Core/Rules/Rules.cs)  -> the pure business rules the service calls
+// Tags used in comments: [ENTRY] endpoint, [VALIDATION] input check, [RULE] business rule, [DB] database, [SIDE-EFFECT] email/log/real-time.
+//
 // Errors: services throw AppException; ApiExceptionHandler
 // (Infrastructure/Infrastructure.cs) turns it into a JSON error reply.
 // =====================================================================
@@ -29,6 +37,7 @@ internal static class Files
 {
     public static async Task<(string Name, byte[] Data)> ReadAsync(IFormFile? file)
     {
+        // [VALIDATION] rejects with 400: "Please choose a file to upload."
         if (file is null || file.Length == 0) throw new AppException("Please choose a file to upload.");
         await using var ms = new MemoryStream();
         await file.CopyToAsync(ms);
@@ -46,6 +55,7 @@ public class AuthController(AuthService auth, JwtTokenService tokens, ICurrentUs
     // 1. AuthService checks the username + password.
     // 2. JwtTokenService makes a signed token.
     // 3. The browser stores the token and sends it with every later request.
+    // [VALIDATION] LoginRequest fields are required (Dtos.cs); rate limit 10 per minute per IP ("login" policy in Program.cs).
     [HttpPost("login"), AllowAnonymous, EnableRateLimiting("login")]
     public async Task<LoginResponse> Login(LoginRequest req)
     {
@@ -118,7 +128,9 @@ public class ScholarsController(ScholarService svc) : ControllerBase
     [HttpGet("filters")] public Task<ScholarFiltersDto> Filters() => svc.FiltersAsync();
     [HttpGet("{id:int}")] public Task<ScholarDetailDto> Get(int id) => svc.GetAsync(id);
 
-    // POST /api/admin/scholars - add a new scholar. Returns 201 Created with the new id.
+    // [ENTRY] "Add Scholar" modal -> POST /api/admin/scholars. Returns 201 Created with the new id.
+    // [VALIDATION] ScholarSaveDto's attributes (Dtos.cs) are checked automatically before this method runs
+    // (FirstName, LastName, Email, Course, YearLevel required; lengths; email format). Then ScholarService.CreateAsync.
     [HttpPost]
     public async Task<ActionResult<ScholarCreatedDto>> Create(ScholarSaveDto dto)
     {
@@ -126,7 +138,8 @@ public class ScholarsController(ScholarService svc) : ControllerBase
         return CreatedAtAction(nameof(Get), new { id = r.Id }, r);
     }
 
-    // PUT edits a scholar; toggle-status switches Active <-> Inactive.
+    // [ENTRY] "Edit Scholar" modal -> PUT: same ScholarSaveDto checks, then ScholarService.UpdateAsync.
+    // toggle-status switches Active <-> Inactive.
     [HttpPut("{id:int}")] public async Task<IActionResult> Update(int id, ScholarSaveDto dto) { await svc.UpdateAsync(id, dto); return NoContent(); }
     [HttpPost("{id:int}/toggle-status")] public async Task<object> Toggle(int id) => new { status = await svc.ToggleStatusAsync(id) };
 }
@@ -199,6 +212,7 @@ public class PayrollController(PayrollService svc) : ControllerBase
         return svc.CandidatesAsync(start, end, scholarshipTypeId, yearLevel, search, method);
     }
 
+    // [ENTRY] Payroll page: Preview / Process buttons. Checks: PayrollRequestDto (Dtos.cs) then PayrollService.
     [HttpPost("preview")] public Task<PayrollPreviewDto> Preview(PayrollRequestDto dto) => svc.PreviewAsync(dto);
     [HttpPost("process")] public Task<PayrollResultDto> Process(PayrollRequestDto dto) => svc.ProcessAsync(dto);
     [HttpGet("ready-for-release")] public Task<List<ProcessedPaymentDto>> Ready() => svc.ReadyForReleaseAsync();
@@ -317,6 +331,7 @@ public class ScholarPortalController(ScholarPortalService portal, ComplianceServ
 {
     // The scholar id taken from the login token. Every method below uses it,
     // so a scholar can only ever see their own data.
+    // [VALIDATION] access check, otherwise 403 Forbidden
     private int Me => current.ScholarId ?? throw AppException.Forbidden("No scholar profile is linked to this account.");
 
     [HttpGet("dashboard")] public Task<ScholarDashboardDto> Dashboard() => portal.DashboardAsync(Me);
@@ -358,6 +373,7 @@ public class ScholarPortalController(ScholarPortalService portal, ComplianceServ
 [ApiController, Route("api")]
 public class ProfilePictureController(ProfilePictureService pictures, ICurrentUser current) : ControllerBase
 {
+    // [VALIDATION] access check, otherwise 403 Forbidden
     private int Me => current.UserId ?? throw AppException.Forbidden("Please log in again.");
 
     // GET /api/me/picture - your own picture (204 when you have none; the web app then shows an icon).

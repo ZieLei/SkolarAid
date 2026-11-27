@@ -31,12 +31,16 @@ public class ProfilePictureService(IskolarDbContext db, ActivityLogService log)
         return userId is null ? null : await GetAsync(userId.Value);
     }
 
+    // [ENTRY] PUT /api/me/picture (ProfilePictureController.Upload). [VALIDATION] size and real image type are checked below.
     // Save (or replace) a user's picture. Only JPG, PNG and WebP images up to 5 MB.
     public async Task SetAsync(int userId, byte[] data)
     {
+        // [VALIDATION] rejects with 400: "The image is empty."
         if (data.Length == 0) throw new AppException("The image is empty.");
+        // [VALIDATION] rejects with 400: "The picture is too large (max 5 MB)."
         if (data.Length > MaxBytes) throw new AppException("The picture is too large (max 5 MB).");
         // Check the file's first bytes, not its name, so only real images are accepted.
+        // [VALIDATION] rejects with 400: "Please choose a JPG, PNG or WebP image."
         var type = ImageType(data) ?? throw new AppException("Please choose a JPG, PNG or WebP image.");
 
         var p = await db.ProfilePictures.FirstOrDefaultAsync(x => x.UserId == userId);

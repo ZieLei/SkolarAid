@@ -8,6 +8,14 @@
 //   4. Build the app and connect the URL routes (controllers + SignalR hub).
 //   5. Prepare the database (create / migrate / seed) and start listening.
 //
+// TRACE: where things happen in this file -
+//   login token check ........ "---- Auth ----"            (every [Authorize] endpoint depends on it)
+//   admin / scholar roles .... AddPolicy("Admin"/"Scholar")
+//   rate limits .............. "---- Rate limiting ----"   (login 10/min, sign-up 10/hour)
+//   field validation ......... builder.Services.AddControllers() + [ApiController] -> DTO attributes in Dtos.cs
+//   error -> JSON reply ...... ApiExceptionHandler (Infrastructure/Infrastructure.cs)
+//   live updates ............. AppEvents -> RealtimeNotifier -> NotificationHub (/hubs/notifications)
+//
 // How a request flows through the API:
 //   Browser -> Controller (Controllers/Controllers.cs)
 //           -> Service (IskolarAid.Core/Services/*)

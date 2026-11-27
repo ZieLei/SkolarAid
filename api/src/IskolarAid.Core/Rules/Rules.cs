@@ -6,6 +6,22 @@
 // PayrollRules    -> period names, release dates, reference numbers, who can be paid
 // ScholarRules    -> names, scholar numbers, student ids, passwords, phone numbers
 // AmountWords     -> 5000.50 -> "Five Thousand Pesos and 50/100 Centavos" (receipts)
+//
+// TRACE INDEX - "which rule decides X, and who calls it?"  (search the rule name to jump to the caller)
+//   Scholar sign-up password (8+ chars, letter + number)  ScholarRules.PasswordProblem    <- Support.cs AuthService.SignUpAsync
+//   Scholar numbers / student ids / temp passwords        ScholarRules.NextScholarNumber, GeneratedStudentId, GeneratePassword
+//                                                          <- ScholarService.CreateAsync (also HistorySeeder, ScholarImportService)
+//   Phone numbers stored one way (09...)                  ScholarRules.NormalizePhone     <- ScholarPortalService.UpdateProfileAsync, import
+//   Is a payroll period valid? (end >= start, <= 1 year)  PayrollRules.PeriodProblem      <- PayrollService.CheckPeriod
+//   Does the period match the scholar's pay frequency?    PayrollRules.CycleProblem       <- PayrollService.CandidatesAsync / ProcessAsync
+//   Bank details present for "Bank Transfer"?             PayrollRules.PayoutProblem      <- PayrollService.CandidatesAsync / ProcessAsync
+//   Can this scholar be paid? (the final yes/no)          PayrollRules.IsEligible         <- PayrollService.CandidatesAsync / ProcessAsync
+//   Release date (+3 days, skip weekend)                  PayrollRules.CalculateReleaseDate <- PayrollService.ReleaseDateFor
+//   Payment reference number                              PayrollRules.ReferenceNumber    <- PayrollService.ProcessAsync
+//   Documents complete? (all Approved)                    ComplianceRules.Summarize / IsComplete <- PayrollService, ComplianceService
+//   Pending past due date -> Overdue                      ComplianceRules.ShouldBecomeOverdue <- ComplianceService
+//   Amount in words on receipts                           AmountWords.ToWords             <- ReportService.ReceiptAsync
+// (The "Add Scholar" form checks are NOT here: see the field attributes on ScholarSaveDto in Dtos.cs and ScholarService.cs.)
 // =====================================================================
 using System.Globalization;
 using System.Security.Cryptography;
@@ -36,6 +52,7 @@ public static class ComplianceRules
 
     /// <summary>Payroll eligibility (strict, as enforced when processing): every record must be Approved.</summary>
     // Examples: all Approved -> "Complete"; none Approved -> "Pending Approval"; some -> "Incomplete".
+    // [RULE] decides the "Complete / Incomplete / Pending Approval" label of a scholar's documents.
     public static string Summarize(IReadOnlyCollection<string> statuses)
     {
         if (statuses.Count == 0) return "No Records";
@@ -76,6 +93,7 @@ public static class PayrollRules
     }
 
     // Checks the range picked on the payroll page. Returns what is wrong, or null.
+    // [VALIDATION] payroll period dates. Called by PayrollService.CheckPeriod, which turns the text into a 400 error.
     public static string? PeriodProblem(DateTime start, DateTime end)
     {
         if (end.Date < start.Date) return "The period end date must be on or after the start date.";
@@ -142,6 +160,7 @@ public static class PayrollRules
     // Bank Transfer needs somewhere to send the money: a bank name AND an account number on the scholar's profile.
     // Returns what is missing (shown to the admin), or null when the chosen method can be used.
     // Cash and Mobile Wallet need nothing extra.
+    // [RULE] used for the "Bank Transfer needs bank details" check in payroll.
     public static string? PayoutProblem(string? method, string? bankName, string? bankAccountNumber)
     {
         if (method != "Bank Transfer") return null;
@@ -156,6 +175,7 @@ public static class PayrollRules
     // A scholar can be paid when: Active + all documents Approved + has a stipend + not paid yet this period
     // + the payment method can be used for them (payoutReady, see PayoutProblem)
     // + the period is one cycle of their frequency and has started (cycleFits, see CycleProblem).
+    // [RULE] the single yes/no behind the "Eligible" tick on the Payroll page and the skip in ProcessAsync.
     public static bool IsEligible(string scholarStatus, IReadOnlyCollection<string> complianceStatuses, decimal stipend, bool alreadyPaid, bool payoutReady = true, bool cycleFits = true)
         => scholarStatus == "Active" && ComplianceRules.IsComplete(complianceStatuses) && stipend > 0 && !alreadyPaid && payoutReady && cycleFits;
 }
@@ -201,6 +221,7 @@ public static class ScholarRules
     // "+63 912-345-6789" -> "09123456789" (one format for every stored mobile number).
     // Password rule for sign-up: at least 8 characters with a letter and a number.
     // Returns what is wrong, or null when the password is fine.
+    // [VALIDATION] password rule (sign-up only). Called by AuthService.SignUpAsync (Support.cs).
     public static string? PasswordProblem(string password)
     {
         if (password.Length < 8) return "Your password must be at least 8 characters long.";

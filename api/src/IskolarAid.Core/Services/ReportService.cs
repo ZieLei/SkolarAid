@@ -286,6 +286,7 @@ public class ReportService(IskolarDbContext db, ActivityLogService log)
     public async Task<ReceiptDto> ReceiptAsync(int paymentId)
     {
         var p = await db.Payments.AsNoTracking().Include(x => x.Scholar).Include(x => x.Processor).FirstOrDefaultAsync(x => x.Id == paymentId)
+                // [VALIDATION] the record must exist, otherwise 404 Not Found (Payment)
                 ?? throw AppException.NotFound("Payment");
         var s = p.Scholar!;
         await log.LogAsync("PRINT_RECEIPT", $"Printed disbursement receipt for {s.FullName} (#{paymentId})", "payments", paymentId);
@@ -306,6 +307,7 @@ public class ScholarPortalService(IskolarDbContext db, ComplianceService complia
     /// <summary>Scholars can keep their own contact and payout details current; everything else stays with the Scholarship Office.</summary>
     public async Task<ScholarProfileDto> UpdateProfileAsync(int scholarId, ScholarProfileUpdateDto dto)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Scholar)
         var s = await db.Scholars.FirstOrDefaultAsync(x => x.Id == scholarId) ?? throw AppException.NotFound("Scholar");
         static string? N(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
         s.ContactNumber = N(dto.ContactNumber) is { } c ? ScholarRules.NormalizePhone(c) : null;
@@ -318,6 +320,7 @@ public class ScholarPortalService(IskolarDbContext db, ComplianceService complia
     }
 
     private async Task<Data.Entities.Scholar> ScholarAsync(int id) =>
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Scholar)
         await db.Scholars.AsNoTracking().Include(s => s.ScholarshipType).FirstOrDefaultAsync(s => s.Id == id) ?? throw AppException.NotFound("Scholar");
 
     // Scholar home page: scholarship, next payment, compliance and recent notifications.

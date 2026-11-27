@@ -40,6 +40,12 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
         return new NotificationStatsDto(total, unread, total - unread);
     }
 
+    // [ENTRY] Admin > Notifications > Send -> POST /api/admin/notifications (NotificationsController.Compose).
+    // [VALIDATION] ComposeNotificationDto (Dtos.cs): Type, Title (200) and Message (4000) are required.
+    // TRACE OF THE EMAIL: only when the admin ticked "Send email" (dto.SendEmail) the loop at the bottom of this method
+    //   -> MessageTemplates.Notification (Messaging.cs) builds subject + HTML body for that scholar
+    //   -> email.SendAsync(...) is the line that SENDS it to the scholar's email address (s.Email)
+    //   -> SmtpEmailSender.SendAsync (Messaging.cs) does the real SMTP send with the account in .env (SMTP_* settings).
     // Admin sends a message. No recipient = send to every active scholar.
     // Steps: save one notification per scholar -> log -> live update -> optional email.
     public async Task<ComposeResultDto> ComposeAsync(ComposeNotificationDto dto)
@@ -48,8 +54,10 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
         if (dto.RecipientId is null)
             recipients = await db.Scholars.Where(s => s.Status == "Active").ToListAsync();
         else
+            // [VALIDATION] the record must exist, otherwise 404 Not Found (Recipient)
             recipients = [await db.Scholars.FindAsync(dto.RecipientId) ?? throw AppException.NotFound("Recipient")];
 
+        // [DB] one in-app notification row per recipient (this is what the scholar sees in their portal; no email yet).
         foreach (var s in recipients)
             db.Notifications.Add(new Notification
             {
@@ -57,13 +65,16 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
             });
         await db.SaveChangesAsync();
         await log.LogCreate("notifications", dto.RecipientId ?? 0, $"Sent '{dto.Title}' to {(dto.RecipientId is null ? "all active scholars" : recipients[0].FullName)}");
+        // [SIDE-EFFECT] real-time push (SignalR) so open scholar pages update instantly.
         events.RaiseNotificationsSent(recipients.Select(s => s.Id).ToList(), dto.Title.Trim(), dto.Type);
 
+        // [SIDE-EFFECT] EMAIL: skipped unless "Send email" was ticked, or when the scholar has no email on file.
         var emails = 0;
         foreach (var s in recipients)
         {
             if (!dto.SendEmail || string.IsNullOrEmpty(s.Email)) continue;
             var (subject, body) = MessageTemplates.Notification(s.FullName, dto.Title, dto.Message);
+            // <-- THIS LINE sends the message to this scholar's email (to = s.Email). Returns false if SMTP is off or fails.
             if (await email.SendAsync(s.Email, s.FullName, subject, body)) emails++;
         }
         return new ComposeResultDto(recipients.Count, emails);
@@ -72,6 +83,7 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
     // Mark one notification as read (and remember when).
     public async Task MarkReadAsync(int id)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Notification)
         var n = await db.Notifications.FindAsync(id) ?? throw AppException.NotFound("Notification");
         if (n.IsRead) return;
         n.IsRead = true; n.ReadAt = DateTime.Now;
@@ -88,6 +100,7 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
 
     public async Task DeleteAsync(int id)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Notification)
         var n = await db.Notifications.FindAsync(id) ?? throw AppException.NotFound("Notification");
         db.Notifications.Remove(n);
         await db.SaveChangesAsync();
@@ -128,6 +141,7 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
     // Same as above, but only for notifications that belong to this scholar.
     public async Task MarkReadForScholarAsync(int scholarId, int id)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Notification)
         var n = await db.Notifications.FirstOrDefaultAsync(x => x.Id == id && x.RecipientId == scholarId) ?? throw AppException.NotFound("Notification");
         if (n.IsRead) return;
         n.IsRead = true; n.ReadAt = DateTime.Now;

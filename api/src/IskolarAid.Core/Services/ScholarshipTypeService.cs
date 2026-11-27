@@ -25,11 +25,14 @@ public class ScholarshipTypeService(IskolarDbContext db, ActivityLogService log)
             t.FundSource, t.RenewalConditions, t.IsActive, counts.GetValueOrDefault(t.Id))).ToList();
     }
 
+    // [ENTRY] "Add Scholarship Type" -> POST /api/admin/scholarship-types. [VALIDATION] field attributes: ScholarshipTypeSaveDto (Dtos.cs:
+    // Name required, StipendAmount 0.01 to 10,000,000, PaymentFrequency one of Monthly / Quarterly / Semi-Annual / Annual); unique name below.
     // Add a new scholarship type. Names must be unique.
     public async Task<ScholarshipTypeDto> CreateAsync(ScholarshipTypeSaveDto dto)
     {
         var name = dto.Name.Trim();
         if (await db.ScholarshipTypes.AnyAsync(t => t.Name == name))
+            // [VALIDATION] duplicate / wrong-state check, otherwise 409 Conflict
             throw AppException.Conflict("A scholarship type with this name already exists.");
         var t = new ScholarshipType
         {
@@ -47,10 +50,12 @@ public class ScholarshipTypeService(IskolarDbContext db, ActivityLogService log)
     // The new amount is used the next time payroll is processed.
     public async Task<ScholarshipTypeDto> UpdateAsync(int id, ScholarshipTypeSaveDto dto)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Scholarship type)
         var t = await db.ScholarshipTypes.FindAsync(id) ?? throw AppException.NotFound("Scholarship type");
         var name = dto.Name.Trim();
         var lower = name.ToLower();
         if (await db.ScholarshipTypes.AnyAsync(x => x.Id != id && x.Name.ToLower() == lower))
+            // [VALIDATION] duplicate / wrong-state check, otherwise 409 Conflict
             throw AppException.Conflict("A scholarship type with this name already exists.");
         t.Name = name; t.StipendAmount = dto.StipendAmount; t.PaymentFrequency = dto.PaymentFrequency;
         t.FundSource = dto.FundSource?.Trim() ?? t.FundSource;
@@ -85,6 +90,7 @@ public class ScholarshipTypeService(IskolarDbContext db, ActivityLogService log)
     // Turn a type on or off. Inactive types are hidden when adding scholars.
     public async Task SetActiveAsync(int id, bool active)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Scholarship type)
         var t = await db.ScholarshipTypes.FindAsync(id) ?? throw AppException.NotFound("Scholarship type");
         t.IsActive = active;
         await db.SaveChangesAsync();

@@ -93,11 +93,13 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
     private static DateTime ReleaseDateFor(DateTime? chosen, DateTime now)
     {
         if (chosen is null) return PayrollRules.CalculateReleaseDate(now);
+        // [VALIDATION] rejects with 400: "The expected release date cannot be in the past."
         if (chosen.Value.Date < now.Date) throw new AppException("The expected release date cannot be in the past.");
         return chosen.Value.Date;
     }
 
     // "Preview" button: shows what processing would do. Saves nothing.
+    // [ENTRY] PayrollController.Preview (POST /api/admin/payroll/preview).
     public async Task<PayrollPreviewDto> PreviewAsync(PayrollRequestDto req)
     {
         var period = CheckPeriod(req);
@@ -113,14 +115,19 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
     // A period that has not started yet cannot be paid (no paying in advance), so a release can never come before its period.
     private static string CheckPeriod(PayrollRequestDto req)
     {
+        // [VALIDATION] period end >= start and at most 1 year (PayrollRules.PeriodProblem) -> 400 with the reason.
         if (PayrollRules.PeriodProblem(req.PeriodStart, req.PeriodEnd) is { } problem) throw new AppException(problem);
         if (req.PeriodStart.Date > DateTime.Today)
+            // [VALIDATION] rejects with 400: "The period {PayrollRules.PeriodLabel(req.PeriodStart, req.PeriodEnd)} has not started yet."
             throw new AppException($"The period {PayrollRules.PeriodLabel(req.PeriodStart, req.PeriodEnd)} has not started yet (it starts on {req.PeriodStart:MMM dd, yyyy}). Payroll can only be processed for a period that has already started.");
         return PayrollRules.PeriodLabel(req.PeriodStart, req.PeriodEnd);
     }
 
     // Step 1 of payroll: create "Processed" payments for the selected scholars.
     // Scholars who are not eligible are skipped and counted.
+    // [ENTRY] PayrollController.Process (POST /api/admin/payroll/process).
+    // [VALIDATION] CheckPeriod (dates) -> ReleaseDateFor (not in the past) -> per scholar PayrollRules.IsEligible.
+    // [DB] inserts Payment rows ("Processed"). [SIDE-EFFECT] activity log, real-time events (AppEvents) and a "payment processed" email per scholar.
     public async Task<PayrollResultDto> ProcessAsync(PayrollRequestDto req)
     {
         var period = CheckPeriod(req);
@@ -140,6 +147,7 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
             var stipend = s.ScholarshipType?.StipendAmount ?? 0;
             var payoutReady = PayrollRules.PayoutProblem(req.Method, s.BankName, s.BankAccountNumber) is null;
             var cycleFits = PayrollRules.CycleProblem(FrequencyOf(s), req.PeriodStart, req.PeriodEnd, now) is null;
+            // [RULE] the final eligibility check; anyone failing it is skipped (counted in "Skipped"), not paid.
             if (!PayrollRules.IsEligible(s.Status, statuses, stipend, already, payoutReady, cycleFits)) { skipped++; continue; }
 
             var reference = PayrollRules.ReferenceNumber(now, s.Id);
@@ -202,7 +210,9 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
         {
             // Asked for specific payments that are already out: say so (a payment can only be released once).
             if (paymentIds is { Count: > 0 } && await db.Payments.AnyAsync(p => paymentIds.Contains(p.Id) && p.Status == "Released"))
+                // [VALIDATION] duplicate / wrong-state check, otherwise 409 Conflict
                 throw AppException.Conflict("That payment was already released. A payment can only be released once.");
+            // [VALIDATION] rejects with 400: "No payments are ready for release. Payments must be 'Processed' with an expected release date of today or earlier."
             throw new AppException("No payments are ready for release. Payments must be 'Processed' with an expected release date of today or earlier.");
         }
 
@@ -241,10 +251,13 @@ public class PayrollService(IskolarDbContext db, ActivityLogService log, ICurren
     // Released payments cannot be changed. The scholar is told the new date.
     public async Task<ProcessedPaymentDto> RescheduleAsync(int paymentId, DateTime newDate)
     {
+        // [VALIDATION] the record must exist, otherwise 404 Not Found (Payment)
         var p = await db.Payments.Include(x => x.Scholar).FirstOrDefaultAsync(x => x.Id == paymentId) ?? throw AppException.NotFound("Payment");
         if (p.Status != "Processed")
+            // [VALIDATION] duplicate / wrong-state check, otherwise 409 Conflict
             throw AppException.Conflict($"Only a payment that is still 'Processed' can be rescheduled. This one is {p.Status}.");
         newDate = newDate.Date;
+        // [VALIDATION] rejects with 400: "The new release date cannot be in the past."
         if (newDate < DateTime.Today) throw new AppException("The new release date cannot be in the past.");
         if (p.ReleaseDate?.Date == newDate) return ToDto(p);
 
