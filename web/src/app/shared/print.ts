@@ -7,7 +7,11 @@ import { Receipt } from '../core/models';
 
 // Escape text before putting it into HTML, so names like "<b>" print as text.
 export const esc = (s: unknown): string =>
-  String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 
 // Load the app's font inside the print page too.
 const fontUrl = (f: string): string => new URL(`fonts/NimbusSans-${f}.otf`, document.baseURI).href;
@@ -33,7 +37,8 @@ const STYLE = `
 `;
 
 const logoUrl = (): string => new URL('assets/logo-teal.svg', document.baseURI).href;
-const header = (): string => `<div class="head"><img src="${logoUrl()}" alt="IskolarAid" style="height:34px;margin-bottom:6px" /><h1>Legacy College of Compostela</h1><p>Scholarship Management</p></div>`;
+const header = (): string =>
+  `<div class="head"><img src="${logoUrl()}" alt="IskolarAid" style="height:34px;margin-bottom:6px" /><h1>Legacy College of Compostela</h1><p>Scholarship Management</p></div>`;
 
 /** Prints through a hidden iframe (no popup blocker issues). In the print dialog choose "Save as PDF" to export. */
 export function printHtml(title: string, body: string): void {
@@ -42,17 +47,26 @@ export function printHtml(title: string, body: string): void {
   document.body.appendChild(frame);
   const doc = frame.contentDocument!;
   doc.open();
-  doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${fontFaces()}${STYLE}</style></head><body>${header()}${body}</body></html>`);
+  doc.write(
+    `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${fontFaces()}${STYLE}</style></head><body>${header()}${body}</body></html>`,
+  );
   doc.close();
   // Print exactly once: whichever of onload / the fallback timer fires first wins.
   let printed = false;
   const run = (): void => {
     if (printed) return;
     printed = true;
-    try { frame.contentWindow?.focus(); frame.contentWindow?.print(); } finally { setTimeout(() => frame.remove(), 2000); }
+    try {
+      frame.contentWindow?.focus();
+      frame.contentWindow?.print();
+    } finally {
+      setTimeout(() => frame.remove(), 2000);
+    }
   };
   // Wait for the web font so the printout doesn't fall back to Arial; the timer is a safety net.
-  frame.onload = () => { void (frame.contentDocument?.fonts?.ready ?? Promise.resolve()).then(run); };
+  frame.onload = () => {
+    void (frame.contentDocument?.fonts?.ready ?? Promise.resolve()).then(run);
+  };
   setTimeout(run, 1500);
 }
 
@@ -63,11 +77,19 @@ export function reportHtml(title: string, columns: string[], rows: (string | nul
 }
 
 const money = (n: number): string => '₱' + n.toLocaleString('en-US', { minimumFractionDigits: 2 });
-const day = (s: string | null): string => (s ? new Date(s.length === 10 ? s + 'T00:00:00' : s).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' }) : '-');
+const day = (s: string | null): string =>
+  s
+    ? new Date(s.length === 10 ? s + 'T00:00:00' : s).toLocaleDateString('en-US', {
+        month: 'long',
+        day: '2-digit',
+        year: 'numeric',
+      })
+    : '-';
 
 // One payment receipt with signature lines.
 export function receiptHtml(r: Receipt): string {
-  const row = (k: string, v: string | null | undefined) => `<div class="row"><span>${esc(k)}</span><b>${esc(v || '-')}</b></div>`;
+  const row = (k: string, v: string | null | undefined) =>
+    `<div class="row"><span>${esc(k)}</span><b>${esc(v || '-')}</b></div>`;
   return `<h2 style="text-align:center">DISBURSEMENT RECEIPT</h2><p class="meta" style="text-align:center">Reference: ${esc(r.referenceNumber)}</p>
   <div class="box">${row('Scholar Name', r.scholarName)}${row('Scholar Number', r.scholarNumber)}${row('Student ID', r.studentId)}${row('Course', r.course)}${row('Payment Period', r.period)}
   ${row('Payment Method', r.paymentMethod)}${row('Bank', [r.bankName, r.bankAccountNumber].filter(Boolean).join(' · '))}${row('Computation Date', day(r.computationDate))}${row('Release Date', day(r.releaseDate))}${row('Status', r.status)}${row('Processed By', r.processedBy)}</div>
@@ -77,28 +99,67 @@ export function receiptHtml(r: Receipt): string {
 
 // Blank printable forms (empty table rows to fill in by hand).
 const TEMPLATES: Record<string, { columns: string[]; note: string }> = {
-  'Scholar Census Report': { columns: ['Scholar #', 'Name', 'Course', 'Year', 'Scholarship', 'Status'], note: 'List of scholars for the reporting period.' },
-  'Payroll Summary Report': { columns: ['Period', 'Total Payments', 'Total Amount', 'Status'], note: 'Summary of stipend payroll per period.' },
-  'Compliance Report': { columns: ['Scholar #', 'Name', 'Requirement', 'Status', 'Due Date', 'Remarks'], note: 'Compliance status of scholars.' },
-  'Payment History Report': { columns: ['Scholar #', 'Name', 'Period', 'Amount', 'Status', 'Release Date', 'Method'], note: 'Stipend payments released.' },
-  'Activity Log Report': { columns: ['User', 'Action', 'Details', 'Timestamp'], note: 'System activity log.' },
-  'Disbursement Voucher': { columns: ['Payee', 'Particulars', 'Reference', 'Amount'], note: 'Voucher for stipend disbursement.' },
-  'Liquidation Report': { columns: ['Date', 'Particulars', 'Reference', 'Amount', 'Remarks'], note: 'Liquidation of released funds.' },
-  'Stipend Release Form': { columns: ['Scholar #', 'Name', 'Period', 'Amount', 'Signature'], note: 'Acknowledgement of stipend release.' },
+  'Scholar Census Report': {
+    columns: ['Scholar #', 'Name', 'Course', 'Year', 'Scholarship', 'Status'],
+    note: 'List of scholars for the reporting period.',
+  },
+  'Payroll Summary Report': {
+    columns: ['Period', 'Total Payments', 'Total Amount', 'Status'],
+    note: 'Summary of stipend payroll per period.',
+  },
+  'Compliance Report': {
+    columns: ['Scholar #', 'Name', 'Requirement', 'Status', 'Due Date', 'Remarks'],
+    note: 'Compliance status of scholars.',
+  },
+  'Payment History Report': {
+    columns: ['Scholar #', 'Name', 'Period', 'Amount', 'Status', 'Release Date', 'Method'],
+    note: 'Stipend payments released.',
+  },
+  'Activity Log Report': {
+    columns: ['User', 'Action', 'Details', 'Timestamp'],
+    note: 'System activity log.',
+  },
+  'Disbursement Voucher': {
+    columns: ['Payee', 'Particulars', 'Reference', 'Amount'],
+    note: 'Voucher for stipend disbursement.',
+  },
+  'Liquidation Report': {
+    columns: ['Date', 'Particulars', 'Reference', 'Amount', 'Remarks'],
+    note: 'Liquidation of released funds.',
+  },
+  'Stipend Release Form': {
+    columns: ['Scholar #', 'Name', 'Period', 'Amount', 'Signature'],
+    note: 'Acknowledgement of stipend release.',
+  },
 };
 export const TEMPLATE_LIST = Object.keys(TEMPLATES);
 /** The layout of a blank form, sent to the API to build its Word (.docx) copy. */
-export const templateDef = (name: string): { title: string; note: string; columns: string[]; blankRows: number } =>
-  ({ title: name, note: TEMPLATES[name].note, columns: TEMPLATES[name].columns, blankRows: 12 });
+export const templateDef = (
+  name: string,
+): { title: string; note: string; columns: string[]; blankRows: number } => ({
+  title: name,
+  note: TEMPLATES[name].note,
+  columns: TEMPLATES[name].columns,
+  blankRows: 12,
+});
 export const TEMPLATE_ICONS: Record<string, string> = {
-  'Scholar Census Report': 'chart', 'Payroll Summary Report': 'money', 'Compliance Report': 'task', 'Payment History Report': 'wallet',
-  'Activity Log Report': 'note', 'Disbursement Voucher': 'invoice', 'Liquidation Report': 'file', 'Stipend Release Form': 'dollar',
+  'Scholar Census Report': 'chart',
+  'Payroll Summary Report': 'money',
+  'Compliance Report': 'task',
+  'Payment History Report': 'wallet',
+  'Activity Log Report': 'note',
+  'Disbursement Voucher': 'invoice',
+  'Liquidation Report': 'file',
+  'Stipend Release Form': 'dollar',
 };
 
 // Build a blank form: header, 12 empty rows, signature lines.
 export function templateHtml(name: string): string {
   const t = TEMPLATES[name];
-  const blank = Array.from({ length: 12 }, () => `<tr>${t.columns.map(() => '<td>&nbsp;</td>').join('')}</tr>`).join('');
+  const blank = Array.from(
+    { length: 12 },
+    () => `<tr>${t.columns.map(() => '<td>&nbsp;</td>').join('')}</tr>`,
+  ).join('');
   return `<h2>${esc(name)}</h2><p class="meta">${esc(t.note)} Date: ____________________ Prepared by: ____________________</p>
   <table><thead><tr>${t.columns.map((c) => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${blank}</tbody></table>
   <div class="sign"><div>Prepared by</div><div>Approved by</div></div>`;

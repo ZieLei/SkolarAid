@@ -6,8 +6,8 @@
 // PaymentsChanged       -> admins + the scholars whose payments changed
 // ComplianceChanged     -> admins + that one scholar
 // =====================================================================
-using Microsoft.AspNetCore.SignalR;
 using IskolarAid.Core.Services;
+using Microsoft.AspNetCore.SignalR;
 
 namespace IskolarAid.Api.Realtime;
 
@@ -22,7 +22,11 @@ public sealed class RealtimeNotifier
     private readonly ILogger<RealtimeNotifier> _log;
 
     // Subscribe to every event once, when the app starts (Program.cs creates this object).
-    public RealtimeNotifier(AppEvents events, IHubContext<NotificationHub> hub, ILogger<RealtimeNotifier> log)
+    public RealtimeNotifier(
+        AppEvents events,
+        IHubContext<NotificationHub> hub,
+        ILogger<RealtimeNotifier> log
+    )
     {
         _hub = hub;
         _log = log;
@@ -33,26 +37,56 @@ public sealed class RealtimeNotifier
 
     private void OnNotificationsSent(object? sender, NotificationsSentEventArgs e)
     {
-        Send("NotificationReceived", _hub.Clients.Groups(ScholarGroups(e.ScholarIds)).SendAsync("NotificationReceived", new { e.Title, e.Type }));
-        Send("NotificationsChanged", _hub.Clients.Group(HubGroups.Admins).SendAsync("NotificationsChanged", new { Count = e.ScholarIds.Count }));
+        Send(
+            "NotificationReceived",
+            _hub.Clients.Groups(ScholarGroups(e.ScholarIds))
+                .SendAsync("NotificationReceived", new { e.Title, e.Type })
+        );
+        Send(
+            "NotificationsChanged",
+            _hub.Clients.Group(HubGroups.Admins)
+                .SendAsync("NotificationsChanged", new { Count = e.ScholarIds.Count })
+        );
     }
 
     private void OnPaymentsChanged(object? sender, PaymentsChangedEventArgs e)
     {
-        Send("PaymentsChanged", _hub.Clients.Group(HubGroups.Admins).SendAsync("PaymentsChanged", new { e.Status, Count = e.ScholarIds.Count }));
-        Send("PaymentsChanged", _hub.Clients.Groups(ScholarGroups(e.ScholarIds)).SendAsync("PaymentsChanged", new { e.Status, Count = 1 }));
+        Send(
+            "PaymentsChanged",
+            _hub.Clients.Group(HubGroups.Admins)
+                .SendAsync("PaymentsChanged", new { e.Status, Count = e.ScholarIds.Count })
+        );
+        Send(
+            "PaymentsChanged",
+            _hub.Clients.Groups(ScholarGroups(e.ScholarIds))
+                .SendAsync("PaymentsChanged", new { e.Status, Count = 1 })
+        );
     }
 
     private void OnComplianceChanged(object? sender, ComplianceChangedEventArgs e)
     {
-        var payload = new { e.ScholarId, e.Requirement, e.Status, e.ByScholar };
-        Send("ComplianceChanged", _hub.Clients.Groups(HubGroups.Admins, HubGroups.Scholar(e.ScholarId)).SendAsync("ComplianceChanged", payload));
+        var payload = new
+        {
+            e.ScholarId,
+            e.Requirement,
+            e.Status,
+            e.ByScholar,
+        };
+        Send(
+            "ComplianceChanged",
+            _hub.Clients.Groups(HubGroups.Admins, HubGroups.Scholar(e.ScholarId))
+                .SendAsync("ComplianceChanged", payload)
+        );
     }
 
     // Turn scholar ids into SignalR group names, without duplicates.
-    private static List<string> ScholarGroups(IEnumerable<int> ids) => ids.Distinct().Select(HubGroups.Scholar).ToList();
+    private static List<string> ScholarGroups(IEnumerable<int> ids) =>
+        ids.Distinct().Select(HubGroups.Scholar).ToList();
 
     /// <summary>Fire and forget: the HTTP request that raised the event does not wait for browsers, but failures are logged.</summary>
     private void Send(string name, Task sending) =>
-        sending.ContinueWith(t => _log.LogWarning(t.Exception, "Could not push {Event} to clients", name), TaskContinuationOptions.OnlyOnFaulted);
+        sending.ContinueWith(
+            t => _log.LogWarning(t.Exception, "Could not push {Event} to clients", name),
+            TaskContinuationOptions.OnlyOnFaulted
+        );
 }

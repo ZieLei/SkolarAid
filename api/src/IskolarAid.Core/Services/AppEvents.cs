@@ -11,7 +11,11 @@ namespace IskolarAid.Core.Services;
 // ---- Event arguments: small payloads (ids and what changed), never whole entities. ----
 
 /// <summary>One or more scholars received a new notification.</summary>
-public sealed class NotificationsSentEventArgs(IReadOnlyCollection<int> scholarIds, string title, string type) : EventArgs
+public sealed class NotificationsSentEventArgs(
+    IReadOnlyCollection<int> scholarIds,
+    string title,
+    string type
+) : EventArgs
 {
     public IReadOnlyCollection<int> ScholarIds { get; } = scholarIds;
     public string Title { get; } = title;
@@ -19,14 +23,20 @@ public sealed class NotificationsSentEventArgs(IReadOnlyCollection<int> scholarI
 }
 
 /// <summary>Payments of these scholars changed status ("Processed" or "Released").</summary>
-public sealed class PaymentsChangedEventArgs(IReadOnlyCollection<int> scholarIds, string status) : EventArgs
+public sealed class PaymentsChangedEventArgs(IReadOnlyCollection<int> scholarIds, string status)
+    : EventArgs
 {
     public IReadOnlyCollection<int> ScholarIds { get; } = scholarIds;
     public string Status { get; } = status;
 }
 
 /// <summary>A scholar's compliance requirements changed. <see cref="ByScholar"/> is true when the scholar uploaded the document.</summary>
-public sealed class ComplianceChangedEventArgs(int scholarId, string requirement, string status, bool byScholar) : EventArgs
+public sealed class ComplianceChangedEventArgs(
+    int scholarId,
+    string requirement,
+    string status,
+    bool byScholar
+) : EventArgs
 {
     public int ScholarId { get; } = scholarId;
     public string Requirement { get; } = requirement;
@@ -48,24 +58,58 @@ public class AppEvents
     /// <summary>Called when a subscriber throws (the API logs it).</summary>
     public Action<string, Exception>? SubscriberFailed { get; set; }
 
-    public void RaiseNotificationsSent(IReadOnlyCollection<int> scholarIds, string title, string type)
-    { if (scholarIds.Count > 0) Raise(NotificationsSent, nameof(NotificationsSent), new NotificationsSentEventArgs(scholarIds, title, type)); }
+    public void RaiseNotificationsSent(
+        IReadOnlyCollection<int> scholarIds,
+        string title,
+        string type
+    )
+    {
+        if (scholarIds.Count > 0)
+            Raise(
+                NotificationsSent,
+                nameof(NotificationsSent),
+                new NotificationsSentEventArgs(scholarIds, title, type)
+            );
+    }
 
     public void RaisePaymentsChanged(IReadOnlyCollection<int> scholarIds, string status)
-    { if (scholarIds.Count > 0) Raise(PaymentsChanged, nameof(PaymentsChanged), new PaymentsChangedEventArgs(scholarIds, status)); }
+    {
+        if (scholarIds.Count > 0)
+            Raise(
+                PaymentsChanged,
+                nameof(PaymentsChanged),
+                new PaymentsChangedEventArgs(scholarIds, status)
+            );
+    }
 
-    public void RaiseComplianceChanged(int scholarId, string requirement, string status, bool byScholar) =>
-        Raise(ComplianceChanged, nameof(ComplianceChanged), new ComplianceChangedEventArgs(scholarId, requirement, status, byScholar));
+    public void RaiseComplianceChanged(
+        int scholarId,
+        string requirement,
+        string status,
+        bool byScholar
+    ) =>
+        Raise(
+            ComplianceChanged,
+            nameof(ComplianceChanged),
+            new ComplianceChangedEventArgs(scholarId, requirement, status, byScholar)
+        );
 
     // Call each subscriber one by one. If one crashes we report it and keep going,
     // so the user's request still succeeds.
     private void Raise<T>(EventHandler<T>? handlers, string name, T args)
     {
-        if (handlers is null) return;
+        if (handlers is null)
+            return;
         foreach (var h in handlers.GetInvocationList().Cast<EventHandler<T>>())
         {
-            try { h(this, args); }
-            catch (Exception ex) { SubscriberFailed?.Invoke(name, ex); }
+            try
+            {
+                h(this, args);
+            }
+            catch (Exception ex)
+            {
+                SubscriberFailed?.Invoke(name, ex);
+            }
         }
     }
 }

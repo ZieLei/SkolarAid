@@ -1,10 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using IskolarAid.Core.Dtos;
+using IskolarAid.Core.Services;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.EntityFrameworkCore;
-using IskolarAid.Core.Dtos;
-using IskolarAid.Core.Services;
 
 namespace IskolarAid.Tests;
 
@@ -39,7 +39,15 @@ public class AppEventsTests
         var ok = await f.AddScholarAsync(t.Id, "Approved");
         var no = await f.AddScholarAsync(t.Id, "Pending", number: "SCH-2026-002");
 
-        await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = new DateTime(2026, 3, 1), PeriodEnd = new DateTime(2026, 3, 31), Method = "Cash", ScholarIds = [ok.Id, no.Id] });
+        await f.Payroll.ProcessAsync(
+            new PayrollRequestDto
+            {
+                PeriodStart = new DateTime(2026, 3, 1),
+                PeriodEnd = new DateTime(2026, 3, 31),
+                Method = "Cash",
+                ScholarIds = [ok.Id, no.Id],
+            }
+        );
 
         var p = Assert.Single(payments);
         Assert.Equal("Processed", p.Status);
@@ -56,7 +64,15 @@ public class AppEventsTests
         f.Events.NotificationsSent += (_, _) => raised++;
         var no = await f.AddScholarAsync((await f.AddTypeAsync()).Id, "Pending");
 
-        await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = new DateTime(2026, 3, 1), PeriodEnd = new DateTime(2026, 3, 31), Method = "Cash", ScholarIds = [no.Id] });
+        await f.Payroll.ProcessAsync(
+            new PayrollRequestDto
+            {
+                PeriodStart = new DateTime(2026, 3, 1),
+                PeriodEnd = new DateTime(2026, 3, 31),
+                Method = "Cash",
+                ScholarIds = [no.Id],
+            }
+        );
 
         Assert.Equal(0, raised);
     }
@@ -73,7 +89,10 @@ public class AppEventsTests
         await f.Compliance.UploadForSelfAsync(s.Id, rec.Id, "coe.pdf", [1, 2, 3]);
 
         var e = Assert.Single(got);
-        Assert.Equal((s.Id, rec.RequirementType, "Submitted", true), (e.ScholarId, e.Requirement, e.Status, e.ByScholar));
+        Assert.Equal(
+            (s.Id, rec.RequirementType, "Submitted", true),
+            (e.ScholarId, e.Requirement, e.Status, e.ByScholar)
+        );
     }
 }
 
@@ -83,31 +102,41 @@ public class HubTests(ApiFactory factory) : IClassFixture<ApiFactory>
     // Activates an admin-created scholar (they choose a password) and returns their token.
     private async Task<string> SignUpAsync(ScholarCreatedDto s)
     {
-        var res = await factory.CreateClient().PostAsJsonAsync("/api/auth/signup", new SignUpRequest(s.ScholarNumber, s.Email, "Scholar2026"));
+        var res = await factory
+            .CreateClient()
+            .PostAsJsonAsync(
+                "/api/auth/signup",
+                new SignUpRequest(s.ScholarNumber, s.Email, "Scholar2026")
+            );
         res.EnsureSuccessStatusCode();
         return (await res.Content.ReadFromJsonAsync<LoginResponse>())!.Token;
     }
 
     private async Task<string> TokenAsync(string user, string pass)
     {
-        var res = await factory.CreateClient().PostAsJsonAsync("/api/auth/login", new LoginRequest(user, pass));
+        var res = await factory
+            .CreateClient()
+            .PostAsJsonAsync("/api/auth/login", new LoginRequest(user, pass));
         res.EnsureSuccessStatusCode();
         return (await res.Content.ReadFromJsonAsync<LoginResponse>())!.Token;
     }
 
-    private HubConnection Connect(string token) => new HubConnectionBuilder()
-        .WithUrl(new Uri(factory.Server.BaseAddress, "hubs/notifications"), o =>
-        {
-            o.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
-            o.Transports = HttpTransportType.LongPolling; // the test server has no real sockets
-            o.AccessTokenProvider = () => Task.FromResult<string?>(token);
-        })
-        .Build();
+    private HubConnection Connect(string token) =>
+        new HubConnectionBuilder()
+            .WithUrl(new Uri(factory.Server.BaseAddress, "hubs/notifications"), o =>
+            {
+                o.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
+                o.Transports = HttpTransportType.LongPolling; // the test server has no real sockets
+                o.AccessTokenProvider = () => Task.FromResult<string?>(token);
+            })
+            .Build();
 
     [Fact]
     public async Task Negotiate_requires_a_token()
     {
-        var res = await factory.CreateClient().PostAsync("/hubs/notifications/negotiate?negotiateVersion=1", null);
+        var res = await factory
+            .CreateClient()
+            .PostAsync("/hubs/notifications/negotiate?negotiateVersion=1", null);
         Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
     }
 
@@ -117,36 +146,73 @@ public class HubTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var adminToken = await TokenAsync("admin", "Adm1n!Pass");
         var admin = factory.CreateClient();
         admin.DefaultRequestHeaders.Authorization = new("Bearer", adminToken);
-        var type = await (await admin.PostAsJsonAsync("/api/admin/scholarship-types",
-            new ScholarshipTypeSaveDto { Name = "Hub Grant", StipendAmount = 3000, PaymentFrequency = "Monthly" })).Content.ReadFromJsonAsync<ScholarshipTypeDto>();
-        async Task<ScholarCreatedDto> AddScholar(string first) => (await (await admin.PostAsJsonAsync("/api/admin/scholars", new ScholarSaveDto
-        {
-            FirstName = first, LastName = "Hub", Email = $"{first}@x.ph", Course = "Bachelor of Science in Criminology",
-            YearLevel = "1st Year", ScholarshipTypeId = type!.Id, StipendAmount = 3000
-        })).Content.ReadFromJsonAsync<ScholarCreatedDto>())!;
+        var type = await (
+            await admin.PostAsJsonAsync(
+                "/api/admin/scholarship-types",
+                new ScholarshipTypeSaveDto
+                {
+                    Name = "Hub Grant",
+                    StipendAmount = 3000,
+                    PaymentFrequency = "Monthly",
+                }
+            )
+        ).Content.ReadFromJsonAsync<ScholarshipTypeDto>();
+        async Task<ScholarCreatedDto> AddScholar(string first) =>
+            (
+                await (
+                    await admin.PostAsJsonAsync(
+                        "/api/admin/scholars",
+                        new ScholarSaveDto
+                        {
+                            FirstName = first,
+                            LastName = "Hub",
+                            Email = $"{first}@x.ph",
+                            Course = "Bachelor of Science in Criminology",
+                            YearLevel = "1st Year",
+                            ScholarshipTypeId = type!.Id,
+                            StipendAmount = 3000,
+                        }
+                    )
+                ).Content.ReadFromJsonAsync<ScholarCreatedDto>()
+            )!;
         var target = await AddScholar("Rina");
         var other = await AddScholar("Leo");
 
         await using var adminHub = Connect(adminToken);
         await using var targetHub = Connect(await SignUpAsync(target));
         await using var otherHub = Connect(await SignUpAsync(other));
-        var adminGot = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var targetGot = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var adminGot = new TaskCompletionSource<int>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+        var targetGot = new TaskCompletionSource<string>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
         var otherGot = 0;
         adminHub.On<CountPayload>("NotificationsChanged", p => adminGot.TrySetResult(p.Count));
-        targetHub.On<NotificationPayload>("NotificationReceived", p => targetGot.TrySetResult(p.Title));
-        otherHub.On<NotificationPayload>("NotificationReceived", _ => Interlocked.Increment(ref otherGot));
+        targetHub.On<NotificationPayload>("NotificationReceived", p =>
+            targetGot.TrySetResult(p.Title)
+        );
+        otherHub.On<NotificationPayload>("NotificationReceived", _ =>
+            Interlocked.Increment(ref otherGot)
+        );
         await Task.WhenAll(adminHub.StartAsync(), targetHub.StartAsync(), otherHub.StartAsync());
 
-        var remind = await admin.PostAsync($"/api/admin/scholars/{target.Id}/compliance/remind", null);
+        var remind = await admin.PostAsync(
+            $"/api/admin/scholars/{target.Id}/compliance/remind",
+            null
+        );
         Assert.Equal(HttpStatusCode.NoContent, remind.StatusCode);
 
-        Assert.Equal("Compliance Reminder - IskolarAid", await targetGot.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.Equal(
+            "Compliance Reminder - IskolarAid",
+            await targetGot.Task.WaitAsync(TimeSpan.FromSeconds(10))
+        );
         Assert.Equal(1, await adminGot.Task.WaitAsync(TimeSpan.FromSeconds(10)));
         await Task.Delay(300);
         Assert.Equal(0, otherGot);
     }
 
     private sealed record NotificationPayload(string Title, string Type);
+
     private sealed record CountPayload(int Count);
 }

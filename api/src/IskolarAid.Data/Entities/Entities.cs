@@ -35,6 +35,7 @@ public static class AccountStatuses
 {
     public const string Active = "Active";
     public const string Inactive = "Inactive";
+
     // Created by an admin, but the scholar has not signed up (chosen a password) yet. Cannot log in.
     public const string Pending = "Pending";
 }
@@ -156,6 +157,7 @@ public class Payment : IUpdatable
     public int ScholarId { get; set; }
     public Scholar? Scholar { get; set; }
     public string PaymentPeriod { get; set; } = "";
+
     // First and last day the payment covers. Null on old rows that only have a "March 2026" style label.
     public DateTime? PeriodStart { get; set; }
     public DateTime? PeriodEnd { get; set; }

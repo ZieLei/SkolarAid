@@ -11,5 +11,9 @@ import { routes } from './app.routes';
 import { authInterceptor, httpLoggingInterceptor } from './core/http';
 
 export const appConfig: ApplicationConfig = {
-  providers: [provideBrowserGlobalErrorListeners(), provideRouter(routes, withComponentInputBinding()), provideHttpClient(withInterceptors([httpLoggingInterceptor, authInterceptor]))],
+  providers: [
+    provideBrowserGlobalErrorListeners(),
+    provideRouter(routes, withComponentInputBinding()),
+    provideHttpClient(withInterceptors([httpLoggingInterceptor, authInterceptor])),
+  ],
 };

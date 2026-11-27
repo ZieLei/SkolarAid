@@ -34,24 +34,51 @@ export class SidebarState {
 
   constructor(private storageKey: string) {
     let saved = false;
-    try { saved = localStorage.getItem(storageKey) === '1'; } catch { /* storage unavailable */ }
+    try {
+      saved = localStorage.getItem(storageKey) === '1';
+    } catch {
+      /* storage unavailable */
+    }
     this.collapsed = signal(saved);
 
     if (typeof matchMedia === 'function') {
       const mq = matchMedia(WIDE);
-      const onChange = () => { this.wide.set(mq.matches); this.drawerOpen.set(false); };
+      const onChange = () => {
+        this.wide.set(mq.matches);
+        this.drawerOpen.set(false);
+      };
       mq.addEventListener('change', onChange);
       inject(DestroyRef).onDestroy(() => mq.removeEventListener('change', onChange));
     }
-    inject(Router).events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed()).subscribe(() => this.drawerOpen.set(false));
+    inject(Router)
+      .events.pipe(
+        filter((e) => e instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.drawerOpen.set(false));
   }
 
   /** The ☰ button: collapse/expand on wide screens, open/close the drawer on small ones. */
   menuButton(): void {
-    if (!this.wide()) { this.drawerOpen.update((v) => !v); return; }
+    if (!this.wide()) {
+      this.drawerOpen.update((v) => !v);
+      return;
+    }
     this.collapsed.update((v) => !v);
-    try { localStorage.setItem(this.storageKey, this.collapsed() ? '1' : '0'); } catch { /* storage unavailable */ }
+    try {
+      localStorage.setItem(this.storageKey, this.collapsed() ? '1' : '0');
+    } catch {
+      /* storage unavailable */
+    }
   }
 
-  menuLabel(): string { return this.wide() ? (this.collapsed() ? 'Expand sidebar' : 'Collapse sidebar') : this.drawerOpen() ? 'Close menu' : 'Open menu'; }
+  menuLabel(): string {
+    return this.wide()
+      ? this.collapsed()
+        ? 'Expand sidebar'
+        : 'Collapse sidebar'
+      : this.drawerOpen()
+        ? 'Close menu'
+        : 'Open menu';
+  }
 }

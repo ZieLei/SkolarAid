@@ -23,36 +23,69 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
   selector: 'app-admin-dashboard',
   imports: [StatStrip, ScrollCue, PesoPipe, DatePipeShort],
   template: `
-    <h1 class="text-[20pt] font-bold text-ink">Welcome back, {{ auth.user()?.name || 'Administrator' }}!</h1>
+    <h1 class="text-[20pt] font-bold text-ink">
+      Welcome back, {{ auth.user()?.name || 'Administrator' }}!
+    </h1>
     <p class="mb-5 text-[12pt] text-[#646464]">{{ today }}</p>
 
     <app-stat-strip [items]="cards()" />
 
     <div class="grid items-start gap-4 xl:grid-cols-[470px_1fr]">
       <section class="card p-4">
-        <h2 class="border-b-2 border-[#e6e6e6] pb-2 text-[14pt] font-bold text-brand">Recent Activity</h2>
+        <h2 class="border-b-2 border-[#e6e6e6] pb-2 text-[14pt] font-bold text-brand">
+          Recent Activity
+        </h2>
         <ul class="mt-2 max-h-[260px] divide-y divide-[#f0f0f0] overflow-auto">
           @for (a of recent().slice(0, 6); track $index) {
             <li class="py-2" [class.bg-[#f8fafc]]="$index % 2 === 0">
               <p class="text-[13px] font-bold text-brand">{{ a.userName }}</p>
-              <p class="line-clamp-2 text-[12px] text-[#646464]" [title]="a.details">{{ a.details }}</p>
+              <p class="line-clamp-2 text-[12px] text-[#646464]" [title]="a.details">
+                {{ a.details }}
+              </p>
               <p class="text-[12px] text-[#595959]">{{ rel(a.createdAt) }}</p>
             </li>
-          } @empty { <li class="py-6 text-center text-[13px] text-[#595959]">No recent activity</li> }
+          } @empty {
+            <li class="py-6 text-center text-[13px] text-[#595959]">No recent activity</li>
+          }
         </ul>
       </section>
 
       <section class="card p-4">
-        <h2 class="border-b-2 border-[#e6e6e6] pb-2 text-[14pt] font-bold text-brand">Upcoming Payments</h2>
+        <h2 class="border-b-2 border-[#e6e6e6] pb-2 text-[14pt] font-bold text-brand">
+          Upcoming Payments
+        </h2>
         <div scrollCue class="grid-wrap mt-2 max-h-[260px]">
           <table class="dgrid roomy">
-            <thead><tr><th>Scholar</th><th>Period</th><th>Amount</th><th>Status</th><th>Releases On</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Scholar</th>
+                <th>Period</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Releases On</th>
+              </tr>
+            </thead>
             <tbody>
               @for (p of upcoming(); track $index) {
                 <tr>
-                  <td><span class="font-bold">{{ p.scholarName }}</span><span class="mt-[2px] block text-[12px] text-[#4b5563]">{{ p.scholarNumber }}</span></td><td>{{ p.period }}</td><td>{{ p.amount | peso }}</td><td><span class="font-bold" [style.color]="color(p.status)">{{ p.status }}</span></td><td>{{ p.releaseDate | dmy: 'Pending' }}</td>
+                  <td>
+                    <span class="font-bold">{{ p.scholarName }}</span
+                    ><span class="mt-[2px] block text-[12px] text-[#4b5563]">{{
+                      p.scholarNumber
+                    }}</span>
+                  </td>
+                  <td>{{ p.period }}</td>
+                  <td>{{ p.amount | peso }}</td>
+                  <td>
+                    <span class="font-bold" [style.color]="color(p.status)">{{ p.status }}</span>
+                  </td>
+                  <td>{{ p.releaseDate | dmy: 'Pending' }}</td>
                 </tr>
-              } @empty { <tr><td colspan="5" class="!py-6 text-center text-[#595959]">No upcoming payments</td></tr> }
+              } @empty {
+                <tr>
+                  <td colspan="5" class="!py-6 text-center text-[#595959]">No upcoming payments</td>
+                </tr>
+              }
             </tbody>
           </table>
         </div>
@@ -60,19 +93,29 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
     </div>
 
     <div class="grid items-start gap-4 lg:grid-cols-2">
-      <section class="card p-4"><h2 class="mb-2 text-[14pt] font-bold text-brand">Scholarship Distribution</h2><div class="h-[260px]"><canvas #pie></canvas></div></section>
-      <section class="card p-4"><h2 class="mb-2 text-[14pt] font-bold text-brand">Monthly Disbursements</h2>
-        <div class="relative h-[260px]"><canvas #line></canvas>
+      <section class="card p-4">
+        <h2 class="mb-2 text-[14pt] font-bold text-brand">Scholarship Distribution</h2>
+        <div class="h-[260px]"><canvas #pie></canvas></div>
+      </section>
+      <section class="card p-4">
+        <h2 class="mb-2 text-[14pt] font-bold text-brand">Monthly Disbursements</h2>
+        <div class="relative h-[260px]">
+          <canvas #line></canvas>
           @if (noReleases(); as why) {
             <!-- Only RELEASED payments count. Say so instead of showing an empty chart. -->
             <div class="absolute inset-0 flex items-center justify-center px-6" role="status">
-              <div class="max-w-[360px] rounded-xl bg-white/95 px-5 py-3 text-center shadow-sm ring-1 ring-line">
-                <p class="text-[14px] font-semibold text-ink">No payments released in the last 12 months</p>
+              <div
+                class="max-w-[360px] rounded-xl bg-white/95 px-5 py-3 text-center shadow-sm ring-1 ring-line"
+              >
+                <p class="text-[14px] font-semibold text-ink">
+                  No payments released in the last 12 months
+                </p>
                 <p class="mt-1 text-[12px] text-muted">{{ why }}</p>
               </div>
             </div>
           }
-        </div></section>
+        </div>
+      </section>
     </div>
   `,
 })
@@ -87,8 +130,23 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   private lineEl = viewChild<ElementRef<HTMLCanvasElement>>('line');
   private charts: Chart[] = [];
 
-  today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  cards = signal<{ label: string; value: string; icon: string; danger?: boolean; money?: boolean; hint?: string; tone?: 'pending' }[]>([]);
+  today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  cards = signal<
+    {
+      label: string;
+      value: string;
+      icon: string;
+      danger?: boolean;
+      money?: boolean;
+      hint?: string;
+      tone?: 'pending';
+    }[]
+  >([]);
   recent = signal<RecentActivity[]>([]);
   upcoming = signal<UpcomingPayment[]>([]);
   color = statusColor;
@@ -101,7 +159,9 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   // Load the data once when the page opens.
-  ngOnInit(): void { void this.load(); }
+  ngOnInit(): void {
+    void this.load();
+  }
 
   // Ask for all 5 pieces of data at the same time, then fill the page.
   async load(): Promise<void> {
@@ -115,25 +175,74 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       ]);
       this.cards.set([
         { label: 'Total Scholars', value: String(s.totalScholars), icon: 'user-groups' },
-        { label: 'Active Scholarships', value: String(s.activeScholarships), icon: 'checked', hint: 'Scholarship programs in use' },
-        { label: 'Total Disbursed', value: formatPeso(s.totalDisbursed), icon: 'wallet', money: true,
-          hint: s.queuedAmount > 0 ? `Released only · ${formatPeso(s.queuedAmount)} processed, awaiting release` : 'Released to scholars' },
-        { label: 'Pending Payments', value: String(s.pendingPayments), icon: 'wall-clock', danger: true, tone: 'pending', hint: 'Processed, not yet released' },
+        {
+          label: 'Active Scholarships',
+          value: String(s.activeScholarships),
+          icon: 'checked',
+          hint: 'Scholarship programs in use',
+        },
+        {
+          label: 'Total Disbursed',
+          value: formatPeso(s.totalDisbursed),
+          icon: 'wallet',
+          money: true,
+          hint:
+            s.queuedAmount > 0
+              ? `Released only · ${formatPeso(s.queuedAmount)} processed, awaiting release`
+              : 'Released to scholars',
+        },
+        {
+          label: 'Pending Payments',
+          value: String(s.pendingPayments),
+          icon: 'wall-clock',
+          danger: true,
+          tone: 'pending',
+          hint: 'Processed, not yet released',
+        },
       ]);
-      this.recent.set(r); this.upcoming.set(u);
-      this.noReleases.set(m.some((x) => x.value > 0) ? null
-        : s.queuedAmount > 0 ? `${formatPeso(s.queuedAmount)} is processed and waiting to be released. Release it in Payroll and it will show here.`
-        : 'Payments appear here once they are processed and released in Payroll.');
+      this.recent.set(r);
+      this.upcoming.set(u);
+      this.noReleases.set(
+        m.some((x) => x.value > 0)
+          ? null
+          : s.queuedAmount > 0
+            ? `${formatPeso(s.queuedAmount)} is processed and waiting to be released. Release it in Payroll and it will show here.`
+            : 'Payments appear here once they are processed and released in Payroll.',
+      );
       // Wait one tick so the <canvas> exists, remove old charts, then draw new ones.
       setTimeout(async () => {
-        this.charts.forEach((c) => c.destroy()); this.charts = [];
-        const pe = this.pieEl()?.nativeElement, le = this.lineEl()?.nativeElement;
-        if (pe) this.charts.push(await makeChart(pe, pieConfig(d.map((x) => x.label), d.map((x) => x.value))));
-        if (le) this.charts.push(await makeChart(le, lineConfig(m.map((x) => x.label), m.map((x) => x.value))));
+        this.charts.forEach((c) => c.destroy());
+        this.charts = [];
+        const pe = this.pieEl()?.nativeElement,
+          le = this.lineEl()?.nativeElement;
+        if (pe)
+          this.charts.push(
+            await makeChart(
+              pe,
+              pieConfig(
+                d.map((x) => x.label),
+                d.map((x) => x.value),
+              ),
+            ),
+          );
+        if (le)
+          this.charts.push(
+            await makeChart(
+              le,
+              lineConfig(
+                m.map((x) => x.label),
+                m.map((x) => x.value),
+              ),
+            ),
+          );
       });
-    } catch (e) { void this.dlg.error(errorMessage(e), 'Dashboard'); }
+    } catch (e) {
+      void this.dlg.error(errorMessage(e), 'Dashboard');
+    }
   }
 
   // Free the charts when leaving the page.
-  ngOnDestroy(): void { this.charts.forEach((c) => c.destroy()); }
+  ngOnDestroy(): void {
+    this.charts.forEach((c) => c.destroy());
+  }
 }

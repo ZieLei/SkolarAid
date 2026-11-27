@@ -14,10 +14,14 @@ import { AuthService } from './auth';
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
   const token = auth.token();
-  const authed = token && req.url.startsWith('/api') ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req;
+  const authed =
+    token && req.url.startsWith('/api')
+      ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
+      : req;
   return next(authed).pipe(
     catchError((err) => {
-      if (err.status === 401 && !req.url.endsWith('/auth/login') && auth.isLoggedIn()) void auth.logout(false);
+      if (err.status === 401 && !req.url.endsWith('/auth/login') && auth.isLoggedIn())
+        void auth.logout(false);
       return throwError(() => err);
     }),
   );
@@ -33,21 +37,29 @@ export const httpLoggingInterceptor: HttpInterceptorFn = (req, next) => {
   const ms = () => Math.round(performance.now() - started);
   return next(req).pipe(
     tap({
-      next: (event) => { if (event.type === HttpEventType.Response) console.log(`[HTTP] ${req.method} ${req.urlWithParams} -> ${event.status} (${ms()} ms)`); },
-      error: (err: HttpErrorResponse) => console.warn(`[HTTP] ${req.method} ${req.urlWithParams} -> FAILED ${err.status} (${ms()} ms)`),
+      next: (event) => {
+        if (event.type === HttpEventType.Response)
+          console.log(`[HTTP] ${req.method} ${req.urlWithParams} -> ${event.status} (${ms()} ms)`);
+      },
+      error: (err: HttpErrorResponse) =>
+        console.warn(
+          `[HTTP] ${req.method} ${req.urlWithParams} -> FAILED ${err.status} (${ms()} ms)`,
+        ),
     }),
   );
 };
 
 // Only lets in users with this role. Not logged in -> /login.
 // Wrong role (e.g. scholar opens /admin) -> their own home page.
-export const roleGuard = (role: 'ADMIN' | 'SCHOLAR'): CanActivateFn => () => {
-  const auth = inject(AuthService);
-  const router = inject(Router);
-  if (!auth.isLoggedIn()) return router.parseUrl('/login');
-  if (auth.user()!.role !== role) return router.parseUrl(auth.homeRoute());
-  return true;
-};
+export const roleGuard =
+  (role: 'ADMIN' | 'SCHOLAR'): CanActivateFn =>
+  () => {
+    const auth = inject(AuthService);
+    const router = inject(Router);
+    if (!auth.isLoggedIn()) return router.parseUrl('/login');
+    if (auth.user()!.role !== role) return router.parseUrl(auth.homeRoute());
+    return true;
+  };
 
 // For /login and /register: if already logged in, go straight to the home page.
 export const guestGuard: CanActivateFn = () => {

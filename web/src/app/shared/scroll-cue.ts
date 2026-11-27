@@ -21,10 +21,20 @@ export class ScrollCue implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.el.addEventListener('scroll', this.update, { passive: true });
-    if (typeof ResizeObserver !== 'undefined') { this.ro = new ResizeObserver(this.update); this.ro.observe(this.el); }
+    if (typeof ResizeObserver !== 'undefined') {
+      this.ro = new ResizeObserver(this.update);
+      this.ro.observe(this.el);
+    }
     // Rows arrive asynchronously; re-check when the content changes.
-    if (typeof MutationObserver !== 'undefined') { this.mo = new MutationObserver(this.update); this.mo.observe(this.el, { childList: true, subtree: true }); }
+    if (typeof MutationObserver !== 'undefined') {
+      this.mo = new MutationObserver(this.update);
+      this.mo.observe(this.el, { childList: true, subtree: true });
+    }
     this.update();
   }
-  ngOnDestroy(): void { this.el.removeEventListener('scroll', this.update); this.ro?.disconnect(); this.mo?.disconnect(); }
+  ngOnDestroy(): void {
+    this.el.removeEventListener('scroll', this.update);
+    this.ro?.disconnect();
+    this.mo?.disconnect();
+  }
 }

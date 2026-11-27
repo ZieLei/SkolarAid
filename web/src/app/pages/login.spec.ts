@@ -7,7 +7,10 @@ import { LoginPage } from './login';
 describe('LoginPage', () => {
   beforeEach(() => {
     localStorage.clear();
-    TestBed.configureTestingModule({ imports: [LoginPage], providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])] });
+    TestBed.configureTestingModule({
+      imports: [LoginPage],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
   });
 
   const setup = () => {
@@ -32,19 +35,42 @@ describe('LoginPage', () => {
 
   it('shows the server message on a failed login', async () => {
     const { fx, el, http } = setup();
-    fx.componentInstance.username = '2026-000001'; fx.componentInstance.password = 'bad';
+    fx.componentInstance.username = '2026-000001';
+    fx.componentInstance.password = 'bad';
     const p = fx.componentInstance.submit();
-    http.expectOne('/api/auth/login').flush({ title: 'Invalid Student ID or Password.' }, { status: 401, statusText: 'Unauthorized' });
-    await p; fx.detectChanges();
-    expect(el.querySelector('[role=alert]')?.textContent).toContain('Invalid Student ID or Password.');
+    http
+      .expectOne('/api/auth/login')
+      .flush(
+        { title: 'Invalid Student ID or Password.' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
+    await p;
+    fx.detectChanges();
+    expect(el.querySelector('[role=alert]')?.textContent).toContain(
+      'Invalid Student ID or Password.',
+    );
   });
 
   it('navigates to the admin dashboard after an admin signs in', async () => {
     const { fx, http } = setup();
     const nav = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
-    fx.componentInstance.username = 'admin'; fx.componentInstance.password = 'pw';
+    fx.componentInstance.username = 'admin';
+    fx.componentInstance.password = 'pw';
     const p = fx.componentInstance.submit();
-    http.expectOne('/api/auth/login').flush({ token: 'x', expiresAt: new Date(Date.now() + 60_000).toISOString(), user: { id: 1, username: 'admin', role: 'ADMIN', name: 'Admin', scholarId: null, scholarNumber: null } });
+    http
+      .expectOne('/api/auth/login')
+      .flush({
+        token: 'x',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        user: {
+          id: 1,
+          username: 'admin',
+          role: 'ADMIN',
+          name: 'Admin',
+          scholarId: null,
+          scholarNumber: null,
+        },
+      });
     await p;
     expect(nav).toHaveBeenCalledWith('/admin/dashboard');
   });

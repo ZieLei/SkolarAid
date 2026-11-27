@@ -9,8 +9,8 @@
 // app, so this file maps C# names to the old snake_case names.
 // =====================================================================
 using System.Text;
-using Microsoft.EntityFrameworkCore;
 using IskolarAid.Data.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace IskolarAid.Data;
 
@@ -35,7 +35,13 @@ public class IskolarDbContext(DbContextOptions<IskolarDbContext> options) : DbCo
         var sb = new StringBuilder();
         for (var i = 0; i < name.Length; i++)
         {
-            if (char.IsUpper(name[i]) && i > 0 && (!char.IsUpper(name[i - 1]) || (i + 1 < name.Length && char.IsLower(name[i + 1]))))
+            if (
+                char.IsUpper(name[i])
+                && i > 0
+                && (
+                    !char.IsUpper(name[i - 1]) || (i + 1 < name.Length && char.IsLower(name[i + 1]))
+                )
+            )
                 sb.Append('_');
             sb.Append(char.ToLowerInvariant(name[i]));
         }
@@ -58,8 +64,8 @@ public class IskolarDbContext(DbContextOptions<IskolarDbContext> options) : DbCo
 
         // snake_case columns for every mapped property
         foreach (var entity in b.Model.GetEntityTypes())
-            foreach (var p in entity.GetProperties())
-                p.SetColumnName(ToSnake(p.Name));
+        foreach (var p in entity.GetProperties())
+            p.SetColumnName(ToSnake(p.Name));
 
         // FullName is worked out in C#, it is not a column.
         b.Entity<Scholar>().Ignore(s => s.FullName);
@@ -89,8 +95,14 @@ public class IskolarDbContext(DbContextOptions<IskolarDbContext> options) : DbCo
             e.Property(s => s.StudentId).HasMaxLength(50);
             e.Property(s => s.StipendAmount).HasPrecision(12, 2);
             e.Property(s => s.Status).HasMaxLength(20);
-            e.HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.SetNull);
-            e.HasOne(s => s.ScholarshipType).WithMany().HasForeignKey(s => s.ScholarshipTypeId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(s => s.User)
+                .WithMany()
+                .HasForeignKey(s => s.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(s => s.ScholarshipType)
+                .WithMany()
+                .HasForeignKey(s => s.ScholarshipTypeId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         b.Entity<ScholarRegistration>(e =>
@@ -109,8 +121,14 @@ public class IskolarDbContext(DbContextOptions<IskolarDbContext> options) : DbCo
             e.HasIndex(p => new { p.ScholarId, p.PaymentPeriod });
             e.Property(p => p.PeriodStart).HasColumnType("date");
             e.Property(p => p.PeriodEnd).HasColumnType("date");
-            e.HasOne(p => p.Scholar).WithMany().HasForeignKey(p => p.ScholarId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(p => p.Processor).WithMany().HasForeignKey(p => p.ProcessedBy).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(p => p.Scholar)
+                .WithMany()
+                .HasForeignKey(p => p.ScholarId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(p => p.Processor)
+                .WithMany()
+                .HasForeignKey(p => p.ProcessedBy)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         b.Entity<ComplianceRecord>(e =>
@@ -119,21 +137,36 @@ public class IskolarDbContext(DbContextOptions<IskolarDbContext> options) : DbCo
             e.Property(c => c.Status).HasMaxLength(20);
             e.Property(c => c.DueDate).HasColumnType("date");
             e.Property(c => c.DateSubmitted).HasColumnType("date");
-            e.HasOne(c => c.Scholar).WithMany().HasForeignKey(c => c.ScholarId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(c => c.Checker).WithMany().HasForeignKey(c => c.CheckedBy).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(c => c.Scholar)
+                .WithMany()
+                .HasForeignKey(c => c.ScholarId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(c => c.Checker)
+                .WithMany()
+                .HasForeignKey(c => c.CheckedBy)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         b.Entity<FileAttachment>(e =>
         {
             e.Property(f => f.FileData).HasColumnType("longblob");
-            e.HasOne(f => f.Compliance).WithMany().HasForeignKey(f => f.ComplianceId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(f => f.Compliance)
+                .WithMany()
+                .HasForeignKey(f => f.ComplianceId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<Notification>(e =>
         {
             e.Property(n => n.NotificationType).HasMaxLength(30);
-            e.HasOne(n => n.Recipient).WithMany().HasForeignKey(n => n.RecipientId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(n => n.Sender).WithMany().HasForeignKey(n => n.SenderId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(n => n.Recipient)
+                .WithMany()
+                .HasForeignKey(n => n.RecipientId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(n => n.Sender)
+                .WithMany()
+                .HasForeignKey(n => n.SenderId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         b.Entity<ProfilePicture>(e =>
@@ -141,13 +174,19 @@ public class IskolarDbContext(DbContextOptions<IskolarDbContext> options) : DbCo
             e.HasKey(p => p.UserId);
             e.Property(p => p.ContentType).HasMaxLength(50);
             e.Property(p => p.Data).HasColumnType("longblob");
-            e.HasOne(p => p.User).WithOne().HasForeignKey<ProfilePicture>(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(p => p.User)
+                .WithOne()
+                .HasForeignKey<ProfilePicture>(p => p.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<ActivityLog>(e =>
         {
             e.Property(a => a.ActionType).HasMaxLength(50);
-            e.HasOne(a => a.User).WithMany().HasForeignKey(a => a.UserId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(a => a.User)
+                .WithMany()
+                .HasForeignKey(a => a.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 
@@ -159,7 +198,10 @@ public class IskolarDbContext(DbContextOptions<IskolarDbContext> options) : DbCo
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default
+    )
     {
         Stamp();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
@@ -173,10 +215,14 @@ public class IskolarDbContext(DbContextOptions<IskolarDbContext> options) : DbCo
         {
             if (e.State == EntityState.Added)
             {
-                if (e.Entity is ITimestamped t && t.CreatedAt == default) t.CreatedAt = now;
-                if (e.Entity is IUpdatable u && u.UpdatedAt == default) u.UpdatedAt = now;
-                if (e.Entity is Notification n && n.DateCreated == default) n.DateCreated = now;
-                if (e.Entity is FileAttachment f && f.UploadedAt == default) f.UploadedAt = now;
+                if (e.Entity is ITimestamped t && t.CreatedAt == default)
+                    t.CreatedAt = now;
+                if (e.Entity is IUpdatable u && u.UpdatedAt == default)
+                    u.UpdatedAt = now;
+                if (e.Entity is Notification n && n.DateCreated == default)
+                    n.DateCreated = now;
+                if (e.Entity is FileAttachment f && f.UploadedAt == default)
+                    f.UploadedAt = now;
             }
             else if (e.State == EntityState.Modified && e.Entity is IUpdatable m)
             {

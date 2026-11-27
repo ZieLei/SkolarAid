@@ -22,28 +22,49 @@ export class Api {
   // Turn { a: 1, b: '' } into "?a=1" (empty values are skipped).
   private params(p?: Params): HttpParams {
     let hp = new HttpParams();
-    for (const [k, v] of Object.entries(p ?? {})) if (v !== null && v !== undefined && v !== '') hp = hp.set(k, String(v));
+    for (const [k, v] of Object.entries(p ?? {}))
+      if (v !== null && v !== undefined && v !== '') hp = hp.set(k, String(v));
     return hp;
   }
 
-  get<T>(url: string, p?: Params): Observable<T> { return this.http.get<T>(`${this.base}${url}`, { params: this.params(p) }); }
-  post<T>(url: string, body: unknown = {}): Observable<T> { return this.http.post<T>(`${this.base}${url}`, body); }
-  put<T>(url: string, body: unknown = {}): Observable<T> { return this.http.put<T>(`${this.base}${url}`, body); }
-  delete<T>(url: string): Observable<T> { return this.http.delete<T>(`${this.base}${url}`); }
+  get<T>(url: string, p?: Params): Observable<T> {
+    return this.http.get<T>(`${this.base}${url}`, { params: this.params(p) });
+  }
+  post<T>(url: string, body: unknown = {}): Observable<T> {
+    return this.http.post<T>(`${this.base}${url}`, body);
+  }
+  put<T>(url: string, body: unknown = {}): Observable<T> {
+    return this.http.put<T>(`${this.base}${url}`, body);
+  }
+  delete<T>(url: string): Observable<T> {
+    return this.http.delete<T>(`${this.base}${url}`);
+  }
 
-  upload<T>(url: string, form: FormData): Observable<T> { return this.http.post<T>(`${this.base}${url}`, form); }
+  upload<T>(url: string, form: FormData): Observable<T> {
+    return this.http.post<T>(`${this.base}${url}`, form);
+  }
 
   /** Fetches a file (CSV, Word, attachment) with the auth header and hands it to the browser as a download. */
   async download(url: string, p?: Params, fallbackName = 'download'): Promise<void> {
     const res = await new Promise<HttpResponse<Blob>>((resolve, reject) =>
-      this.http.get(`${this.base}${url}`, { params: this.params(p), responseType: 'blob', observe: 'response' }).subscribe({ next: resolve, error: reject }));
+      this.http
+        .get(`${this.base}${url}`, {
+          params: this.params(p),
+          responseType: 'blob',
+          observe: 'response',
+        })
+        .subscribe({ next: resolve, error: reject }),
+    );
     this.save(res, fallbackName);
   }
 
   /** Same as download(), for files the server builds from a POSTed body (e.g. blank Word templates). */
   async downloadPost(url: string, body: unknown, fallbackName = 'download'): Promise<void> {
     const res = await new Promise<HttpResponse<Blob>>((resolve, reject) =>
-      this.http.post(`${this.base}${url}`, body, { responseType: 'blob', observe: 'response' }).subscribe({ next: resolve, error: reject }));
+      this.http
+        .post(`${this.base}${url}`, body, { responseType: 'blob', observe: 'response' })
+        .subscribe({ next: resolve, error: reject }),
+    );
     this.save(res, fallbackName);
   }
 
@@ -55,14 +76,19 @@ export class Api {
     const name = m ? decodeURIComponent(m[1]) : fallbackName;
     const a = document.createElement('a');
     const href = URL.createObjectURL(res.body!);
-    a.href = href; a.download = name; a.click();
+    a.href = href;
+    a.download = name;
+    a.click();
     setTimeout(() => URL.revokeObjectURL(href), 1000);
   }
 
   /** Opens an attachment in a new tab (PDF/image viewers), like the desktop app opening the file. */
   async open(url: string): Promise<void> {
     const res = await new Promise<HttpResponse<Blob>>((resolve, reject) =>
-      this.http.get(`${this.base}${url}`, { responseType: 'blob', observe: 'response' }).subscribe({ next: resolve, error: reject }));
+      this.http
+        .get(`${this.base}${url}`, { responseType: 'blob', observe: 'response' })
+        .subscribe({ next: resolve, error: reject }),
+    );
     const href = URL.createObjectURL(res.body!);
     window.open(href, '_blank');
     setTimeout(() => URL.revokeObjectURL(href), 60_000);

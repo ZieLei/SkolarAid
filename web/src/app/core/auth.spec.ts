@@ -6,13 +6,26 @@ import { AuthService } from './auth';
 import { roleGuard } from './http';
 import { LoginResponse } from './models';
 
-const adminLogin: LoginResponse = { token: 't0k', expiresAt: new Date(Date.now() + 3_600_000).toISOString(), user: { id: 1, username: 'admin', role: 'ADMIN', name: 'Admin', scholarId: null, scholarNumber: null } };
+const adminLogin: LoginResponse = {
+  token: 't0k',
+  expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+  user: {
+    id: 1,
+    username: 'admin',
+    role: 'ADMIN',
+    name: 'Admin',
+    scholarId: null,
+    scholarNumber: null,
+  },
+};
 
 describe('AuthService and guards', () => {
   let http: HttpTestingController;
   beforeEach(() => {
     localStorage.clear();
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])] });
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
     http = TestBed.inject(HttpTestingController);
   });
 
@@ -29,7 +42,10 @@ describe('AuthService and guards', () => {
   });
 
   it('ignores an expired stored session', () => {
-    localStorage.setItem('iskolaraid.session', JSON.stringify({ ...adminLogin, expiresAt: new Date(Date.now() - 1000).toISOString() }));
+    localStorage.setItem(
+      'iskolaraid.session',
+      JSON.stringify({ ...adminLogin, expiresAt: new Date(Date.now() - 1000).toISOString() }),
+    );
     expect(TestBed.inject(AuthService).isLoggedIn()).toBe(false);
   });
 
@@ -41,7 +57,9 @@ describe('AuthService and guards', () => {
 
     const auth = TestBed.inject(AuthService);
     const p = auth.login('s', 'pw');
-    http.expectOne('/api/auth/login').flush({ ...adminLogin, user: { ...adminLogin.user, role: 'SCHOLAR', scholarId: 4 } });
+    http
+      .expectOne('/api/auth/login')
+      .flush({ ...adminLogin, user: { ...adminLogin.user, role: 'SCHOLAR', scholarId: 4 } });
     await p;
     expect(router.serializeUrl(run() as never)).toBe('/scholar/dashboard');
   });

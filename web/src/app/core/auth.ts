@@ -19,7 +19,11 @@ import { LoginResponse, SignUpRequest, UserInfo } from './models';
 // localStorage key where the session is kept.
 const KEY = 'iskolaraid.session';
 
-interface Session { token: string; expiresAt: string; user: UserInfo; }
+interface Session {
+  token: string;
+  expiresAt: string;
+  user: UserInfo;
+}
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -40,11 +44,15 @@ export class AuthService {
       if (!raw) return null;
       const s = JSON.parse(raw) as Session;
       return new Date(s.expiresAt).getTime() > Date.now() ? s : null;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
 
   async login(username: string, password: string): Promise<UserInfo> {
-    return this.start(await firstValueFrom(this.api.post<LoginResponse>('/auth/login', { username, password })));
+    return this.start(
+      await firstValueFrom(this.api.post<LoginResponse>('/auth/login', { username, password })),
+    );
   }
 
   /** Sign-up (activate an account the admin created) and log in straight away. */
@@ -55,18 +63,34 @@ export class AuthService {
   /** Save a new session (from login or sign-up). */
   private start(res: LoginResponse): UserInfo {
     const s: Session = { token: res.token, expiresAt: res.expiresAt, user: res.user };
-    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* storage unavailable: keep in memory */ }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(s));
+    } catch {
+      /* storage unavailable: keep in memory */
+    }
     this.session.set(s);
     return res.user;
   }
 
   // Where to go after login: admin dashboard or scholar dashboard.
-  homeRoute(): string { return this.isAdmin() ? '/admin/dashboard' : '/scholar/dashboard'; }
+  homeRoute(): string {
+    return this.isAdmin() ? '/admin/dashboard' : '/scholar/dashboard';
+  }
 
   // callApi = false is used when the server already said the token is bad (401).
   async logout(callApi = true): Promise<void> {
-    if (callApi && this.isLoggedIn()) { try { await firstValueFrom(this.api.post('/auth/logout')); } catch { /* ignore */ } }
-    try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+    if (callApi && this.isLoggedIn()) {
+      try {
+        await firstValueFrom(this.api.post('/auth/logout'));
+      } catch {
+        /* ignore */
+      }
+    }
+    try {
+      localStorage.removeItem(KEY);
+    } catch {
+      /* ignore */
+    }
     this.session.set(null);
     await this.router.navigateByUrl('/login');
   }

@@ -11,28 +11,49 @@
 // connect() after login and disconnect() on logout.
 // =====================================================================
 import { Injectable, InjectionToken, inject, isDevMode, signal } from '@angular/core';
-import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
+import {
+  HubConnection,
+  HubConnectionBuilder,
+  HubConnectionState,
+  LogLevel,
+} from '@microsoft/signalr';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Observable, Subject, debounceTime, merge } from 'rxjs';
 import { AuthService } from './auth';
 
 // ---- Server events (names and payloads match api/src/IskolarAid.Api/Realtime/RealtimeNotifier.cs) ----
-export interface NotificationReceived { title: string; type: string; }
-export interface CountChanged { count: number; }
-export interface PaymentsChanged { status: 'Processed' | 'Released'; count: number; }
-export interface ComplianceChanged { scholarId: number; requirement: string; status: string; byScholar: boolean; }
+export interface NotificationReceived {
+  title: string;
+  type: string;
+}
+export interface CountChanged {
+  count: number;
+}
+export interface PaymentsChanged {
+  status: 'Processed' | 'Released';
+  count: number;
+}
+export interface ComplianceChanged {
+  scholarId: number;
+  requirement: string;
+  status: string;
+  byScholar: boolean;
+}
 
 export type HubState = 'Disconnected' | 'Connecting' | 'Connected' | 'Reconnecting';
 
 /** Builds the hub connection. A token so tests can hand in a fake connection. */
-export const HUB_CONNECTION_FACTORY = new InjectionToken<(accessToken: () => string) => HubConnection>('HUB_CONNECTION_FACTORY', {
+export const HUB_CONNECTION_FACTORY = new InjectionToken<
+  (accessToken: () => string) => HubConnection
+>('HUB_CONNECTION_FACTORY', {
   providedIn: 'root',
-  factory: () => (accessToken) => new HubConnectionBuilder()
-    // Browsers cannot put an Authorization header on a WebSocket; SignalR sends this token as ?access_token=.
-    .withUrl('/hubs/notifications', { accessTokenFactory: accessToken })
-    .withAutomaticReconnect() // retries after 0, 2, 10 and 30 seconds
-    .configureLogging(isDevMode() ? LogLevel.Information : LogLevel.Warning)
-    .build(),
+  factory: () => (accessToken) =>
+    new HubConnectionBuilder()
+      // Browsers cannot put an Authorization header on a WebSocket; SignalR sends this token as ?access_token=.
+      .withUrl('/hubs/notifications', { accessTokenFactory: accessToken })
+      .withAutomaticReconnect() // retries after 0, 2, 10 and 30 seconds
+      .configureLogging(isDevMode() ? LogLevel.Information : LogLevel.Warning)
+      .build(),
 });
 
 const RETRY_MS = 5000;
@@ -89,7 +110,10 @@ export class RealtimeService {
 
     // Connection lifecycle events
     c.onreconnecting(() => this.state.set('Reconnecting'));
-    c.onreconnected(() => { this.state.set('Connected'); this.reconnected$.next(); });
+    c.onreconnected(() => {
+      this.state.set('Connected');
+      this.reconnected$.next();
+    });
     c.onclose(() => {
       if (c !== this.connection) return; // an old connection closing after logout
       this.state.set('Disconnected');
@@ -118,7 +142,8 @@ export class RealtimeService {
 
   private scheduleRetry(): void {
     clearTimeout(this.retryTimer);
-    if (this.wanted && this.auth.isLoggedIn()) this.retryTimer = setTimeout(() => void this.start(), RETRY_MS);
+    if (this.wanted && this.auth.isLoggedIn())
+      this.retryTimer = setTimeout(() => void this.start(), RETRY_MS);
   }
 }
 
@@ -129,5 +154,11 @@ export class RealtimeService {
  */
 export function reloadOn(sources: Observable<unknown>[], reload: () => unknown): void {
   const rt = inject(RealtimeService);
-  merge(...sources, rt.reconnected$).pipe(debounceTime(300), takeUntilDestroyed()).subscribe(() => { Promise.resolve().then(reload).catch(() => undefined); });
+  merge(...sources, rt.reconnected$)
+    .pipe(debounceTime(300), takeUntilDestroyed())
+    .subscribe(() => {
+      Promise.resolve()
+        .then(reload)
+        .catch(() => undefined);
+    });
 }

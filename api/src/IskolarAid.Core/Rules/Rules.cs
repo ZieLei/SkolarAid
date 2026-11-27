@@ -33,7 +33,13 @@ public static class ComplianceRules
 {
     // The five documents every new scholar must submit.
     public static readonly string[] DefaultTypes =
-        ["PSA Birth Certificate", "Enrollment Form", "COR", "Grades", "Scholarship Contract"];
+    [
+        "PSA Birth Certificate",
+        "Enrollment Form",
+        "COR",
+        "Grades",
+        "Scholarship Contract",
+    ];
 
     // Text shown under each of the five documents above (same order).
     public static readonly string[] DefaultDescriptions =
@@ -42,33 +48,45 @@ public static class ComplianceRules
         "Certificate of Enrollment (current semester)",
         "Certificate of Registration",
         "Latest grades and transcript of records",
-        "Signed and notarized scholarship contract"
+        "Signed and notarized scholarship contract",
     ];
 
     /// <summary>Document keys used when a scholar is created, in the same order as <see cref="DefaultTypes"/>.</summary>
     public static readonly string[] DocKeys = ["PSA", "COE", "COR", "Grades", "Contract"];
 
-    public static readonly string[] Statuses = ["Pending", "Submitted", "Approved", "Rejected", "Overdue"];
+    public static readonly string[] Statuses =
+    [
+        "Pending",
+        "Submitted",
+        "Approved",
+        "Rejected",
+        "Overdue",
+    ];
 
     /// <summary>Payroll eligibility (strict, as enforced when processing): every record must be Approved.</summary>
     // Examples: all Approved -> "Complete"; none Approved -> "Pending Approval"; some -> "Incomplete".
     // [RULE] decides the "Complete / Incomplete / Pending Approval" label of a scholar's documents.
     public static string Summarize(IReadOnlyCollection<string> statuses)
     {
-        if (statuses.Count == 0) return "No Records";
-        if (statuses.All(s => s == "Approved")) return "Complete";
-        if (!statuses.Any(s => s == "Approved")) return "Pending Approval";
+        if (statuses.Count == 0)
+            return "No Records";
+        if (statuses.All(s => s == "Approved"))
+            return "Complete";
+        if (!statuses.Any(s => s == "Approved"))
+            return "Pending Approval";
         return "Incomplete";
     }
 
-    public static bool IsComplete(IReadOnlyCollection<string> statuses) => Summarize(statuses) == "Complete";
+    public static bool IsComplete(IReadOnlyCollection<string> statuses) =>
+        Summarize(statuses) == "Complete";
 
     /// <summary>Scholar view: Pending items past their due date become Overdue.</summary>
-    public static bool ShouldBecomeOverdue(string status, DateTime dueDate, DateTime today)
-        => status == "Pending" && dueDate.Date < today.Date;
+    public static bool ShouldBecomeOverdue(string status, DateTime dueDate, DateTime today) =>
+        status == "Pending" && dueDate.Date < today.Date;
 
     // Percent of requirements done, e.g. 3 of 5 -> 60.
-    public static int ComplianceRate(int total, int completed) => total > 0 ? completed * 100 / total : 0;
+    public static int ComplianceRate(int total, int completed) =>
+        total > 0 ? completed * 100 / total : 0;
 }
 
 public static class PayrollRules
@@ -76,7 +94,8 @@ public static class PayrollRules
     public static readonly string[] Methods = ["Bank Transfer", "Cash", "Mobile Wallet"];
 
     // Old payments used a whole month as their period, written like "March 2026".
-    public static string PeriodLabel(DateTime date) => date.ToString("MMMM yyyy", CultureInfo.InvariantCulture);
+    public static string PeriodLabel(DateTime date) =>
+        date.ToString("MMMM yyyy", CultureInfo.InvariantCulture);
 
     // A payment period is a date range picked on the payroll page. Its label:
     //   a whole month         -> "March 2026" (same as old payments, so they still match)
@@ -85,10 +104,14 @@ public static class PayrollRules
     public static string PeriodLabel(DateTime start, DateTime end)
     {
         var ci = CultureInfo.InvariantCulture;
-        start = start.Date; end = end.Date;
-        if (start.Day == 1 && end == start.AddMonths(1).AddDays(-1)) return PeriodLabel(start);
-        if (start.Year == end.Year && start.Month == end.Month) return $"{start.ToString("MMM dd", ci)}-{end:dd}, {end.Year}";
-        if (start.Year == end.Year) return $"{start.ToString("MMM dd", ci)} - {end.ToString("MMM dd", ci)}, {end.Year}";
+        start = start.Date;
+        end = end.Date;
+        if (start.Day == 1 && end == start.AddMonths(1).AddDays(-1))
+            return PeriodLabel(start);
+        if (start.Year == end.Year && start.Month == end.Month)
+            return $"{start.ToString("MMM dd", ci)}-{end:dd}, {end.Year}";
+        if (start.Year == end.Year)
+            return $"{start.ToString("MMM dd", ci)} - {end.ToString("MMM dd", ci)}, {end.Year}";
         return $"{start.ToString("MMM dd, yyyy", ci)} - {end.ToString("MMM dd, yyyy", ci)}";
     }
 
@@ -96,36 +119,54 @@ public static class PayrollRules
     // [VALIDATION] payroll period dates. Called by PayrollService.CheckPeriod, which turns the text into a 400 error.
     public static string? PeriodProblem(DateTime start, DateTime end)
     {
-        if (end.Date < start.Date) return "The period end date must be on or after the start date.";
-        if ((end.Date - start.Date).TotalDays > 366) return "A payment period cannot be longer than one year.";
+        if (end.Date < start.Date)
+            return "The period end date must be on or after the start date.";
+        if ((end.Date - start.Date).TotalDays > 366)
+            return "A payment period cannot be longer than one year.";
         return null;
     }
 
     // The dates a payment covers. Old payments only have a "March 2026" label, so we read that as the whole month.
     // Returns null when the label cannot be read (then it is only compared by label).
-    public static (DateTime Start, DateTime End)? RangeOf(DateTime? start, DateTime? end, string label)
+    public static (DateTime Start, DateTime End)? RangeOf(
+        DateTime? start,
+        DateTime? end,
+        string label
+    )
     {
-        if (start is { } s && end is { } e) return (s.Date, e.Date);
-        if (DateTime.TryParseExact(label, "MMMM yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var m))
+        if (start is { } s && end is { } e)
+            return (s.Date, e.Date);
+        if (
+            DateTime.TryParseExact(
+                label,
+                "MMMM yyyy",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var m
+            )
+        )
             return (m, m.AddMonths(1).AddDays(-1));
         return null;
     }
 
     // True when two date ranges share at least one day.
-    public static bool Overlaps((DateTime Start, DateTime End) a, (DateTime Start, DateTime End) b)
-        => a.Start <= b.End && b.Start <= a.End;
+    public static bool Overlaps(
+        (DateTime Start, DateTime End) a,
+        (DateTime Start, DateTime End) b
+    ) => a.Start <= b.End && b.Start <= a.End;
 
     /// <summary>Expected release = today + 3 days, moved forward past Saturday/Sunday.</summary>
     public static DateTime CalculateReleaseDate(DateTime today)
     {
         var d = today.Date.AddDays(3);
-        while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) d = d.AddDays(1);
+        while (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+            d = d.AddDays(1);
         return d;
     }
 
     // Unique payment reference, e.g. PAY-20260301-0042-093015123 (date, scholar id, time).
-    public static string ReferenceNumber(DateTime now, int scholarId)
-        => $"PAY-{now:yyyyMMdd}-{scholarId:D4}-{now:HHmmssfff}";
+    public static string ReferenceNumber(DateTime now, int scholarId) =>
+        $"PAY-{now:yyyyMMdd}-{scholarId:D4}-{now:HHmmssfff}";
 
     // ---- How a scholar's payment FREQUENCY relates to the payroll PERIOD ----
     // The scholarship's stipend amount is paid once per cycle: Monthly = every month, Quarterly = every 3 months,
@@ -133,15 +174,21 @@ public static class PayrollRules
     // so it must last one cycle of the scholar's frequency. This stops, for example, a semester amount being paid for one month.
 
     /// <summary>Months in one cycle of this frequency; null for anything else (older values such as "Weekly"), which is not checked.</summary>
-    public static int? CycleMonths(string? frequency) => frequency?.Trim().ToLowerInvariant() switch
-    {
-        "monthly" => 1, "quarterly" => 3, "semi-annual" => 6, "annual" => 12, _ => null
-    };
+    public static int? CycleMonths(string? frequency) =>
+        frequency?.Trim().ToLowerInvariant() switch
+        {
+            "monthly" => 1,
+            "quarterly" => 3,
+            "semi-annual" => 6,
+            "annual" => 12,
+            _ => null,
+        };
 
     /// <summary>True when the period (first to last day, inclusive) lasts one cycle. Months have 28 to 31 days, so that is the allowed range per month.</summary>
     public static bool PeriodFitsFrequency(string? frequency, DateTime start, DateTime end)
     {
-        if (CycleMonths(frequency) is not { } months) return true;
+        if (CycleMonths(frequency) is not { } months)
+            return true;
         var days = (end.Date - start.Date).Days + 1;
         return days >= months * 28 && days <= months * 31;
     }
@@ -150,10 +197,17 @@ public static class PayrollRules
     /// Why this period cannot be paid to this scholar, or null when it can: the period has not started yet,
     /// or it is not as long as one cycle of the scholar's frequency.
     /// </summary>
-    public static string? CycleProblem(string? frequency, DateTime start, DateTime end, DateTime today)
+    public static string? CycleProblem(
+        string? frequency,
+        DateTime start,
+        DateTime end,
+        DateTime today
+    )
     {
-        if (start.Date > today.Date) return "this period has not started yet";
-        if (PeriodFitsFrequency(frequency, start, end)) return null;
+        if (start.Date > today.Date)
+            return "this period has not started yet";
+        if (PeriodFitsFrequency(frequency, start, end))
+            return null;
         return $"paid {frequency}: needs a {CycleMonths(frequency)}-month period";
     }
 
@@ -163,12 +217,16 @@ public static class PayrollRules
     // [RULE] used for the "Bank Transfer needs bank details" check in payroll.
     public static string? PayoutProblem(string? method, string? bankName, string? bankAccountNumber)
     {
-        if (method != "Bank Transfer") return null;
+        if (method != "Bank Transfer")
+            return null;
         var noName = string.IsNullOrWhiteSpace(bankName);
         var noAccount = string.IsNullOrWhiteSpace(bankAccountNumber);
-        if (noName && noAccount) return "no bank details";
-        if (noName) return "bank name missing";
-        if (noAccount) return "bank account number missing";
+        if (noName && noAccount)
+            return "no bank details";
+        if (noName)
+            return "bank name missing";
+        if (noAccount)
+            return "bank account number missing";
         return null;
     }
 
@@ -176,19 +234,35 @@ public static class PayrollRules
     // + the payment method can be used for them (payoutReady, see PayoutProblem)
     // + the period is one cycle of their frequency and has started (cycleFits, see CycleProblem).
     // [RULE] the single yes/no behind the "Eligible" tick on the Payroll page and the skip in ProcessAsync.
-    public static bool IsEligible(string scholarStatus, IReadOnlyCollection<string> complianceStatuses, decimal stipend, bool alreadyPaid, bool payoutReady = true, bool cycleFits = true)
-        => scholarStatus == "Active" && ComplianceRules.IsComplete(complianceStatuses) && stipend > 0 && !alreadyPaid && payoutReady && cycleFits;
+    public static bool IsEligible(
+        string scholarStatus,
+        IReadOnlyCollection<string> complianceStatuses,
+        decimal stipend,
+        bool alreadyPaid,
+        bool payoutReady = true,
+        bool cycleFits = true
+    ) =>
+        scholarStatus == "Active"
+        && ComplianceRules.IsComplete(complianceStatuses)
+        && stipend > 0
+        && !alreadyPaid
+        && payoutReady
+        && cycleFits;
 }
 
 public static class ScholarRules
 {
     // "Juan", "Santos", "Cruz" -> "Juan Santos Cruz" (empty parts are skipped).
-    public static string FullName(string first, string? middle, string last, string? suffix = null)
-        => $"{first} {middle} {last} {suffix}".Replace("  ", " ").Trim();
+    public static string FullName(
+        string first,
+        string? middle,
+        string last,
+        string? suffix = null
+    ) => $"{first} {middle} {last} {suffix}".Replace("  ", " ").Trim();
 
     /// <summary>The suffix is stored appended to the last name ("Reyes Jr.").</summary>
-    public static string LastNameWithSuffix(string last, string? suffix)
-        => string.IsNullOrWhiteSpace(suffix) ? last.Trim() : $"{last.Trim()} {suffix.Trim()}";
+    public static string LastNameWithSuffix(string last, string? suffix) =>
+        string.IsNullOrWhiteSpace(suffix) ? last.Trim() : $"{last.Trim()} {suffix.Trim()}";
 
     /// <summary>Next scholar number: SCH-{year}-{max suffix + 1}. Uses MAX, not COUNT, so deletions can't cause duplicates.</summary>
     public static string NextScholarNumber(int year, IEnumerable<string> existing)
@@ -197,7 +271,8 @@ public static class ScholarRules
         var max = existing
             .Where(n => n.StartsWith(prefix, StringComparison.Ordinal))
             .Select(n => int.TryParse(n[prefix.Length..], out var v) ? v : 0)
-            .DefaultIfEmpty(0).Max();
+            .DefaultIfEmpty(0)
+            .Max();
         return $"{prefix}{max + 1:D3}";
     }
 
@@ -205,8 +280,8 @@ public static class ScholarRules
     public static string GeneratedStudentId(int year, int sequence) => $"{year}-{sequence:D6}";
 
     // "SCH-2026-042" -> 42.
-    public static int SequenceOf(string scholarNumber)
-        => int.TryParse(scholarNumber[(scholarNumber.LastIndexOf('-') + 1)..], out var v) ? v : 0;
+    public static int SequenceOf(string scholarNumber) =>
+        int.TryParse(scholarNumber[(scholarNumber.LastIndexOf('-') + 1)..], out var v) ? v : 0;
 
     /// <summary>Random 12 character temporary password (replaces the legacy guessable Name+symbol pattern).</summary>
     public static string GeneratePassword()
@@ -214,7 +289,8 @@ public static class ScholarRules
         const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*";
         return string.Create(12, chars, (span, c) =>
         {
-            for (var i = 0; i < span.Length; i++) span[i] = c[RandomNumberGenerator.GetInt32(c.Length)];
+            for (var i = 0; i < span.Length; i++)
+                span[i] = c[RandomNumberGenerator.GetInt32(c.Length)];
         });
     }
 
@@ -224,14 +300,21 @@ public static class ScholarRules
     // [VALIDATION] password rule (sign-up only). Called by AuthService.SignUpAsync (Support.cs).
     public static string? PasswordProblem(string password)
     {
-        if (password.Length < 8) return "Your password must be at least 8 characters long.";
-        if (!password.Any(char.IsLetter) || !password.Any(char.IsDigit)) return "Your password must contain at least one letter and one number.";
+        if (password.Length < 8)
+            return "Your password must be at least 8 characters long.";
+        if (!password.Any(char.IsLetter) || !password.Any(char.IsDigit))
+            return "Your password must contain at least one letter and one number.";
         return null;
     }
 
     public static string NormalizePhone(string phone)
     {
-        var p = phone.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "").Replace("+", "");
+        var p = phone
+            .Replace(" ", "")
+            .Replace("-", "")
+            .Replace("(", "")
+            .Replace(")", "")
+            .Replace("+", "");
         return p.StartsWith("63") ? "0" + p[2..] : p;
     }
 
@@ -242,18 +325,25 @@ public static class ScholarRules
         var ci = CultureInfo.InvariantCulture;
         switch ((frequency ?? "Monthly").ToLowerInvariant())
         {
-            case "weekly": return now.AddDays(7).ToString(f, ci);
-            case "bi-weekly": return now.AddDays(14).ToString(f, ci);
+            case "weekly":
+                return now.AddDays(7).ToString(f, ci);
+            case "bi-weekly":
+                return now.AddDays(14).ToString(f, ci);
             case "quarterly":
             {
                 var q = (now.Month - 1) / 3 + 1;
                 var month = q * 3 + 1;
-                var d = month > 12 ? new DateTime(now.Year + 1, 1, 1) : new DateTime(now.Year, month, 1);
+                var d =
+                    month > 12
+                        ? new DateTime(now.Year + 1, 1, 1)
+                        : new DateTime(now.Year, month, 1);
                 return d.ToString(f, ci);
             }
             case "semester":
             case "semi-annual":
-                return (now.Month <= 6 ? new DateTime(now.Year, 7, 1) : new DateTime(now.Year + 1, 1, 1)).ToString(f, ci);
+                return (
+                    now.Month <= 6 ? new DateTime(now.Year, 7, 1) : new DateTime(now.Year + 1, 1, 1)
+                ).ToString(f, ci);
             case "annual":
             case "yearly":
                 return new DateTime(now.Year + 1, 1, 1).ToString(f, ci);
@@ -266,18 +356,56 @@ public static class ScholarRules
 // Writes a peso amount in words for printed receipts.
 public static class AmountWords
 {
-    private static readonly string[] Ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
-    private static readonly string[] Teens = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-    private static readonly string[] Tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+    private static readonly string[] Ones =
+    [
+        "",
+        "One",
+        "Two",
+        "Three",
+        "Four",
+        "Five",
+        "Six",
+        "Seven",
+        "Eight",
+        "Nine",
+    ];
+    private static readonly string[] Teens =
+    [
+        "Ten",
+        "Eleven",
+        "Twelve",
+        "Thirteen",
+        "Fourteen",
+        "Fifteen",
+        "Sixteen",
+        "Seventeen",
+        "Eighteen",
+        "Nineteen",
+    ];
+    private static readonly string[] Tens =
+    [
+        "",
+        "",
+        "Twenty",
+        "Thirty",
+        "Forty",
+        "Fifty",
+        "Sixty",
+        "Seventy",
+        "Eighty",
+        "Ninety",
+    ];
     private static readonly string[] Scales = ["", "Thousand", "Million", "Billion"];
 
     public static string ToWords(decimal amount)
     {
-        if (amount == 0) return "Zero Pesos Only";
+        if (amount == 0)
+            return "Zero Pesos Only";
         var whole = (long)amount;
         var centavos = (int)Math.Round((amount - whole) * 100);
         var words = "";
-        if (whole == 0) words = "Zero";
+        if (whole == 0)
+            words = "Zero";
         else
         {
             var idx = 0;
@@ -288,16 +416,24 @@ public static class AmountWords
                 if (part > 0)
                 {
                     var pw = "";
-                    if (part >= 100) { pw += Ones[part / 100] + " Hundred "; part %= 100; }
-                    if (part is >= 10 and < 20) pw += Teens[part - 10] + " ";
+                    if (part >= 100)
+                    {
+                        pw += Ones[part / 100] + " Hundred ";
+                        part %= 100;
+                    }
+                    if (part is >= 10 and < 20)
+                        pw += Teens[part - 10] + " ";
                     else
                     {
-                        if (part >= 20) pw += Tens[part / 10] + " ";
-                        if (part % 10 > 0) pw += Ones[part % 10] + " ";
+                        if (part >= 20)
+                            pw += Tens[part / 10] + " ";
+                        if (part % 10 > 0)
+                            pw += Ones[part % 10] + " ";
                     }
                     words = (pw + Scales[idx] + " " + words).Trim() + " ";
                 }
-                whole /= 1000; idx++;
+                whole /= 1000;
+                idx++;
             }
         }
         words = words.Trim() + " Pesos";

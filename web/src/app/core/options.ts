@@ -18,5 +18,18 @@ export const COURSES = [
 export const YEAR_LEVELS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
 export const GENDERS = ['Male', 'Female', 'Other'];
 
-export const BANKS = ['BDO Unibank', 'Bank of the Philippine Islands (BPI)', 'Metrobank', 'Land Bank of the Philippines', 'Philippine National Bank (PNB)', 'UnionBank', 'Security Bank', 'RCBC', 'China Bank', 'DBP', 'GCash', 'Maya', 'Other'];
-
+export const BANKS = [
+  'BDO Unibank',
+  'Bank of the Philippine Islands (BPI)',
+  'Metrobank',
+  'Land Bank of the Philippines',
+  'Philippine National Bank (PNB)',
+  'UnionBank',
+  'Security Bank',
+  'RCBC',
+  'China Bank',
+  'DBP',
+  'GCash',
+  'Maya',
+  'Other',
+];

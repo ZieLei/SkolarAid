@@ -23,20 +23,31 @@ public static class XlsxReader
         XNamespace rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
         XNamespace pkgRel = "http://schemas.openxmlformats.org/package/2006/relationships";
 
-        XDocument Load(string path) => XDocument.Load((zip.GetEntry(path) ?? throw new InvalidDataException($"Not a valid .xlsx file (missing {path}).")).Open());
+        XDocument Load(string path) =>
+            XDocument.Load(
+                (
+                    zip.GetEntry(path)
+                    ?? throw new InvalidDataException($"Not a valid .xlsx file (missing {path}).")
+                ).Open()
+            );
 
         var firstSheet = Load("xl/workbook.xml").Descendants(main + "sheet").FirstOrDefault()
-                         ?? throw new InvalidDataException("The workbook has no sheets.");
+            ?? throw new InvalidDataException("The workbook has no sheets.");
         var relId = (string?)firstSheet.Attribute(rel + "id");
-        var target = Load("xl/_rels/workbook.xml.rels").Descendants(pkgRel + "Relationship")
-            .First(r => (string?)r.Attribute("Id") == relId).Attribute("Target")!.Value.TrimStart('/');
+        var target = Load("xl/_rels/workbook.xml.rels")
+            .Descendants(pkgRel + "Relationship")
+            .First(r => (string?)r.Attribute("Id") == relId)
+            .Attribute("Target")!
+            .Value.TrimStart('/');
         var sheetPath = target.StartsWith("xl/") ? target : "xl/" + target;
 
         // Shared strings: a cell with t="s" holds an index into this list.
         var shared = new List<string>();
         if (zip.GetEntry("xl/sharedStrings.xml") is not null)
-            shared = Load("xl/sharedStrings.xml").Descendants(main + "si")
-                .Select(si => string.Concat(si.Descendants(main + "t").Select(t => t.Value))).ToList();
+            shared = Load("xl/sharedStrings.xml")
+                .Descendants(main + "si")
+                .Select(si => string.Concat(si.Descendants(main + "t").Select(t => t.Value)))
+                .ToList();
 
         var rows = new List<Dictionary<int, string>>();
         foreach (var row in Load(sheetPath).Descendants(main + "row"))
@@ -48,21 +59,31 @@ public static class XlsxReader
                 var type = (string?)c.Attribute("t");
                 string? text = type switch
                 {
-                    "s" => int.TryParse(c.Element(main + "v")?.Value, out var i) && i < shared.Count ? shared[i] : null,
+                    "s" => int.TryParse(c.Element(main + "v")?.Value, out var i) && i < shared.Count
+                        ? shared[i]
+                        : null,
                     "inlineStr" => string.Concat(c.Descendants(main + "t").Select(t => t.Value)),
-                    _ => c.Element(main + "v")?.Value
+                    _ => c.Element(main + "v")?.Value,
                 };
-                if (!string.IsNullOrWhiteSpace(text)) cells[col] = text.Trim();
+                if (!string.IsNullOrWhiteSpace(text))
+                    cells[col] = text.Trim();
             }
             rows.Add(cells);
         }
 
-        var header = rows.FirstOrDefault(r => r.Count > 0) ?? throw new InvalidDataException("The sheet is empty.");
+        var header = rows.FirstOrDefault(r => r.Count > 0)
+            ?? throw new InvalidDataException("The sheet is empty.");
         var result = new List<Dictionary<string, string>>();
         foreach (var r in rows.SkipWhile(r => r != header).Skip(1))
         {
-            if (r.Count == 0) continue;
-            result.Add(header.ToDictionary(h => h.Value.ToUpperInvariant(), h => r.GetValueOrDefault(h.Key, "")));
+            if (r.Count == 0)
+                continue;
+            result.Add(
+                header.ToDictionary(
+                    h => h.Value.ToUpperInvariant(),
+                    h => r.GetValueOrDefault(h.Key, "")
+                )
+            );
         }
         return result;
     }
@@ -71,7 +92,8 @@ public static class XlsxReader
     private static int ColumnIndex(string cellRef)
     {
         var n = 0;
-        foreach (var ch in cellRef.TakeWhile(char.IsLetter)) n = n * 26 + (char.ToUpperInvariant(ch) - 'A' + 1);
+        foreach (var ch in cellRef.TakeWhile(char.IsLetter))
+            n = n * 26 + (char.ToUpperInvariant(ch) - 'A' + 1);
         return n - 1;
     }
 }

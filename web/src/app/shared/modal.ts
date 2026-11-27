@@ -17,14 +17,35 @@ let savedOverflow = '';
 @Component({
   selector: 'app-modal',
   template: `
-    <div class="fixed inset-0 z-[90] flex items-center justify-center bg-[#06242a]/50 backdrop-blur-sm overscroll-contain"
-         [class]="full() ? 'p-0 sm:p-4' : 'p-3 sm:p-4'" (click)="closed.emit()" (keydown.escape)="closed.emit()">
-      <div class="flex w-full flex-col bg-white shadow-2xl ring-1 ring-black/5"
-           [class]="full() ? 'h-[100dvh] max-h-[100dvh] rounded-none sm:h-auto sm:max-h-[92vh] sm:rounded-2xl' : 'max-h-[92dvh] rounded-2xl sm:max-h-[92vh]'"
-           [style.max-width.px]="width()" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <div
+      class="fixed inset-0 z-[90] flex items-center justify-center bg-[#06242a]/50 backdrop-blur-sm overscroll-contain"
+      [class]="full() ? 'p-0 sm:p-4' : 'p-3 sm:p-4'"
+      (click)="closed.emit()"
+      (keydown.escape)="closed.emit()"
+    >
+      <div
+        class="flex w-full flex-col bg-white shadow-2xl ring-1 ring-black/5"
+        [class]="
+          full()
+            ? 'h-[100dvh] max-h-[100dvh] rounded-none sm:h-auto sm:max-h-[92vh] sm:rounded-2xl'
+            : 'max-h-[92dvh] rounded-2xl sm:max-h-[92vh]'
+        "
+        [style.max-width.px]="width()"
+        (click)="$event.stopPropagation()"
+        role="dialog"
+        aria-modal="true"
+      >
         <div class="flex shrink-0 items-center border-b border-line px-5 py-3 sm:px-6 sm:py-4">
-          <h2 class="min-w-0 truncate text-[18px] font-semibold tracking-tight text-ink">{{ title() }}</h2>
-          <button class="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[26px] leading-none text-muted hover:bg-brand-soft hover:text-black sm:h-8 sm:w-8 sm:text-[22px]" aria-label="Close" (click)="closed.emit()">×</button>
+          <h2 class="min-w-0 truncate text-[18px] font-semibold tracking-tight text-ink">
+            {{ title() }}
+          </h2>
+          <button
+            class="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[26px] leading-none text-muted hover:bg-brand-soft hover:text-black sm:h-8 sm:w-8 sm:text-[22px]"
+            aria-label="Close"
+            (click)="closed.emit()"
+          >
+            ×
+          </button>
         </div>
         <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5"><ng-content /></div>
       </div>
@@ -39,7 +60,10 @@ export class Modal implements OnDestroy {
   full = computed(() => this.width() >= 600);
 
   constructor() {
-    if (openCount++ === 0) { savedOverflow = document.body.style.overflow; document.body.style.overflow = 'hidden'; }
+    if (openCount++ === 0) {
+      savedOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+    }
   }
 
   ngOnDestroy(): void {

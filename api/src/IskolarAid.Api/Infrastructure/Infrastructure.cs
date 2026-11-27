@@ -7,13 +7,13 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 using IskolarAid.Core.Common;
 using IskolarAid.Core.Dtos;
 using IskolarAid.Core.Services;
 using IskolarAid.Data.Entities;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 
 namespace IskolarAid.Api.Infrastructure;
 
@@ -41,13 +41,24 @@ public class JwtTokenService(Microsoft.Extensions.Options.IOptions<JwtOptions> o
             new("sub", user.Id.ToString()),
             new("name", user.Name),
             new("role", user.Role),
-            new("username", user.Username)
+            new("username", user.Username),
         };
         // Scholar accounts also carry their scholar id, so the portal knows whose data to show.
-        if (scholar is not null) claims.Add(new Claim("scholar_id", scholar.Id.ToString()));
+        if (scholar is not null)
+            claims.Add(new Claim("scholar_id", scholar.Id.ToString()));
         // Sign the token with our secret key so nobody can change it without us noticing.
-        var creds = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(o.Key)), SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken(o.Issuer, o.Audience, claims, DateTime.UtcNow, expires, creds);
+        var creds = new SigningCredentials(
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(o.Key)),
+            SecurityAlgorithms.HmacSha256
+        );
+        var token = new JwtSecurityToken(
+            o.Issuer,
+            o.Audience,
+            claims,
+            DateTime.UtcNow,
+            expires,
+            creds
+        );
         return (new JwtSecurityTokenHandler().WriteToken(token), expires);
     }
 }
@@ -68,23 +79,46 @@ public class HttpCurrentUser(IHttpContextAccessor accessor) : ICurrentUser
 // Flow: a service throws -> this class catches it -> the browser gets {status, title, detail}.
 // AppException  -> its own status (400, 404, 403...) and message, shown to the user.
 // anything else -> 500 "An unexpected error occurred." and the real error goes to the server log.
-public class ApiExceptionHandler(ILogger<ApiExceptionHandler> log, IProblemDetailsService problems) : IExceptionHandler
+public class ApiExceptionHandler(ILogger<ApiExceptionHandler> log, IProblemDetailsService problems)
+    : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext ctx, Exception ex, CancellationToken ct)
     {
-        int status; string title;
-        if (ex is AppException app) { status = app.StatusCode; title = app.Message; }
-        else if (ex is BadHttpRequestException) { status = 400; title = "Bad request."; }
+        int status;
+        string title;
+        if (ex is AppException app)
+        {
+            status = app.StatusCode;
+            title = app.Message;
+        }
+        else if (ex is BadHttpRequestException)
+        {
+            status = 400;
+            title = "Bad request.";
+        }
         else
         {
-            log.LogError(ex, "Unhandled exception for {Method} {Path}", ctx.Request.Method, ctx.Request.Path);
-            status = 500; title = "An unexpected error occurred.";
+            log.LogError(
+                ex,
+                "Unhandled exception for {Method} {Path}",
+                ctx.Request.Method,
+                ctx.Request.Path
+            );
+            status = 500;
+            title = "An unexpected error occurred.";
         }
         ctx.Response.StatusCode = status;
-        return await problems.TryWriteAsync(new ProblemDetailsContext
-        {
-            HttpContext = ctx,
-            ProblemDetails = new ProblemDetails { Status = status, Title = title, Detail = title }
-        });
+        return await problems.TryWriteAsync(
+            new ProblemDetailsContext
+            {
+                HttpContext = ctx,
+                ProblemDetails = new ProblemDetails
+                {
+                    Status = status,
+                    Title = title,
+                    Detail = title,
+                },
+            }
+        );
     }
 }

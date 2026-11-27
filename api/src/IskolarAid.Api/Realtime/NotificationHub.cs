@@ -8,9 +8,9 @@
 // -> browsers in that group get it (web/src/app/core/realtime.ts)
 // -> the page reloads its data over normal HTTP.
 // =====================================================================
+using IskolarAid.Data.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using IskolarAid.Data.Entities;
 
 namespace IskolarAid.Api.Realtime;
 
@@ -18,6 +18,7 @@ namespace IskolarAid.Api.Realtime;
 public static class HubGroups
 {
     public const string Admins = "admins";
+
     public static string Scholar(int scholarId) => $"scholar-{scholarId}";
 }
 
@@ -41,10 +42,18 @@ public class NotificationHub(ILogger<NotificationHub> logger) : Hub
         var role = user?.FindFirst("role")?.Value;
         if (role == Roles.Admin)
             await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.Admins);
-        else if (role == Roles.Scholar && int.TryParse(user?.FindFirst("scholar_id")?.Value, out var scholarId))
+        else if (
+            role == Roles.Scholar
+            && int.TryParse(user?.FindFirst("scholar_id")?.Value, out var scholarId)
+        )
             await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.Scholar(scholarId));
 
-        logger.LogInformation("Hub connected: {Id} ({Role} {Name})", Context.ConnectionId, role, user?.FindFirst("name")?.Value);
+        logger.LogInformation(
+            "Hub connected: {Id} ({Role} {Name})",
+            Context.ConnectionId,
+            role,
+            user?.FindFirst("name")?.Value
+        );
         await base.OnConnectedAsync();
     }
 

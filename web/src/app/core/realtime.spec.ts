@@ -13,14 +13,30 @@ class FakeConnection {
   startCalls = 0;
   failStart = false;
 
-  on(name: string, h: (...args: unknown[]) => void) { this.handlers.set(name, [...(this.handlers.get(name) ?? []), h]); }
-  onreconnecting() { /* not needed */ }
-  onreconnected(h: () => void) { this.reconnected = h; }
-  onclose(h: () => void) { this.closed = h; }
-  async start() { this.startCalls++; if (this.failStart) throw new Error('down'); this.state = HubConnectionState.Connected; }
-  async stop() { this.state = HubConnectionState.Disconnected; }
+  on(name: string, h: (...args: unknown[]) => void) {
+    this.handlers.set(name, [...(this.handlers.get(name) ?? []), h]);
+  }
+  onreconnecting() {
+    /* not needed */
+  }
+  onreconnected(h: () => void) {
+    this.reconnected = h;
+  }
+  onclose(h: () => void) {
+    this.closed = h;
+  }
+  async start() {
+    this.startCalls++;
+    if (this.failStart) throw new Error('down');
+    this.state = HubConnectionState.Connected;
+  }
+  async stop() {
+    this.state = HubConnectionState.Disconnected;
+  }
   /** Simulates the server sending an event to this client. */
-  raise(name: string, ...args: unknown[]) { (this.handlers.get(name) ?? []).forEach((h) => h(...args)); }
+  raise(name: string, ...args: unknown[]) {
+    (this.handlers.get(name) ?? []).forEach((h) => h(...args));
+  }
 }
 
 describe('RealtimeService', () => {
@@ -31,8 +47,17 @@ describe('RealtimeService', () => {
     fake = new FakeConnection();
     built = 0;
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideRouter([]),
-        { provide: HUB_CONNECTION_FACTORY, useValue: () => { built++; return fake as unknown as HubConnection; } }],
+      providers: [
+        provideHttpClient(),
+        provideRouter([]),
+        {
+          provide: HUB_CONNECTION_FACTORY,
+          useValue: () => {
+            built++;
+            return fake as unknown as HubConnection;
+          },
+        },
+      ],
     });
   });
 
@@ -51,7 +76,9 @@ describe('RealtimeService', () => {
 
   it('registers each handler once, even when connect() is called again', async () => {
     const rt = TestBed.inject(RealtimeService);
-    rt.connect(); rt.connect(); rt.connect();
+    rt.connect();
+    rt.connect();
+    rt.connect();
     await Promise.resolve();
 
     expect(built).toBe(1);
@@ -75,7 +102,8 @@ describe('RealtimeService', () => {
     fake.failStart = true;
     const rt = TestBed.inject(RealtimeService);
     rt.connect();
-    await Promise.resolve(); await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
 
     expect(rt.state()).toBe('Disconnected');
     rt.disconnect(); // stops the retry timer

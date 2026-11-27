@@ -13,7 +13,7 @@ public class DesignTimeFactory : IDesignTimeDbContextFactory<IskolarDbContext>
     public IskolarDbContext CreateDbContext(string[] args)
     {
         var cs = Environment.GetEnvironmentVariable("ConnectionStrings__Default")
-                 ?? "Server=localhost;Port=3306;Database=iskolaraid;User=root;Password=;";
+            ?? "Server=localhost;Port=3306;Database=iskolaraid;User=root;Password=;";
         var options = new DbContextOptionsBuilder<IskolarDbContext>()
             .UseMySql(cs, new MySqlServerVersion(new Version(8, 0, 36)))
             .Options;

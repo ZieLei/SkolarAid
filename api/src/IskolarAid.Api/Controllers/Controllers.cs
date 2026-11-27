@@ -21,13 +21,13 @@
 // Errors: services throw AppException; ApiExceptionHandler
 // (Infrastructure/Infrastructure.cs) turns it into a JSON error reply.
 // =====================================================================
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 using IskolarAid.Api.Infrastructure;
 using IskolarAid.Core.Common;
 using IskolarAid.Core.Dtos;
 using IskolarAid.Core.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace IskolarAid.Api.Controllers;
 
@@ -38,7 +38,8 @@ internal static class Files
     public static async Task<(string Name, byte[] Data)> ReadAsync(IFormFile? file)
     {
         // [VALIDATION] rejects with 400: "Please choose a file to upload."
-        if (file is null || file.Length == 0) throw new AppException("Please choose a file to upload.");
+        if (file is null || file.Length == 0)
+            throw new AppException("Please choose a file to upload.");
         await using var ms = new MemoryStream();
         await file.CopyToAsync(ms);
         return (file.FileName, ms.ToArray());
@@ -49,7 +50,8 @@ internal static class Files
 // /api/auth - log in, log out, "who am I?"
 // ---------------------------------------------------------------------
 [ApiController, Route("api/auth")]
-public class AuthController(AuthService auth, JwtTokenService tokens, ICurrentUser current) : ControllerBase
+public class AuthController(AuthService auth, JwtTokenService tokens, ICurrentUser current)
+    : ControllerBase
 {
     // POST /api/auth/login
     // 1. AuthService checks the username + password.
@@ -61,7 +63,18 @@ public class AuthController(AuthService auth, JwtTokenService tokens, ICurrentUs
     {
         var r = await auth.LoginAsync(req.Username, req.Password);
         var (token, expires) = tokens.Create(r.User, r.Scholar);
-        return new LoginResponse(token, expires, new UserInfoDto(r.User.Id, r.User.Username, r.User.Role, r.User.Name, r.Scholar?.Id, r.Scholar?.ScholarNumber));
+        return new LoginResponse(
+            token,
+            expires,
+            new UserInfoDto(
+                r.User.Id,
+                r.User.Username,
+                r.User.Role,
+                r.User.Name,
+                r.Scholar?.Id,
+                r.Scholar?.ScholarNumber
+            )
+        );
     }
 
     // POST /api/auth/signup - a scholar the admin already added activates their account:
@@ -72,17 +85,40 @@ public class AuthController(AuthService auth, JwtTokenService tokens, ICurrentUs
     {
         var r = await auth.SignUpAsync(req.ScholarNumber, req.StudentIdOrEmail, req.Password);
         var (token, expires) = tokens.Create(r.User, r.Scholar);
-        return new LoginResponse(token, expires, new UserInfoDto(r.User.Id, r.User.Username, r.User.Role, r.User.Name, r.Scholar?.Id, r.Scholar?.ScholarNumber));
+        return new LoginResponse(
+            token,
+            expires,
+            new UserInfoDto(
+                r.User.Id,
+                r.User.Username,
+                r.User.Role,
+                r.User.Name,
+                r.Scholar?.Id,
+                r.Scholar?.ScholarNumber
+            )
+        );
     }
 
     // GET /api/auth/me - returns the logged-in user, read from the token.
     [HttpGet("me"), Authorize]
-    public UserInfoDto Me() => new(current.UserId!.Value, User.FindFirst("username")?.Value ?? "", current.Role!, current.UserName!, current.ScholarId, null);
+    public UserInfoDto Me() =>
+        new(
+            current.UserId!.Value,
+            User.FindFirst("username")?.Value ?? "",
+            current.Role!,
+            current.UserName!,
+            current.ScholarId,
+            null
+        );
 
     // POST /api/auth/logout - only writes a "logged out" activity log entry.
     // (The browser throws away its token; JWTs cannot be cancelled server side.)
     [HttpPost("logout"), Authorize]
-    public async Task<IActionResult> Logout() { await auth.LogoutAsync(current.UserId!.Value, current.UserName ?? ""); return NoContent(); }
+    public async Task<IActionResult> Logout()
+    {
+        await auth.LogoutAsync(current.UserId!.Value, current.UserName ?? "");
+        return NoContent();
+    }
 }
 
 // ---------------------------------------------------------------------
@@ -98,18 +134,26 @@ public class PublicController(ScholarshipTypeService types) : ControllerBase
     public Task<List<ScholarshipTypeDto>> ActiveTypes() => types.ListAsync(activeOnly: true);
 }
 
-
 // ---------------------------------------------------------------------
 // Admin dashboard: the numbers, lists and charts on the admin home page.
 // ---------------------------------------------------------------------
 [ApiController, Route("api/admin/dashboard"), Authorize(Policy = "Admin")]
 public class DashboardController(DashboardService svc) : ControllerBase
 {
-    [HttpGet("stats")] public Task<DashboardStatsDto> Stats() => svc.StatsAsync();
-    [HttpGet("recent-activity")] public Task<List<RecentActivityDto>> Recent() => svc.RecentActivityAsync();
-    [HttpGet("upcoming-payments")] public Task<List<UpcomingPaymentDto>> Upcoming() => svc.UpcomingPaymentsAsync();
-    [HttpGet("scholarship-distribution")] public Task<List<ChartPointDto>> Distribution() => svc.ByScholarshipAsync();
-    [HttpGet("monthly-disbursement")] public Task<List<ChartPointDto>> Monthly() => svc.MonthlyDisbursementAsync();
+    [HttpGet("stats")]
+    public Task<DashboardStatsDto> Stats() => svc.StatsAsync();
+
+    [HttpGet("recent-activity")]
+    public Task<List<RecentActivityDto>> Recent() => svc.RecentActivityAsync();
+
+    [HttpGet("upcoming-payments")]
+    public Task<List<UpcomingPaymentDto>> Upcoming() => svc.UpcomingPaymentsAsync();
+
+    [HttpGet("scholarship-distribution")]
+    public Task<List<ChartPointDto>> Distribution() => svc.ByScholarshipAsync();
+
+    [HttpGet("monthly-disbursement")]
+    public Task<List<ChartPointDto>> Monthly() => svc.MonthlyDisbursementAsync();
 }
 
 // ---------------------------------------------------------------------
@@ -121,12 +165,27 @@ public class ScholarsController(ScholarService svc) : ControllerBase
     // GET /api/admin/scholars?search=&status=&page= - one page of the scholar table.
     // page is at least 1, pageSize is kept between 1 and 200.
     [HttpGet]
-    public Task<PagedResult<ScholarListItemDto>> List(string? search, string? status, int? scholarshipTypeId, int page = 1, int pageSize = 50)
-        => svc.ListAsync(search, status, scholarshipTypeId, Math.Max(page, 1), Math.Clamp(pageSize, 1, 200));
+    public Task<PagedResult<ScholarListItemDto>> List(
+        string? search,
+        string? status,
+        int? scholarshipTypeId,
+        int page = 1,
+        int pageSize = 50
+    ) =>
+        svc.ListAsync(
+            search,
+            status,
+            scholarshipTypeId,
+            Math.Max(page, 1),
+            Math.Clamp(pageSize, 1, 200)
+        );
 
     // Drop-down choices for the filter bar (statuses, scholarship types).
-    [HttpGet("filters")] public Task<ScholarFiltersDto> Filters() => svc.FiltersAsync();
-    [HttpGet("{id:int}")] public Task<ScholarDetailDto> Get(int id) => svc.GetAsync(id);
+    [HttpGet("filters")]
+    public Task<ScholarFiltersDto> Filters() => svc.FiltersAsync();
+
+    [HttpGet("{id:int}")]
+    public Task<ScholarDetailDto> Get(int id) => svc.GetAsync(id);
 
     // [ENTRY] "Add Scholar" modal -> POST /api/admin/scholars. Returns 201 Created with the new id.
     // [VALIDATION] ScholarSaveDto's attributes (Dtos.cs) are checked automatically before this method runs
@@ -140,8 +199,15 @@ public class ScholarsController(ScholarService svc) : ControllerBase
 
     // [ENTRY] "Edit Scholar" modal -> PUT: same ScholarSaveDto checks, then ScholarService.UpdateAsync.
     // toggle-status switches Active <-> Inactive.
-    [HttpPut("{id:int}")] public async Task<IActionResult> Update(int id, ScholarSaveDto dto) { await svc.UpdateAsync(id, dto); return NoContent(); }
-    [HttpPost("{id:int}/toggle-status")] public async Task<object> Toggle(int id) => new { status = await svc.ToggleStatusAsync(id) };
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Update(int id, ScholarSaveDto dto)
+    {
+        await svc.UpdateAsync(id, dto);
+        return NoContent();
+    }
+
+    [HttpPost("{id:int}/toggle-status")]
+    public async Task<object> Toggle(int id) => new { status = await svc.ToggleStatusAsync(id) };
 }
 
 // ---------------------------------------------------------------------
@@ -150,12 +216,30 @@ public class ScholarsController(ScholarService svc) : ControllerBase
 [ApiController, Route("api/admin/scholarship-types"), Authorize(Policy = "Admin")]
 public class ScholarshipTypesController(ScholarshipTypeService svc) : ControllerBase
 {
-    [HttpGet] public Task<List<ScholarshipTypeDto>> List() => svc.ListAsync();
-    [HttpPost] public Task<ScholarshipTypeDto> Create(ScholarshipTypeSaveDto dto) => svc.CreateAsync(dto);
+    [HttpGet]
+    public Task<List<ScholarshipTypeDto>> List() => svc.ListAsync();
+
+    [HttpPost]
+    public Task<ScholarshipTypeDto> Create(ScholarshipTypeSaveDto dto) => svc.CreateAsync(dto);
+
     // PUT edits a type's name, stipend amount, frequency and fund source.
-    [HttpPut("{id:int}")] public Task<ScholarshipTypeDto> Update(int id, ScholarshipTypeSaveDto dto) => svc.UpdateAsync(id, dto);
-    [HttpPost("{id:int}/activate")] public async Task<IActionResult> Activate(int id) { await svc.SetActiveAsync(id, true); return NoContent(); }
-    [HttpPost("{id:int}/deactivate")] public async Task<IActionResult> Deactivate(int id) { await svc.SetActiveAsync(id, false); return NoContent(); }
+    [HttpPut("{id:int}")]
+    public Task<ScholarshipTypeDto> Update(int id, ScholarshipTypeSaveDto dto) =>
+        svc.UpdateAsync(id, dto);
+
+    [HttpPost("{id:int}/activate")]
+    public async Task<IActionResult> Activate(int id)
+    {
+        await svc.SetActiveAsync(id, true);
+        return NoContent();
+    }
+
+    [HttpPost("{id:int}/deactivate")]
+    public async Task<IActionResult> Deactivate(int id)
+    {
+        await svc.SetActiveAsync(id, false);
+        return NoContent();
+    }
 }
 
 // ---------------------------------------------------------------------
@@ -166,14 +250,47 @@ public class ScholarshipTypesController(ScholarshipTypeService svc) : Controller
 public class ComplianceController(ComplianceService svc) : ControllerBase
 {
     // GET /api/admin/compliance?status=&search= - every scholar's requirements in one list ("show all").
-    [HttpGet("compliance")] public Task<List<ComplianceOverviewItemDto>> All(string? status, string? search) => svc.ListAllAsync(status, search);
-    [HttpGet("compliance/scholars")] public Task<List<ComplianceScholarOptionDto>> Scholars() => svc.ScholarOptionsAsync();
-    [HttpGet("scholars/{scholarId:int}/compliance")] public Task<ComplianceScholarInfoDto> Get(int scholarId) => svc.GetForScholarAsync(scholarId);
-    [HttpPost("scholars/{scholarId:int}/compliance")] public Task<ComplianceItemDto> Add(int scholarId, AddRequirementDto dto) => svc.AddRequirementAsync(scholarId, dto);
-    [HttpPost("scholars/{scholarId:int}/compliance/remind")] public async Task<IActionResult> Remind(int scholarId) { await svc.RemindAsync(scholarId); return NoContent(); }
-    [HttpPut("compliance/{id:int}/status")] public async Task<IActionResult> Status(int id, ComplianceStatusDto dto) { await svc.UpdateStatusAsync(id, dto.Status, dto.Remarks); return NoContent(); }
-    [HttpPost("compliance/{id:int}/mark-missing")] public async Task<IActionResult> Missing(int id) { await svc.MarkMissingAsync(id); return NoContent(); }
-    [HttpDelete("compliance/{id:int}")] public async Task<IActionResult> Delete(int id) { await svc.DeleteRequirementAsync(id); return NoContent(); }
+    [HttpGet("compliance")]
+    public Task<List<ComplianceOverviewItemDto>> All(string? status, string? search) =>
+        svc.ListAllAsync(status, search);
+
+    [HttpGet("compliance/scholars")]
+    public Task<List<ComplianceScholarOptionDto>> Scholars() => svc.ScholarOptionsAsync();
+
+    [HttpGet("scholars/{scholarId:int}/compliance")]
+    public Task<ComplianceScholarInfoDto> Get(int scholarId) => svc.GetForScholarAsync(scholarId);
+
+    [HttpPost("scholars/{scholarId:int}/compliance")]
+    public Task<ComplianceItemDto> Add(int scholarId, AddRequirementDto dto) =>
+        svc.AddRequirementAsync(scholarId, dto);
+
+    [HttpPost("scholars/{scholarId:int}/compliance/remind")]
+    public async Task<IActionResult> Remind(int scholarId)
+    {
+        await svc.RemindAsync(scholarId);
+        return NoContent();
+    }
+
+    [HttpPut("compliance/{id:int}/status")]
+    public async Task<IActionResult> Status(int id, ComplianceStatusDto dto)
+    {
+        await svc.UpdateStatusAsync(id, dto.Status, dto.Remarks);
+        return NoContent();
+    }
+
+    [HttpPost("compliance/{id:int}/mark-missing")]
+    public async Task<IActionResult> Missing(int id)
+    {
+        await svc.MarkMissingAsync(id);
+        return NoContent();
+    }
+
+    [HttpDelete("compliance/{id:int}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        await svc.DeleteRequirementAsync(id);
+        return NoContent();
+    }
 
     // Admin uploads a file for a requirement (max 15 MB).
     [HttpPost("compliance/{id:int}/file"), RequestSizeLimit(15 * 1024 * 1024)]
@@ -192,7 +309,12 @@ public class ComplianceController(ComplianceService svc) : ControllerBase
         return File(f.Data, f.ContentType, f.Name);
     }
 
-    [HttpDelete("compliance/{id:int}/file")] public async Task<IActionResult> DeleteFile(int id) { await svc.DeleteFileAsync(id); return NoContent(); }
+    [HttpDelete("compliance/{id:int}/file")]
+    public async Task<IActionResult> DeleteFile(int id)
+    {
+        await svc.DeleteFileAsync(id);
+        return NoContent();
+    }
 }
 
 // ---------------------------------------------------------------------
@@ -206,28 +328,47 @@ public class PayrollController(PayrollService svc) : ControllerBase
 {
     // Scholars who can be paid for the period from..to (defaults to the current month).
     [HttpGet("candidates")]
-    public Task<List<PayrollCandidateDto>> Candidates(DateTime? from, DateTime? to, int? scholarshipTypeId, string? yearLevel, string? search, string? method)
+    public Task<List<PayrollCandidateDto>> Candidates(
+        DateTime? from,
+        DateTime? to,
+        int? scholarshipTypeId,
+        string? yearLevel,
+        string? search,
+        string? method
+    )
     {
         var (start, end) = Period(from, to);
         return svc.CandidatesAsync(start, end, scholarshipTypeId, yearLevel, search, method);
     }
 
     // [ENTRY] Payroll page: Preview / Process buttons. Checks: PayrollRequestDto (Dtos.cs) then PayrollService.
-    [HttpPost("preview")] public Task<PayrollPreviewDto> Preview(PayrollRequestDto dto) => svc.PreviewAsync(dto);
-    [HttpPost("process")] public Task<PayrollResultDto> Process(PayrollRequestDto dto) => svc.ProcessAsync(dto);
-    [HttpGet("ready-for-release")] public Task<List<ProcessedPaymentDto>> Ready() => svc.ReadyForReleaseAsync();
+    [HttpPost("preview")]
+    public Task<PayrollPreviewDto> Preview(PayrollRequestDto dto) => svc.PreviewAsync(dto);
+
+    [HttpPost("process")]
+    public Task<PayrollResultDto> Process(PayrollRequestDto dto) => svc.ProcessAsync(dto);
+
+    [HttpGet("ready-for-release")]
+    public Task<List<ProcessedPaymentDto>> Ready() => svc.ReadyForReleaseAsync();
 
     // Move the expected release date of a payment that is still "Processed" (the scholar is notified).
     [HttpPost("payments/{id:int}/reschedule")]
-    public Task<ProcessedPaymentDto> Reschedule(int id, RescheduleRequestDto dto) => svc.RescheduleAsync(id, dto.ReleaseDate);
-    [HttpPost("release")] public Task<ReleaseResultDto> Release([FromBody] ReleaseRequest? req) => svc.ReleaseAsync(req?.PaymentIds);
+    public Task<ProcessedPaymentDto> Reschedule(int id, RescheduleRequestDto dto) =>
+        svc.RescheduleAsync(id, dto.ReleaseDate);
+
+    [HttpPost("release")]
+    public Task<ReleaseResultDto> Release([FromBody] ReleaseRequest? req) =>
+        svc.ReleaseAsync(req?.PaymentIds);
+
     [HttpGet("history")]
     public Task<List<DisbursementHistoryDto>> History(DateTime? from, DateTime? to)
     {
         var (start, end) = Period(from, to);
         return svc.HistoryAsync(start, end);
     }
-    [HttpGet("stats")] public Task<PayrollStatsDto> Stats() => svc.StatsAsync();
+
+    [HttpGet("stats")]
+    public Task<PayrollStatsDto> Stats() => svc.StatsAsync();
 
     // Missing dates default to the current month.
     private static (DateTime Start, DateTime End) Period(DateTime? from, DateTime? to)
@@ -248,39 +389,62 @@ public record ReleaseRequest(List<int>? PaymentIds);
 [ApiController, Route("api/admin/reports"), Authorize(Policy = "Admin")]
 public class ReportsController(ReportService reports, DashboardService dashboard) : ControllerBase
 {
-    [HttpGet("types")] public string[] Types() => ReportService.ReportTypes;
-    [HttpGet("analytics")] public Task<AnalyticsDto> Analytics() => dashboard.AnalyticsAsync();
-    [HttpGet("by-course")] public Task<List<ChartPointDto>> ByCourse() => dashboard.ByCourseAsync();
-    [HttpGet("generate")] public Task<ReportResultDto> Generate([FromQuery] ReportQuery q) => reports.GenerateAsync(q);
+    [HttpGet("types")]
+    public string[] Types() => ReportService.ReportTypes;
+
+    [HttpGet("analytics")]
+    public Task<AnalyticsDto> Analytics() => dashboard.AnalyticsAsync();
+
+    [HttpGet("by-course")]
+    public Task<List<ChartPointDto>> ByCourse() => dashboard.ByCourseAsync();
+
+    [HttpGet("generate")]
+    public Task<ReportResultDto> Generate([FromQuery] ReportQuery q) => reports.GenerateAsync(q);
 
     // Same report as "generate", but downloaded as a CSV file.
     [HttpGet("csv")]
-    public async Task<IActionResult> Csv([FromQuery] ReportQuery q)
-        => File(await reports.CsvAsync(q), "text/csv", $"Report_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+    public async Task<IActionResult> Csv([FromQuery] ReportQuery q) =>
+        File(await reports.CsvAsync(q), "text/csv", $"Report_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
 
     // Same report as an editable Word file.
     [HttpGet("docx")]
-    public async Task<IActionResult> Docx([FromQuery] ReportQuery q)
-        => File(await reports.DocxAsync(q), DocxType, $"Report_{DateTime.Now:yyyyMMdd_HHmmss}.docx");
+    public async Task<IActionResult> Docx([FromQuery] ReportQuery q) =>
+        File(await reports.DocxAsync(q), DocxType, $"Report_{DateTime.Now:yyyyMMdd_HHmmss}.docx");
 
     // One receipt as an editable Word file.
     [HttpGet("receipts/{paymentId:int}/docx")]
-    public async Task<IActionResult> ReceiptDocx(int paymentId)
-        => File(await reports.ReceiptDocxAsync(paymentId), DocxType, $"Receipt_{paymentId}.docx");
+    public async Task<IActionResult> ReceiptDocx(int paymentId) =>
+        File(await reports.ReceiptDocxAsync(paymentId), DocxType, $"Receipt_{paymentId}.docx");
 
     // A blank form (layout sent by the web app) as an editable Word file.
     [HttpPost("template-docx")]
-    public IActionResult TemplateDocx(TemplateDocxRequest req)
-        => File(Core.Services.Docx.Write(new Core.Services.Docx.Content
-        {
-            Title = req.Title, Lines = [$"{req.Note} Date: ____________________ Prepared by: ____________________".Trim()],
-            Columns = req.Columns, BlankRows = req.BlankRows, Signatures = ["Prepared by", "Approved by"]
-        }), DocxType, $"{string.Concat(req.Title.Where(char.IsLetterOrDigit))}.docx");
+    public IActionResult TemplateDocx(TemplateDocxRequest req) =>
+        File(
+            Core.Services.Docx.Write(
+                new Core.Services.Docx.Content
+                {
+                    Title = req.Title,
+                    Lines =
+                    [
+                        $"{req.Note} Date: ____________________ Prepared by: ____________________".Trim(),
+                    ],
+                    Columns = req.Columns,
+                    BlankRows = req.BlankRows,
+                    Signatures = ["Prepared by", "Approved by"],
+                }
+            ),
+            DocxType,
+            $"{string.Concat(req.Title.Where(char.IsLetterOrDigit))}.docx"
+        );
 
-    internal const string DocxType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    internal const string DocxType =
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-    [HttpGet("released-payments")] public Task<List<ReleasedPaymentDto>> Released() => reports.ReleasedPaymentsAsync();
-    [HttpGet("receipts/{paymentId:int}")] public Task<ReceiptDto> Receipt(int paymentId) => reports.ReceiptAsync(paymentId);
+    [HttpGet("released-payments")]
+    public Task<List<ReleasedPaymentDto>> Released() => reports.ReleasedPaymentsAsync();
+
+    [HttpGet("receipts/{paymentId:int}")]
+    public Task<ReceiptDto> Receipt(int paymentId) => reports.ReceiptAsync(paymentId);
 }
 
 // ---------------------------------------------------------------------
@@ -290,20 +454,69 @@ public class ReportsController(ReportService reports, DashboardService dashboard
 public class ActivityLogsController(ActivityLogQueryService svc) : ControllerBase
 {
     [HttpGet]
-    public Task<PagedResult<ActivityLogDto>> List(DateTime? from, DateTime? to, string? action, string? user, string? search, int page = 1)
-        => svc.ListAsync(from ?? DateTime.Today.AddDays(-30), to ?? DateTime.Today, action, user, search, page);
+    public Task<PagedResult<ActivityLogDto>> List(
+        DateTime? from,
+        DateTime? to,
+        string? action,
+        string? user,
+        string? search,
+        int page = 1
+    ) =>
+        svc.ListAsync(
+            from ?? DateTime.Today.AddDays(-30),
+            to ?? DateTime.Today,
+            action,
+            user,
+            search,
+            page
+        );
 
-    [HttpGet("stats")] public Task<ActivityStatsDto> Stats() => svc.StatsAsync();
-    [HttpGet("filters")] public Task<ActivityFiltersDto> Filters() => svc.FiltersAsync();
+    [HttpGet("stats")]
+    public Task<ActivityStatsDto> Stats() => svc.StatsAsync();
+
+    [HttpGet("filters")]
+    public Task<ActivityFiltersDto> Filters() => svc.FiltersAsync();
 
     // Same rows as the CSV, as an editable Word file.
     [HttpGet("docx")]
-    public async Task<IActionResult> Docx(DateTime? from, DateTime? to, string? action, string? user, string? search)
-        => File(await svc.DocxAsync(from ?? DateTime.Today.AddDays(-30), to ?? DateTime.Today, action, user, search), ReportsController.DocxType, $"ActivityLogs_{DateTime.Now:yyyyMMdd_HHmmss}.docx");
+    public async Task<IActionResult> Docx(
+        DateTime? from,
+        DateTime? to,
+        string? action,
+        string? user,
+        string? search
+    ) =>
+        File(
+            await svc.DocxAsync(
+                from ?? DateTime.Today.AddDays(-30),
+                to ?? DateTime.Today,
+                action,
+                user,
+                search
+            ),
+            ReportsController.DocxType,
+            $"ActivityLogs_{DateTime.Now:yyyyMMdd_HHmmss}.docx"
+        );
 
     [HttpGet("csv")]
-    public async Task<IActionResult> Csv(DateTime? from, DateTime? to, string? action, string? user, string? search)
-        => File(await svc.CsvAsync(from ?? DateTime.Today.AddDays(-30), to ?? DateTime.Today, action, user, search), "text/csv", $"ActivityLogs_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+    public async Task<IActionResult> Csv(
+        DateTime? from,
+        DateTime? to,
+        string? action,
+        string? user,
+        string? search
+    ) =>
+        File(
+            await svc.CsvAsync(
+                from ?? DateTime.Today.AddDays(-30),
+                to ?? DateTime.Today,
+                action,
+                user,
+                search
+            ),
+            "text/csv",
+            $"ActivityLogs_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
+        );
 }
 
 // ---------------------------------------------------------------------
@@ -312,14 +525,42 @@ public class ActivityLogsController(ActivityLogQueryService svc) : ControllerBas
 [ApiController, Route("api/admin/notifications"), Authorize(Policy = "Admin")]
 public class NotificationsController(NotificationService svc) : ControllerBase
 {
-    [HttpGet] public Task<List<NotificationDto>> List(string? type, bool unreadOnly, string? search, int? recipientId) => svc.ListAsync(type, unreadOnly, search, recipientId);
-    [HttpGet("stats")] public Task<NotificationStatsDto> Stats() => svc.StatsAsync();
-    [HttpGet("recipients")] public Task<List<OptionDto>> Recipients() => svc.RecipientsAsync();
-    [HttpPost] public Task<ComposeResultDto> Compose(ComposeNotificationDto dto) => svc.ComposeAsync(dto);
-    [HttpPost("{id:int}/read")] public async Task<IActionResult> Read(int id) { await svc.MarkReadAsync(id); return NoContent(); }
-    [HttpPost("read-all")] public async Task<object> ReadAll() => new { updated = await svc.MarkAllReadAsync() };
-    [HttpDelete("{id:int}")] public async Task<IActionResult> Delete(int id) { await svc.DeleteAsync(id); return NoContent(); }
-    [HttpDelete("read")] public async Task<object> DeleteRead() => new { deleted = await svc.DeleteAllReadAsync() };
+    [HttpGet]
+    public Task<List<NotificationDto>> List(
+        string? type,
+        bool unreadOnly,
+        string? search,
+        int? recipientId
+    ) => svc.ListAsync(type, unreadOnly, search, recipientId);
+
+    [HttpGet("stats")]
+    public Task<NotificationStatsDto> Stats() => svc.StatsAsync();
+
+    [HttpGet("recipients")]
+    public Task<List<OptionDto>> Recipients() => svc.RecipientsAsync();
+
+    [HttpPost]
+    public Task<ComposeResultDto> Compose(ComposeNotificationDto dto) => svc.ComposeAsync(dto);
+
+    [HttpPost("{id:int}/read")]
+    public async Task<IActionResult> Read(int id)
+    {
+        await svc.MarkReadAsync(id);
+        return NoContent();
+    }
+
+    [HttpPost("read-all")]
+    public async Task<object> ReadAll() => new { updated = await svc.MarkAllReadAsync() };
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        await svc.DeleteAsync(id);
+        return NoContent();
+    }
+
+    [HttpDelete("read")]
+    public async Task<object> DeleteRead() => new { deleted = await svc.DeleteAllReadAsync() };
 }
 
 /// <summary>Scholar portal. Every call is scoped to the scholar in the JWT; no scholar id is ever accepted from the client.</summary>
@@ -327,25 +568,51 @@ public class NotificationsController(NotificationService svc) : ControllerBase
 // Scholar portal: what a logged-in scholar sees about themself.
 // ---------------------------------------------------------------------
 [ApiController, Route("api/scholar"), Authorize(Policy = "Scholar")]
-public class ScholarPortalController(ScholarPortalService portal, ComplianceService compliance, NotificationService notifications, ICurrentUser current) : ControllerBase
+public class ScholarPortalController(
+    ScholarPortalService portal,
+    ComplianceService compliance,
+    NotificationService notifications,
+    ICurrentUser current
+) : ControllerBase
 {
     // The scholar id taken from the login token. Every method below uses it,
     // so a scholar can only ever see their own data.
     // [VALIDATION] access check, otherwise 403 Forbidden
-    private int Me => current.ScholarId ?? throw AppException.Forbidden("No scholar profile is linked to this account.");
+    private int Me =>
+        current.ScholarId
+        ?? throw AppException.Forbidden("No scholar profile is linked to this account.");
 
-    [HttpGet("dashboard")] public Task<ScholarDashboardDto> Dashboard() => portal.DashboardAsync(Me);
-    [HttpGet("profile")] public Task<ScholarProfileDto> Profile() => portal.ProfileAsync(Me);
-    [HttpPut("profile")] public Task<ScholarProfileDto> UpdateProfile(ScholarProfileUpdateDto dto) => portal.UpdateProfileAsync(Me, dto);
-    [HttpGet("payments")] public Task<ScholarPaymentsDto> Payments() => portal.PaymentsAsync(Me);
+    [HttpGet("dashboard")]
+    public Task<ScholarDashboardDto> Dashboard() => portal.DashboardAsync(Me);
+
+    [HttpGet("profile")]
+    public Task<ScholarProfileDto> Profile() => portal.ProfileAsync(Me);
+
+    [HttpPut("profile")]
+    public Task<ScholarProfileDto> UpdateProfile(ScholarProfileUpdateDto dto) =>
+        portal.UpdateProfileAsync(Me, dto);
+
+    [HttpGet("payments")]
+    public Task<ScholarPaymentsDto> Payments() => portal.PaymentsAsync(Me);
 
     [HttpGet("payments/csv")]
-    public async Task<IActionResult> PaymentsCsv() => File(await portal.PaymentsCsvAsync(Me), "text/csv", $"PaymentHistory_{DateTime.Now:yyyyMMdd}.csv");
+    public async Task<IActionResult> PaymentsCsv() =>
+        File(
+            await portal.PaymentsCsvAsync(Me),
+            "text/csv",
+            $"PaymentHistory_{DateTime.Now:yyyyMMdd}.csv"
+        );
 
     [HttpGet("payments/docx")]
-    public async Task<IActionResult> PaymentsDocx() => File(await portal.PaymentsDocxAsync(Me), ReportsController.DocxType, $"PaymentHistory_{DateTime.Now:yyyyMMdd}.docx");
+    public async Task<IActionResult> PaymentsDocx() =>
+        File(
+            await portal.PaymentsDocxAsync(Me),
+            ReportsController.DocxType,
+            $"PaymentHistory_{DateTime.Now:yyyyMMdd}.docx"
+        );
 
-    [HttpGet("compliance")] public Task<ScholarComplianceDto> Compliance() => compliance.ListForSelfAsync(Me);
+    [HttpGet("compliance")]
+    public Task<ScholarComplianceDto> Compliance() => compliance.ListForSelfAsync(Me);
 
     [HttpPost("compliance/{id:int}/file"), RequestSizeLimit(15 * 1024 * 1024)]
     public async Task<IActionResult> Upload(int id, IFormFile file)
@@ -362,16 +629,28 @@ public class ScholarPortalController(ScholarPortalService portal, ComplianceServ
         return File(f.Data, f.ContentType, f.Name);
     }
 
-    [HttpGet("notifications")] public Task<ScholarNotificationsDto> Notifications(string? type, bool unreadOnly) => notifications.ListForScholarAsync(Me, type, unreadOnly);
-    [HttpPost("notifications/{id:int}/read")] public async Task<IActionResult> Read(int id) { await notifications.MarkReadForScholarAsync(Me, id); return NoContent(); }
-    [HttpPost("notifications/read-all")] public async Task<object> ReadAll() => new { updated = await notifications.MarkAllReadForScholarAsync(Me) };
+    [HttpGet("notifications")]
+    public Task<ScholarNotificationsDto> Notifications(string? type, bool unreadOnly) =>
+        notifications.ListForScholarAsync(Me, type, unreadOnly);
+
+    [HttpPost("notifications/{id:int}/read")]
+    public async Task<IActionResult> Read(int id)
+    {
+        await notifications.MarkReadForScholarAsync(Me, id);
+        return NoContent();
+    }
+
+    [HttpPost("notifications/read-all")]
+    public async Task<object> ReadAll() =>
+        new { updated = await notifications.MarkAllReadForScholarAsync(Me) };
 }
 
 // ---------------------------------------------------------------------
 // Profile pictures (ProfilePictureService).
 // ---------------------------------------------------------------------
 [ApiController, Route("api")]
-public class ProfilePictureController(ProfilePictureService pictures, ICurrentUser current) : ControllerBase
+public class ProfilePictureController(ProfilePictureService pictures, ICurrentUser current)
+    : ControllerBase
 {
     // [VALIDATION] access check, otherwise 403 Forbidden
     private int Me => current.UserId ?? throw AppException.Forbidden("Please log in again.");
@@ -392,12 +671,18 @@ public class ProfilePictureController(ProfilePictureService pictures, ICurrentUs
 
     // DELETE /api/me/picture - remove your picture.
     [HttpDelete("me/picture"), Authorize]
-    public async Task<IActionResult> Remove() { await pictures.DeleteAsync(Me); return NoContent(); }
+    public async Task<IActionResult> Remove()
+    {
+        await pictures.DeleteAsync(Me);
+        return NoContent();
+    }
 
     // GET /api/admin/scholars/{id}/picture - admin sees a scholar's picture.
     [HttpGet("admin/scholars/{scholarId:int}/picture"), Authorize(Policy = "Admin")]
-    public async Task<IActionResult> OfScholar(int scholarId) => Picture(await pictures.GetForScholarAsync(scholarId));
+    public async Task<IActionResult> OfScholar(int scholarId) =>
+        Picture(await pictures.GetForScholarAsync(scholarId));
 
     // No picture -> 204 No Content (not 404), so browsers do not log an error for every avatar.
-    private IActionResult Picture((byte[] Data, string ContentType)? p) => p is { } x ? File(x.Data, x.ContentType) : NoContent();
+    private IActionResult Picture((byte[] Data, string ContentType)? p) =>
+        p is { } x ? File(x.Data, x.ContentType) : NoContent();
 }

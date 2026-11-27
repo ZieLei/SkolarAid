@@ -1,9 +1,9 @@
-using Microsoft.EntityFrameworkCore;
 using IskolarAid.Core.Common;
 using IskolarAid.Core.Dtos;
 using IskolarAid.Core.Rules;
 using IskolarAid.Core.Services;
 using IskolarAid.Data.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace IskolarAid.Tests;
 
@@ -61,20 +61,31 @@ public class PasswordAndAuthTests
         var u = await f.AddUserAsync("2026-000001", "pw", "SCHOLAR");
         var s = await f.AddScholarAsync(t.Id);
         await Assert.ThrowsAsync<AppException>(() => f.Auth.LoginAsync("2026-000001", "pw")); // not linked yet
-        s.UserId = u.Id; await f.Db.SaveChangesAsync();
+        s.UserId = u.Id;
+        await f.Db.SaveChangesAsync();
         Assert.Equal(s.Id, (await f.Auth.LoginAsync("2026-000001", "pw")).Scholar!.Id);
-        s.Status = "Inactive"; await f.Db.SaveChangesAsync();
+        s.Status = "Inactive";
+        await f.Db.SaveChangesAsync();
         await Assert.ThrowsAsync<AppException>(() => f.Auth.LoginAsync("2026-000001", "pw"));
     }
 }
 
 public class ScholarServiceTests
 {
-    private static ScholarSaveDto Dto(int typeId, string? studentId = null) => new()
-    {
-        StudentId = studentId, FirstName = "Maria", LastName = "Reyes", Suffix = "Jr.", Email = "maria@x.ph", ContactNumber = "09170000000",
-        Course = "Bachelor of Science in Criminology", YearLevel = "1st Year", ScholarshipTypeId = typeId, StipendAmount = 5000
-    };
+    private static ScholarSaveDto Dto(int typeId, string? studentId = null) =>
+        new()
+        {
+            StudentId = studentId,
+            FirstName = "Maria",
+            LastName = "Reyes",
+            Suffix = "Jr.",
+            Email = "maria@x.ph",
+            ContactNumber = "09170000000",
+            Course = "Bachelor of Science in Criminology",
+            YearLevel = "1st Year",
+            ScholarshipTypeId = typeId,
+            StipendAmount = 5000,
+        };
 
     [Fact]
     public async Task Create_makes_user_five_compliance_records_and_numbers_sequentially()
@@ -87,7 +98,12 @@ public class ScholarServiceTests
         Assert.Equal($"SCH-{year}-001", a.ScholarNumber);
         Assert.Equal($"SCH-{year}-002", b.ScholarNumber);
         Assert.Equal($"{year}-000001", a.StudentId);
-        Assert.Equal(5, await f.Db.ComplianceRecords.CountAsync(c => c.ScholarId == a.Id && c.Status == "Pending"));
+        Assert.Equal(
+            5,
+            await f.Db.ComplianceRecords.CountAsync(c =>
+                c.ScholarId == a.Id && c.Status == "Pending"
+            )
+        );
         var user = await f.Db.Users.SingleAsync(u => u.Username == a.StudentId);
         Assert.Equal("SCHOLAR", user.Role);
         Assert.True(PasswordService.IsHash(user.Password));
@@ -102,7 +118,9 @@ public class ScholarServiceTests
         using var f = new Fixture();
         var t = await f.AddTypeAsync();
         await f.Scholars.CreateAsync(Dto(t.Id, "2024-1111"));
-        var ex = await Assert.ThrowsAsync<AppException>(() => f.Scholars.CreateAsync(Dto(t.Id, "2024-1111")));
+        var ex = await Assert.ThrowsAsync<AppException>(() =>
+            f.Scholars.CreateAsync(Dto(t.Id, "2024-1111"))
+        );
         Assert.Equal(409, ex.StatusCode);
     }
 
@@ -122,8 +140,14 @@ public class ComplianceServiceTests
     public async Task Opening_compliance_creates_the_five_default_requirements_once()
     {
         using var f = new Fixture();
-        var s = new Scholar { FirstName = "A", LastName = "B", ScholarNumber = "SCH-2026-001" };
-        f.Db.Scholars.Add(s); await f.Db.SaveChangesAsync();
+        var s = new Scholar
+        {
+            FirstName = "A",
+            LastName = "B",
+            ScholarNumber = "SCH-2026-001",
+        };
+        f.Db.Scholars.Add(s);
+        await f.Db.SaveChangesAsync();
         await f.Compliance.EnsureDefaultsAsync(s.Id);
         await f.Compliance.EnsureDefaultsAsync(s.Id);
         Assert.Equal(5, await f.Db.ComplianceRecords.CountAsync(c => c.ScholarId == s.Id));
@@ -153,7 +177,9 @@ public class ComplianceServiceTests
         using var f = new Fixture();
         var s = await f.AddScholarAsync((await f.AddTypeAsync()).Id, "Pending");
         var rec = await f.Db.ComplianceRecords.FirstAsync(c => c.ScholarId == s.Id);
-        await Assert.ThrowsAsync<AppException>(() => f.Compliance.UploadAsync(rec.Id, "evil.exe", [1]));
+        await Assert.ThrowsAsync<AppException>(() =>
+            f.Compliance.UploadAsync(rec.Id, "evil.exe", [1])
+        );
     }
 
     [Fact]
@@ -174,7 +200,8 @@ public class ComplianceServiceTests
     {
         using var f = new Fixture();
         var s = await f.AddScholarAsync((await f.AddTypeAsync()).Id, "Pending");
-        foreach (var c in f.Db.ComplianceRecords.Where(c => c.ScholarId == s.Id)) c.DueDate = DateTime.Today.AddDays(-2);
+        foreach (var c in f.Db.ComplianceRecords.Where(c => c.ScholarId == s.Id))
+            c.DueDate = DateTime.Today.AddDays(-2);
         await f.Db.SaveChangesAsync();
         var r = await f.Compliance.ListForSelfAsync(s.Id);
         Assert.Equal(5, r.Overdue);
@@ -188,14 +215,23 @@ public class ComplianceServiceTests
         var mine = await f.AddScholarAsync(t.Id, "Pending");
         var other = await f.AddScholarAsync(t.Id, "Pending", number: "SCH-2026-002");
         var theirs = await f.Db.ComplianceRecords.FirstAsync(c => c.ScholarId == other.Id);
-        var ex = await Assert.ThrowsAsync<AppException>(() => f.Compliance.UploadForSelfAsync(mine.Id, theirs.Id, "a.pdf", [1]));
+        var ex = await Assert.ThrowsAsync<AppException>(() =>
+            f.Compliance.UploadForSelfAsync(mine.Id, theirs.Id, "a.pdf", [1])
+        );
         Assert.Equal(404, ex.StatusCode);
     }
 }
 
 public class PayrollServiceTests
 {
-    private static PayrollRequestDto Req(params int[] ids) => new() { PeriodStart = new DateTime(2026, 3, 1), PeriodEnd = new DateTime(2026, 3, 31), Method = "Bank Transfer", ScholarIds = [.. ids] };
+    private static PayrollRequestDto Req(params int[] ids) =>
+        new()
+        {
+            PeriodStart = new DateTime(2026, 3, 1),
+            PeriodEnd = new DateTime(2026, 3, 31),
+            Method = "Bank Transfer",
+            ScholarIds = [.. ids],
+        };
 
     [Fact]
     public async Task Only_scholars_with_fully_approved_compliance_are_eligible_and_amount_comes_from_the_type()
@@ -204,7 +240,13 @@ public class PayrollServiceTests
         var t = await f.AddTypeAsync(amount: 4200);
         var ok = await f.AddScholarAsync(t.Id, "Approved");
         var no = await f.AddScholarAsync(t.Id, "Pending", number: "SCH-2026-002");
-        var list = await f.Payroll.CandidatesAsync(new DateTime(2026, 3, 1), new DateTime(2026, 3, 31), null, null, null);
+        var list = await f.Payroll.CandidatesAsync(
+            new DateTime(2026, 3, 1),
+            new DateTime(2026, 3, 31),
+            null,
+            null,
+            null
+        );
         Assert.True(list.Single(c => c.Id == ok.Id).IsEligible);
         Assert.Equal(4200, list.Single(c => c.Id == ok.Id).StipendAmount);
         Assert.False(list.Single(c => c.Id == no.Id).IsEligible);
@@ -224,7 +266,12 @@ public class PayrollServiceTests
         Assert.Equal("Processed", pay.Status);
         Assert.StartsWith("PAY-", pay.ReferenceNumber);
         Assert.True(pay.ReleaseDate > DateTime.Today);
-        Assert.Equal(1, await f.Db.Notifications.CountAsync(n => n.RecipientId == ok.Id && n.Title == "Payment Processed"));
+        Assert.Equal(
+            1,
+            await f.Db.Notifications.CountAsync(n =>
+                n.RecipientId == ok.Id && n.Title == "Payment Processed"
+            )
+        );
         Assert.Single(f.Email.Sent);
 
         var again = await f.Payroll.ProcessAsync(Req(ok.Id)); // double disbursement guard
@@ -244,7 +291,14 @@ public class PayrollServiceTests
         var reports = new ReportService(f.Db, f.Log);
         foreach (var type in new[] { "Payment History Report", "Payroll Summary Report" })
         {
-            var r = await reports.GenerateAsync(new ReportQuery { Type = type, From = DateTime.Today.AddDays(-30), To = DateTime.Today });
+            var r = await reports.GenerateAsync(
+                new ReportQuery
+                {
+                    Type = type,
+                    From = DateTime.Today.AddDays(-30),
+                    To = DateTime.Today,
+                }
+            );
             Assert.Single(r.Rows);
         }
     }
@@ -259,13 +313,17 @@ public class PayrollServiceTests
         await Assert.ThrowsAsync<AppException>(() => f.Payroll.ReleaseAsync(null)); // release date is days away
 
         var pay = await f.Db.Payments.SingleAsync();
-        pay.ReleaseDate = DateTime.Today.AddDays(-1); await f.Db.SaveChangesAsync();
+        pay.ReleaseDate = DateTime.Today.AddDays(-1);
+        await f.Db.SaveChangesAsync();
         var r = await f.Payroll.ReleaseAsync(null);
         Assert.Equal(1, r.Released);
         await f.Db.Entry(pay).ReloadAsync();
         Assert.Equal("Released", pay.Status);
         Assert.Equal(DateTime.Today, pay.ReleaseDate);
-        Assert.Equal(1, await f.Db.Notifications.CountAsync(n => n.Title.Contains("Payment Released")));
+        Assert.Equal(
+            1,
+            await f.Db.Notifications.CountAsync(n => n.Title.Contains("Payment Released"))
+        );
         await Assert.ThrowsAsync<AppException>(() => f.Payroll.ReleaseAsync(null)); // cannot release twice
     }
 
@@ -284,15 +342,31 @@ public class PayrollServiceTests
         var blocked = bank.Single(c => c.Id == noBank.Id);
         Assert.False(blocked.IsEligible);
         Assert.Equal("no bank details", blocked.PayoutProblem);
-        Assert.True((await f.Payroll.CandidatesAsync(start, end, null, null, null, "Cash")).Single(c => c.Id == noBank.Id).IsEligible);
-        Assert.True((await f.Payroll.CandidatesAsync(start, end, null, null, null)).Single(c => c.Id == noBank.Id).IsEligible);
+        Assert.True(
+            (await f.Payroll.CandidatesAsync(start, end, null, null, null, "Cash"))
+                .Single(c => c.Id == noBank.Id)
+                .IsEligible
+        );
+        Assert.True(
+            (await f.Payroll.CandidatesAsync(start, end, null, null, null))
+                .Single(c => c.Id == noBank.Id)
+                .IsEligible
+        );
 
         // The server checks again when processing (the page could be out of date): only the scholar with details is paid.
         var r = await f.Payroll.ProcessAsync(Req(withBank.Id, noBank.Id));
         Assert.Equal((1, 1), (r.Processed, r.Skipped));
 
         // The same scholar can be paid by cash.
-        var cash = await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = start, PeriodEnd = end, Method = "Cash", ScholarIds = [noBank.Id] });
+        var cash = await f.Payroll.ProcessAsync(
+            new PayrollRequestDto
+            {
+                PeriodStart = start,
+                PeriodEnd = end,
+                Method = "Cash",
+                ScholarIds = [noBank.Id],
+            }
+        );
         Assert.Equal(1, cash.Processed);
     }
 
@@ -300,26 +374,57 @@ public class PayrollServiceTests
     public async Task A_scholar_is_only_paid_for_a_period_that_matches_their_frequency()
     {
         using var f = new Fixture();
-        var semester = await f.AddScholarAsync((await f.AddTypeAsync("TES", 13500, frequency: "Semi-Annual")).Id, number: "SCH-2026-001");
-        var monthly = await f.AddScholarAsync((await f.AddTypeAsync("DOST", 8000, frequency: "Monthly")).Id, number: "SCH-2026-002");
-        DateTime mar1 = new(2026, 3, 1), mar31 = new(2026, 3, 31), jan1 = new(2026, 1, 1), jun30 = new(2026, 6, 30);
+        var semester = await f.AddScholarAsync(
+            (await f.AddTypeAsync("TES", 13500, frequency: "Semi-Annual")).Id,
+            number: "SCH-2026-001"
+        );
+        var monthly = await f.AddScholarAsync(
+            (await f.AddTypeAsync("DOST", 8000, frequency: "Monthly")).Id,
+            number: "SCH-2026-002"
+        );
+        DateTime mar1 = new(2026, 3, 1),
+            mar31 = new(2026, 3, 31),
+            jan1 = new(2026, 1, 1),
+            jun30 = new(2026, 6, 30);
 
         // One month: the monthly scholar is due, the semi-annual one is told what period they need.
         var march = await f.Payroll.CandidatesAsync(mar1, mar31, null, null, null);
         Assert.True(march.Single(c => c.Id == monthly.Id).IsEligible);
         var notDue = march.Single(c => c.Id == semester.Id);
         Assert.False(notDue.IsEligible);
-        Assert.Equal(("Semi-Annual", "paid Semi-Annual: needs a 6-month period"), (notDue.Frequency, notDue.CycleProblem));
+        Assert.Equal(
+            ("Semi-Annual", "paid Semi-Annual: needs a 6-month period"),
+            (notDue.Frequency, notDue.CycleProblem)
+        );
         // Six months: the other way round.
         var half = await f.Payroll.CandidatesAsync(jan1, jun30, null, null, null);
         Assert.True(half.Single(c => c.Id == semester.Id).IsEligible);
-        Assert.Equal("paid Monthly: needs a 1-month period", half.Single(c => c.Id == monthly.Id).CycleProblem);
+        Assert.Equal(
+            "paid Monthly: needs a 1-month period",
+            half.Single(c => c.Id == monthly.Id).CycleProblem
+        );
 
         // The server checks again on Process (the page could be out of date) ...
-        var wrong = await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = mar1, PeriodEnd = mar31, Method = "Cash", ScholarIds = [semester.Id] });
+        var wrong = await f.Payroll.ProcessAsync(
+            new PayrollRequestDto
+            {
+                PeriodStart = mar1,
+                PeriodEnd = mar31,
+                Method = "Cash",
+                ScholarIds = [semester.Id],
+            }
+        );
         Assert.Equal((0, 1), (wrong.Processed, wrong.Skipped));
         // ... and the amount is one cycle's stipend, not multiplied by the length of the period.
-        var right = await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = jan1, PeriodEnd = jun30, Method = "Cash", ScholarIds = [semester.Id] });
+        var right = await f.Payroll.ProcessAsync(
+            new PayrollRequestDto
+            {
+                PeriodStart = jan1,
+                PeriodEnd = jun30,
+                Method = "Cash",
+                ScholarIds = [semester.Id],
+            }
+        );
         Assert.Equal((1, 13500m), (right.Processed, right.Total));
     }
 
@@ -329,17 +434,32 @@ public class PayrollServiceTests
         using var f = new Fixture();
         var s = await f.AddScholarAsync((await f.AddTypeAsync()).Id);
         var start = DateTime.Today.AddDays(1);
-        var req = new PayrollRequestDto { PeriodStart = start, PeriodEnd = start.AddMonths(1).AddDays(-1), Method = "Cash", ScholarIds = [s.Id] };
+        var req = new PayrollRequestDto
+        {
+            PeriodStart = start,
+            PeriodEnd = start.AddMonths(1).AddDays(-1),
+            Method = "Cash",
+            ScholarIds = [s.Id],
+        };
 
-        var row = (await f.Payroll.CandidatesAsync(req.PeriodStart, req.PeriodEnd, null, null, null)).Single();
+        var row = (
+            await f.Payroll.CandidatesAsync(req.PeriodStart, req.PeriodEnd, null, null, null)
+        ).Single();
         Assert.False(row.IsEligible);
         Assert.Equal("this period has not started yet", row.CycleProblem);
-        Assert.Contains("has not started", (await Assert.ThrowsAsync<AppException>(() => f.Payroll.PreviewAsync(req))).Message);
-        Assert.Contains("has not started", (await Assert.ThrowsAsync<AppException>(() => f.Payroll.ProcessAsync(req))).Message);
+        Assert.Contains(
+            "has not started",
+            (await Assert.ThrowsAsync<AppException>(() => f.Payroll.PreviewAsync(req))).Message
+        );
+        Assert.Contains(
+            "has not started",
+            (await Assert.ThrowsAsync<AppException>(() => f.Payroll.ProcessAsync(req))).Message
+        );
         Assert.Equal(0, await f.Db.Payments.CountAsync());
 
         // A period that started today is fine.
-        req.PeriodStart = DateTime.Today; req.PeriodEnd = DateTime.Today.AddMonths(1).AddDays(-1);
+        req.PeriodStart = DateTime.Today;
+        req.PeriodEnd = DateTime.Today.AddMonths(1).AddDays(-1);
         Assert.Equal(1, (await f.Payroll.ProcessAsync(req)).Processed);
     }
 
@@ -352,15 +472,34 @@ public class PayrollServiceTests
         var b = await f.AddScholarAsync(t.Id, number: "SCH-2026-002");
 
         var chosen = DateTime.Today.AddDays(10);
-        var r1 = await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = new DateTime(2026, 3, 1), PeriodEnd = new DateTime(2026, 3, 31), Method = "Cash", ScholarIds = [a.Id], ReleaseDate = chosen });
+        var r1 = await f.Payroll.ProcessAsync(
+            new PayrollRequestDto
+            {
+                PeriodStart = new DateTime(2026, 3, 1),
+                PeriodEnd = new DateTime(2026, 3, 31),
+                Method = "Cash",
+                ScholarIds = [a.Id],
+                ReleaseDate = chosen,
+            }
+        );
         var r2 = await f.Payroll.ProcessAsync(Req(b.Id));
         Assert.Equal(chosen, r1.ReleaseDate);
         Assert.Equal(PayrollRules.CalculateReleaseDate(DateTime.Now), r2.ReleaseDate);
-        Assert.Equal(chosen, (await f.Db.Payments.SingleAsync(p => p.ScholarId == a.Id)).ReleaseDate);
+        Assert.Equal(
+            chosen,
+            (await f.Db.Payments.SingleAsync(p => p.ScholarId == a.Id)).ReleaseDate
+        );
 
         // Not in the past, and the preview shows the same date the payment will get.
         var c = await f.AddScholarAsync(t.Id, number: "SCH-2026-003");
-        var past = new PayrollRequestDto { PeriodStart = new DateTime(2026, 3, 1), PeriodEnd = new DateTime(2026, 3, 31), Method = "Cash", ScholarIds = [c.Id], ReleaseDate = DateTime.Today.AddDays(-1) };
+        var past = new PayrollRequestDto
+        {
+            PeriodStart = new DateTime(2026, 3, 1),
+            PeriodEnd = new DateTime(2026, 3, 31),
+            Method = "Cash",
+            ScholarIds = [c.Id],
+            ReleaseDate = DateTime.Today.AddDays(-1),
+        };
         await Assert.ThrowsAsync<AppException>(() => f.Payroll.ProcessAsync(past));
         past.ReleaseDate = DateTime.Today.AddDays(4);
         Assert.Equal(DateTime.Today.AddDays(4), (await f.Payroll.PreviewAsync(past)).ReleaseDate);
@@ -373,21 +512,34 @@ public class PayrollServiceTests
         var s = await f.AddScholarAsync((await f.AddTypeAsync()).Id);
         await f.Payroll.ProcessAsync(Req(s.Id));
         var pay = await f.Db.Payments.SingleAsync();
-        pay.ReleaseDate = DateTime.Today.AddDays(-1); await f.Db.SaveChangesAsync();
+        pay.ReleaseDate = DateTime.Today.AddDays(-1);
+        await f.Db.SaveChangesAsync();
         Assert.Single(await f.Payroll.ReadyForReleaseAsync()); // due, but the funds are not ready ...
 
         var moved = await f.Payroll.RescheduleAsync(pay.Id, DateTime.Today.AddDays(2)); // ... so the admin moves the date
         Assert.Equal(DateTime.Today.AddDays(2), moved.ReleaseDate);
         Assert.Empty(await f.Payroll.ReadyForReleaseAsync());
         await Assert.ThrowsAsync<AppException>(() => f.Payroll.ReleaseAsync(null));
-        var note = await f.Db.Notifications.SingleAsync(n => n.Title == "Payment Release Date Changed");
+        var note = await f.Db.Notifications.SingleAsync(n =>
+            n.Title == "Payment Release Date Changed"
+        );
         Assert.Equal(s.Id, note.RecipientId);
         Assert.Contains($"{DateTime.Today.AddDays(2):MMM dd, yyyy}", note.Message);
 
-        await Assert.ThrowsAsync<AppException>(() => f.Payroll.RescheduleAsync(pay.Id, DateTime.Today.AddDays(-1))); // not in the past
-        pay.ReleaseDate = DateTime.Today; await f.Db.SaveChangesAsync();
+        await Assert.ThrowsAsync<AppException>(() =>
+            f.Payroll.RescheduleAsync(pay.Id, DateTime.Today.AddDays(-1))
+        ); // not in the past
+        pay.ReleaseDate = DateTime.Today;
+        await f.Db.SaveChangesAsync();
         await f.Payroll.ReleaseAsync(null);
-        Assert.Equal(409, (await Assert.ThrowsAsync<AppException>(() => f.Payroll.RescheduleAsync(pay.Id, DateTime.Today.AddDays(3)))).StatusCode); // released: fixed
+        Assert.Equal(
+            409,
+            (
+                await Assert.ThrowsAsync<AppException>(() =>
+                    f.Payroll.RescheduleAsync(pay.Id, DateTime.Today.AddDays(3))
+                )
+            ).StatusCode
+        ); // released: fixed
     }
 
     [Fact]
@@ -397,7 +549,8 @@ public class PayrollServiceTests
         var s = await f.AddScholarAsync((await f.AddTypeAsync()).Id);
         await f.Payroll.ProcessAsync(Req(s.Id));
         var pay = await f.Db.Payments.SingleAsync();
-        pay.ReleaseDate = DateTime.Today; await f.Db.SaveChangesAsync();
+        pay.ReleaseDate = DateTime.Today;
+        await f.Db.SaveChangesAsync();
         await f.Payroll.ReleaseAsync([pay.Id]);
 
         var again = await Assert.ThrowsAsync<AppException>(() => f.Payroll.ReleaseAsync([pay.Id]));
@@ -405,7 +558,13 @@ public class PayrollServiceTests
         Assert.Contains("already released", again.Message);
         // The same stipend cannot be paid again, not even with a period that only partly overlaps it.
         Assert.Equal(0, (await f.Payroll.ProcessAsync(Req(s.Id))).Processed);
-        var overlapping = await f.Payroll.CandidatesAsync(new DateTime(2026, 3, 16), new DateTime(2026, 4, 15), null, null, null);
+        var overlapping = await f.Payroll.CandidatesAsync(
+            new DateTime(2026, 3, 16),
+            new DateTime(2026, 4, 15),
+            null,
+            null,
+            null
+        );
         Assert.Equal("Already Paid", overlapping.Single().PaymentStatus);
         Assert.Equal(1, await f.Db.Payments.CountAsync());
     }
@@ -415,11 +574,19 @@ public class PayrollServiceTests
     {
         using var f = new Fixture();
         var t = await f.AddTypeAsync("TES", 13500, frequency: "Semi-Annual");
-        var created = await f.Scholars.CreateAsync(new ScholarSaveDto
-        {
-            FirstName = "Ana", LastName = "Lim", Email = "ana@x.ph", Course = "Bachelor of Science in Criminology", YearLevel = "1st Year",
-            ScholarshipTypeId = t.Id, StipendAmount = 99, StipendFrequency = "Monthly" // typed by mistake: ignored for an existing type
-        });
+        var created = await f.Scholars.CreateAsync(
+            new ScholarSaveDto
+            {
+                FirstName = "Ana",
+                LastName = "Lim",
+                Email = "ana@x.ph",
+                Course = "Bachelor of Science in Criminology",
+                YearLevel = "1st Year",
+                ScholarshipTypeId = t.Id,
+                StipendAmount = 99,
+                StipendFrequency = "Monthly", // typed by mistake: ignored for an existing type
+            }
+        );
         var s = await f.Db.Scholars.SingleAsync(x => x.Id == created.Id);
         Assert.Equal((13500m, "Semi-Annual"), (s.StipendAmount, s.StipendFrequency));
         var detail = await f.Scholars.GetAsync(created.Id);
@@ -440,7 +607,13 @@ public class ReportAndCsvTests
     [Fact]
     public void Csv_escapes_commas_quotes_and_formula_injection()
     {
-        var bytes = Csv.Write(["A", "B"], [["x,y", "say \"hi\""], ["=cmd()", "5"]]);
+        var bytes = Csv.Write(
+            ["A", "B"],
+            [
+                ["x,y", "say \"hi\""],
+                ["=cmd()", "5"],
+            ]
+        );
         var text = System.Text.Encoding.UTF8.GetString(bytes).TrimStart('﻿');
         Assert.Contains("\"x,y\",\"say \"\"hi\"\"\"", text);
         Assert.Contains("'=cmd()", text);
@@ -465,11 +638,31 @@ public class ReportAndCsvTests
         using var f = new Fixture();
         var t = await f.AddTypeAsync();
         var s = await f.AddScholarAsync(t.Id);
-        f.Db.Payments.Add(new Payment { ScholarId = s.Id, PaymentPeriod = "March 2026", Amount = 1500, Status = "Released", ReleaseDate = DateTime.Today });
-        f.Db.Payments.Add(new Payment { ScholarId = s.Id, PaymentPeriod = "April 2026", Amount = 900, Status = "Processed" });
+        f.Db.Payments.Add(
+            new Payment
+            {
+                ScholarId = s.Id,
+                PaymentPeriod = "March 2026",
+                Amount = 1500,
+                Status = "Released",
+                ReleaseDate = DateTime.Today,
+            }
+        );
+        f.Db.Payments.Add(
+            new Payment
+            {
+                ScholarId = s.Id,
+                PaymentPeriod = "April 2026",
+                Amount = 900,
+                Status = "Processed",
+            }
+        );
         await f.Db.SaveChangesAsync();
         var d = await new DashboardService(f.Db).StatsAsync();
-        Assert.Equal((1, 1, 1500m, 1), (d.TotalScholars, d.ActiveScholarships, d.TotalDisbursed, d.PendingPayments));
+        Assert.Equal(
+            (1, 1, 1500m, 1),
+            (d.TotalScholars, d.ActiveScholarships, d.TotalDisbursed, d.PendingPayments)
+        );
     }
 }
 
@@ -480,20 +673,50 @@ public class SignUpAndPeriodTests
     {
         using var f = new Fixture();
         var t = await f.AddTypeAsync();
-        var created = await f.Scholars.CreateAsync(new ScholarSaveDto
-        {
-            FirstName = "Ana", LastName = "Lim", Email = "ana@x.ph", Course = "Bachelor of Science in Criminology", YearLevel = "1st Year", ScholarshipTypeId = t.Id
-        });
+        var created = await f.Scholars.CreateAsync(
+            new ScholarSaveDto
+            {
+                FirstName = "Ana",
+                LastName = "Lim",
+                Email = "ana@x.ph",
+                Course = "Bachelor of Science in Criminology",
+                YearLevel = "1st Year",
+                ScholarshipTypeId = t.Id,
+            }
+        );
         // Pending accounts cannot log in yet.
-        await Assert.ThrowsAsync<AppException>(() => f.Auth.LoginAsync(created.StudentId, "anything1"));
+        await Assert.ThrowsAsync<AppException>(() =>
+            f.Auth.LoginAsync(created.StudentId, "anything1")
+        );
         // Wrong Student ID / email -> not found.
-        Assert.Equal(404, (await Assert.ThrowsAsync<AppException>(() => f.Auth.SignUpAsync(created.ScholarNumber, "nope@x.ph", "Scholar2026"))).StatusCode);
+        Assert.Equal(
+            404,
+            (
+                await Assert.ThrowsAsync<AppException>(() =>
+                    f.Auth.SignUpAsync(created.ScholarNumber, "nope@x.ph", "Scholar2026")
+                )
+            ).StatusCode
+        );
 
-        var r = await f.Auth.SignUpAsync(created.ScholarNumber.ToLowerInvariant(), created.StudentId, "Scholar2026");
+        var r = await f.Auth.SignUpAsync(
+            created.ScholarNumber.ToLowerInvariant(),
+            created.StudentId,
+            "Scholar2026"
+        );
         Assert.Equal("Active", r.User.AccountStatus);
-        Assert.Equal(created.Id, (await f.Auth.LoginAsync(created.StudentId, "Scholar2026")).Scholar!.Id);
+        Assert.Equal(
+            created.Id,
+            (await f.Auth.LoginAsync(created.StudentId, "Scholar2026")).Scholar!.Id
+        );
         // A second sign-up for the same scholar is refused.
-        Assert.Equal(409, (await Assert.ThrowsAsync<AppException>(() => f.Auth.SignUpAsync(created.ScholarNumber, "ana@x.ph", "Other2026"))).StatusCode);
+        Assert.Equal(
+            409,
+            (
+                await Assert.ThrowsAsync<AppException>(() =>
+                    f.Auth.SignUpAsync(created.ScholarNumber, "ana@x.ph", "Other2026")
+                )
+            ).StatusCode
+        );
     }
 
     [Fact]
@@ -512,23 +735,78 @@ public class SignUpAndPeriodTests
         using var f = new Fixture();
         var s = await f.AddScholarAsync((await f.AddTypeAsync()).Id);
         // An old payment that only has a month label.
-        f.Db.Payments.Add(new Payment { ScholarId = s.Id, PaymentPeriod = "March 2026", Amount = 5000, Status = "Released" });
+        f.Db.Payments.Add(
+            new Payment
+            {
+                ScholarId = s.Id,
+                PaymentPeriod = "March 2026",
+                Amount = 5000,
+                Status = "Released",
+            }
+        );
         await f.Db.SaveChangesAsync();
 
         // A one-month period that starts mid-March still overlaps March; April does not.
-        var overlapsMarch = await f.Payroll.CandidatesAsync(new DateTime(2026, 3, 16), new DateTime(2026, 4, 15), null, null, null);
+        var overlapsMarch = await f.Payroll.CandidatesAsync(
+            new DateTime(2026, 3, 16),
+            new DateTime(2026, 4, 15),
+            null,
+            null,
+            null
+        );
         Assert.False(overlapsMarch.Single().IsEligible);
         Assert.Equal("Already Paid", overlapsMarch.Single().PaymentStatus);
-        var april = await f.Payroll.CandidatesAsync(new DateTime(2026, 4, 1), new DateTime(2026, 4, 30), null, null, null);
+        var april = await f.Payroll.CandidatesAsync(
+            new DateTime(2026, 4, 1),
+            new DateTime(2026, 4, 30),
+            null,
+            null,
+            null
+        );
         Assert.True(april.Single().IsEligible);
 
-        var result = await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = new DateTime(2026, 4, 1), PeriodEnd = new DateTime(2026, 4, 30), Method = "Cash", ScholarIds = [s.Id] });
+        var result = await f.Payroll.ProcessAsync(
+            new PayrollRequestDto
+            {
+                PeriodStart = new DateTime(2026, 4, 1),
+                PeriodEnd = new DateTime(2026, 4, 30),
+                Method = "Cash",
+                ScholarIds = [s.Id],
+            }
+        );
         Assert.Equal("April 2026", result.Period);
         var p = await f.Db.Payments.SingleAsync(x => x.PaymentPeriod == result.Period);
-        Assert.Equal((new DateTime(2026, 4, 1), new DateTime(2026, 4, 30)), (p.PeriodStart, p.PeriodEnd));
+        Assert.Equal(
+            (new DateTime(2026, 4, 1), new DateTime(2026, 4, 30)),
+            (p.PeriodStart, p.PeriodEnd)
+        );
         // A month that starts mid-April overlaps April; the next whole month does not.
-        Assert.False((await f.Payroll.CandidatesAsync(new DateTime(2026, 4, 16), new DateTime(2026, 5, 15), null, null, null)).Single().IsEligible);
-        Assert.True((await f.Payroll.CandidatesAsync(new DateTime(2026, 5, 1), new DateTime(2026, 5, 31), null, null, null)).Single().IsEligible);
+        Assert.False(
+            (
+                await f.Payroll.CandidatesAsync(
+                    new DateTime(2026, 4, 16),
+                    new DateTime(2026, 5, 15),
+                    null,
+                    null,
+                    null
+                )
+            )
+                .Single()
+                .IsEligible
+        );
+        Assert.True(
+            (
+                await f.Payroll.CandidatesAsync(
+                    new DateTime(2026, 5, 1),
+                    new DateTime(2026, 5, 31),
+                    null,
+                    null,
+                    null
+                )
+            )
+                .Single()
+                .IsEligible
+        );
     }
 
     [Fact]
@@ -544,7 +822,13 @@ public class SignUpAndPeriodTests
     [Fact]
     public void Word_export_is_a_valid_docx_package()
     {
-        var bytes = Docx.Table("Test <Report> & more", ["A", "B"], [["1", "x & y"]]);
+        var bytes = Docx.Table(
+            "Test <Report> & more",
+            ["A", "B"],
+            [
+                ["1", "x & y"],
+            ]
+        );
         using var zip = new System.IO.Compression.ZipArchive(new MemoryStream(bytes));
         Assert.NotNull(zip.GetEntry("[Content_Types].xml"));
         using var doc = new StreamReader(zip.GetEntry("word/document.xml")!.Open());
@@ -552,7 +836,6 @@ public class SignUpAndPeriodTests
         Assert.Contains("Test <Report> & more", xml.Root!.Value);
     }
 }
-
 
 public class ScholarImportTests
 {
@@ -562,51 +845,170 @@ public class ScholarImportTests
         var strings = new List<string>();
         string Cell(string col, int row, string v)
         {
-            if (double.TryParse(v, out _) && !v.Contains('-') && !v.Contains('/')) return $"<c r=\"{col}{row}\"><v>{v}</v></c>";
-            strings.Add(v); return $"<c r=\"{col}{row}\" t=\"s\"><v>{strings.Count - 1}</v></c>";
+            if (double.TryParse(v, out _) && !v.Contains('-') && !v.Contains('/'))
+                return $"<c r=\"{col}{row}\"><v>{v}</v></c>";
+            strings.Add(v);
+            return $"<c r=\"{col}{row}\" t=\"s\"><v>{strings.Count - 1}</v></c>";
         }
         var sb = new System.Text.StringBuilder();
         var all = new[] { header }.Concat(rows).ToArray();
         for (var r = 0; r < all.Length; r++)
-            sb.Append($"<row r=\"{r + 1}\">" + string.Concat(all[r].Select((v, c) => v == "" ? "" : Cell(((char)('A' + c)).ToString(), r + 1, v))) + "</row>");
+            sb.Append(
+                $"<row r=\"{r + 1}\">"
+                    + string.Concat(
+                        all[r]
+                            .Select(
+                                (v, c) =>
+                                    v == "" ? "" : Cell(((char)('A' + c)).ToString(), r + 1, v)
+                            )
+                    )
+                    + "</row>"
+            );
         var ms = new MemoryStream();
-        using (var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, true))
+        using (
+            var zip = new System.IO.Compression.ZipArchive(
+                ms,
+                System.IO.Compression.ZipArchiveMode.Create,
+                true
+            )
+        )
         {
-            void Add(string n, string x) { using var w = new StreamWriter(zip.CreateEntry(n).Open()); w.Write(x); }
-            Add("xl/workbook.xml", "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"S\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>");
-            Add("xl/_rels/workbook.xml.rels", "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Target=\"worksheets/sheet1.xml\"/></Relationships>");
-            Add("xl/sharedStrings.xml", "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" + string.Concat(strings.Select(s => $"<si><t>{System.Security.SecurityElement.Escape(s)}</t></si>")) + "</sst>");
-            Add("xl/worksheets/sheet1.xml", "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>" + sb + "</sheetData></worksheet>");
+            void Add(string n, string x)
+            {
+                using var w = new StreamWriter(zip.CreateEntry(n).Open());
+                w.Write(x);
+            }
+            Add(
+                "xl/workbook.xml",
+                "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"S\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>"
+            );
+            Add(
+                "xl/_rels/workbook.xml.rels",
+                "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Target=\"worksheets/sheet1.xml\"/></Relationships>"
+            );
+            Add(
+                "xl/sharedStrings.xml",
+                "<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">"
+                    + string.Concat(
+                        strings.Select(s =>
+                            $"<si><t>{System.Security.SecurityElement.Escape(s)}</t></si>"
+                        )
+                    )
+                    + "</sst>"
+            );
+            Add(
+                "xl/worksheets/sheet1.xml",
+                "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>"
+                    + sb
+                    + "</sheetData></worksheet>"
+            );
         }
-        ms.Position = 0; return ms;
+        ms.Position = 0;
+        return ms;
     }
 
-    private static readonly string[] Header = ["SEQ.", "AWARD NUMBER", "LAST NAME", "FIRST NAME", "EXTENSION NAME", "MIDDLE NAME", "COURSE", "YEAR LEVEL", "SEX", "BIRTH DATE (YYYY/MM/DD)", "EMAIL ADDRESS", "CONTACT NUMBER", "STATUS", "REMARKS", "BILLED AMOUNT"];
-    private static string[] Row(string seq, string last, string first, string ext, string email, string status = "ACTIVE")
-        => [seq, "TES-" + seq, last, first, ext, "DE VERA", "BACHELOR OF SCIENCE MAJOR IN CRIMINOLOGY", "2nd Year", "Male", "2003/08/06", email, "9913730753", status, "", "13500"];
+    private static readonly string[] Header =
+    [
+        "SEQ.",
+        "AWARD NUMBER",
+        "LAST NAME",
+        "FIRST NAME",
+        "EXTENSION NAME",
+        "MIDDLE NAME",
+        "COURSE",
+        "YEAR LEVEL",
+        "SEX",
+        "BIRTH DATE (YYYY/MM/DD)",
+        "EMAIL ADDRESS",
+        "CONTACT NUMBER",
+        "STATUS",
+        "REMARKS",
+        "BILLED AMOUNT",
+    ];
+
+    private static string[] Row(
+        string seq,
+        string last,
+        string first,
+        string ext,
+        string email,
+        string status = "ACTIVE"
+    ) =>
+        [
+            seq,
+            "TES-" + seq,
+            last,
+            first,
+            ext,
+            "DE VERA",
+            "BACHELOR OF SCIENCE MAJOR IN CRIMINOLOGY",
+            "2nd Year",
+            "Male",
+            "2003/08/06",
+            email,
+            "9913730753",
+            status,
+            "",
+            "13500",
+        ];
 
     [Fact]
     public async Task Imports_cleans_names_phone_course_and_marks_inactive_but_skips_existing_on_rerun()
     {
         using var f = new Fixture();
-        var rows = ScholarImporter.ParseRows(XlsxReader.ReadFirstSheet(Xlsx(Header, [
-            Row("1", "ABILAY", "FRANK AUGUSTIN", "JR.", "Frank@X.ph"),
-            Row("2", "SANTOS", "ANA", "NONE", "ana@x.ph", "Not enrolled with LOA")])));
-        var r = await ScholarImporter.ImportAsync(f.Db, f.Passwords, rows, purgeSeed: false, year: 2026);
+        var rows = ScholarImporter.ParseRows(
+            XlsxReader.ReadFirstSheet(
+                Xlsx(
+                    Header,
+                    [
+                        Row("1", "ABILAY", "FRANK AUGUSTIN", "JR.", "Frank@X.ph"),
+                        Row("2", "SANTOS", "ANA", "NONE", "ana@x.ph", "Not enrolled with LOA"),
+                    ]
+                )
+            )
+        );
+        var r = await ScholarImporter.ImportAsync(
+            f.Db,
+            f.Passwords,
+            rows,
+            purgeSeed: false,
+            year: 2026
+        );
 
         Assert.Equal((2, 0, 1), (r.Created, r.Skipped, r.Inactive));
-        var a = await f.Db.Scholars.Include(s => s.User).SingleAsync(s => s.ScholarNumber == "SCH-2026-001");
-        Assert.Equal(("Frank Augustin", "Abilay Jr.", "frank@x.ph", "09913730753"), (a.FirstName, a.LastName, a.Email, a.ContactNumber));
+        var a = await f
+            .Db.Scholars.Include(s => s.User)
+            .SingleAsync(s => s.ScholarNumber == "SCH-2026-001");
+        Assert.Equal(
+            ("Frank Augustin", "Abilay Jr.", "frank@x.ph", "09913730753"),
+            (a.FirstName, a.LastName, a.Email, a.ContactNumber)
+        );
         Assert.Equal("Bachelor of Science in Criminology", a.Course);
         Assert.Equal("Pending", a.User!.AccountStatus);
         Assert.Equal(13500, (await f.Db.ScholarshipTypes.SingleAsync()).StipendAmount);
-        Assert.Equal("Inactive", (await f.Db.Scholars.SingleAsync(s => s.Email == "ana@x.ph")).Status);
+        Assert.Equal(
+            "Inactive",
+            (await f.Db.Scholars.SingleAsync(s => s.Email == "ana@x.ph")).Status
+        );
         Assert.Equal(10, await f.Db.ComplianceRecords.CountAsync());
         Assert.Empty(f.Email.Sent); // no emails during an import
 
         // Running it again adds nobody; the new scholar can sign up with Scholar ID + email.
-        Assert.Equal((0, 2), ((await ScholarImporter.ImportAsync(f.Db, f.Passwords, rows, false, 2026)) is var again ? (again.Created, again.Skipped) : default));
-        Assert.Equal("Active", (await f.Auth.SignUpAsync("SCH-2026-001", "frank@x.ph", "Scholar2026")).User.AccountStatus);
+        Assert.Equal(
+            (0, 2),
+            (
+                (await ScholarImporter.ImportAsync(f.Db, f.Passwords, rows, false, 2026))
+                    is var again
+                    ? (again.Created, again.Skipped)
+                    : default
+            )
+        );
+        Assert.Equal(
+            "Active",
+            (await f.Auth.SignUpAsync("SCH-2026-001", "frank@x.ph", "Scholar2026"))
+                .User
+                .AccountStatus
+        );
     }
 
     [Fact]

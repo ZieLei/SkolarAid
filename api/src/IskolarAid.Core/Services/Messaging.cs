@@ -23,20 +23,38 @@ public class SmtpOptions
     public string FromAddress { get; set; } = "";
     public string FromName { get; set; } = "Legacy College of Compostela - IskolarAid";
     public string LoginUrl { get; set; } = "http://localhost:4200/login";
+
     // The sign-up page sits next to the login page: ".../login" -> ".../signup".
-    public string SignUpUrl => LoginUrl.EndsWith("/login") ? LoginUrl[..^"/login".Length] + "/signup" : LoginUrl.TrimEnd('/') + "/signup";
-    public bool Enabled => !string.IsNullOrWhiteSpace(Host) && !string.IsNullOrWhiteSpace(FromAddress);
+    public string SignUpUrl =>
+        LoginUrl.EndsWith("/login")
+            ? LoginUrl[..^"/login".Length] + "/signup"
+            : LoginUrl.TrimEnd('/') + "/signup";
+    public bool Enabled =>
+        !string.IsNullOrWhiteSpace(Host) && !string.IsNullOrWhiteSpace(FromAddress);
 }
 
 public interface IEmailSender
 {
-    Task<bool> SendAsync(string toAddress, string toName, string subject, string htmlBody, CancellationToken ct = default);
+    Task<bool> SendAsync(
+        string toAddress,
+        string toName,
+        string subject,
+        string htmlBody,
+        CancellationToken ct = default
+    );
 }
 
 /// <summary>SMTP sender. Credentials come only from configuration; with no host configured it logs and returns false.</summary>
-public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSender> log) : IEmailSender
+public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSender> log)
+    : IEmailSender
 {
-    public async Task<bool> SendAsync(string toAddress, string toName, string subject, string htmlBody, CancellationToken ct = default)
+    public async Task<bool> SendAsync(
+        string toAddress,
+        string toName,
+        string subject,
+        string htmlBody,
+        CancellationToken ct = default
+    )
     {
         var o = options.Value;
         if (!o.Enabled || string.IsNullOrWhiteSpace(toAddress))
@@ -55,7 +73,8 @@ public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSen
             using var client = new SmtpClient();
             await client.ConnectAsync(o.Host, o.Port, TlsMode(o), ct); // connect to SMTP_HOST:SMTP_PORT (.env)
             // log in with SMTP_USER / SMTP_PASSWORD (.env) - this is where "uses my account" happens.
-            if (!string.IsNullOrEmpty(o.User)) await client.AuthenticateAsync(o.User, o.Password, ct);
+            if (!string.IsNullOrEmpty(o.User))
+                await client.AuthenticateAsync(o.User, o.Password, ct);
             await client.SendAsync(msg, ct); // <-- the actual hand-over of the email to the SMTP server (Gmail when .env has SMTP_HOST=smtp.gmail.com)
             await client.DisconnectAsync(true, ct);
             return true;
@@ -85,7 +104,8 @@ public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSen
 // E() HTML-encodes user text so names cannot inject HTML into the email.
 public static class MessageTemplates
 {
-    private static string Wrap(string title, string inner) => $@"<!DOCTYPE html><html><body style=""font-family:'Century Gothic',Arial,sans-serif;background:#f4f6f8;padding:20px"">
+    private static string Wrap(string title, string inner) =>
+        $@"<!DOCTYPE html><html><body style=""font-family:'Century Gothic',Arial,sans-serif;background:#f4f6f8;padding:20px"">
 <div style=""max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,.1)"">
 <div style=""background:linear-gradient(135deg,#00444F,#006875);padding:28px;text-align:center;color:#fff""><h1 style=""margin:0;font-size:22px"">{System.Net.WebUtility.HtmlEncode(title)}</h1></div>
 <div style=""padding:28px;color:#333;line-height:1.5"">{inner}</div>
@@ -95,23 +115,64 @@ public static class MessageTemplates
 
     // Sent when an admin adds a scholar. The scholar then
     // signs up on the website with their Scholar ID and chooses their own password.
-    public static (string subject, string body) SignUpInvite(string fullName, string scholarNumber, string studentId, string signUpUrl)
-        => ($"IskolarAid - Activate your scholar account - {fullName}", Wrap("Welcome to IskolarAid!",
-            $@"<p>Dear <b>{E(fullName)}</b>,</p><p>The Scholarship Office has added you to IskolarAid.</p>
+    public static (string subject, string body) SignUpInvite(
+        string fullName,
+        string scholarNumber,
+        string studentId,
+        string signUpUrl
+    ) =>
+        (
+            $"IskolarAid - Activate your scholar account - {fullName}",
+            Wrap(
+                "Welcome to IskolarAid!",
+                $@"<p>Dear <b>{E(fullName)}</b>,</p><p>The Scholarship Office has added you to IskolarAid.</p>
 <p><b>Your Scholar ID:</b> {E(scholarNumber)}<br/><b>Your Student ID (username):</b> {E(studentId)}</p>
-<p>To start, open <a href=""{E(signUpUrl)}"">{E(signUpUrl)}</a>, enter your Scholar ID and your Student ID or this email address, then choose your password.</p>"));
+<p>To start, open <a href=""{E(signUpUrl)}"">{E(signUpUrl)}</a>, enter your Scholar ID and your Student ID or this email address, then choose your password.</p>"
+            )
+        );
 
-    public static (string subject, string body) PaymentProcessed(string name, string period, decimal amount, string method, string scholarNumber, string reference, DateTime releaseDate)
-        => ($"IskolarAid - Stipend Processed ({period})", Wrap("Stipend Processed",
-            $@"<p>Dear <b>{E(name)}</b> ({E(scholarNumber)}),</p><p>Your stipend for <b>{E(period)}</b> has been processed.</p>
-<p><b>Amount:</b> ₱{amount:N2}<br/><b>Method:</b> {E(method)}<br/><b>Reference:</b> {E(reference)}<br/><b>Expected release:</b> {releaseDate:MMM dd, yyyy}</p>"));
+    public static (string subject, string body) PaymentProcessed(
+        string name,
+        string period,
+        decimal amount,
+        string method,
+        string scholarNumber,
+        string reference,
+        DateTime releaseDate
+    ) =>
+        (
+            $"IskolarAid - Stipend Processed ({period})",
+            Wrap(
+                "Stipend Processed",
+                $@"<p>Dear <b>{E(name)}</b> ({E(scholarNumber)}),</p><p>Your stipend for <b>{E(period)}</b> has been processed.</p>
+<p><b>Amount:</b> ₱{amount:N2}<br/><b>Method:</b> {E(method)}<br/><b>Reference:</b> {E(reference)}<br/><b>Expected release:</b> {releaseDate:MMM dd, yyyy}</p>"
+            )
+        );
 
-    public static (string subject, string body) PaymentReleased(string name, string period, decimal amount, string method, string reference)
-        => ($"IskolarAid - Stipend Released ({period})", Wrap("Payment Released!",
-            $@"<p>Dear <b>{E(name)}</b>,</p><p>Your stipend for <b>{E(period)}</b> has been <b>released</b>.</p>
-<p><b>Amount:</b> ₱{amount:N2}<br/><b>Method:</b> {E(method)}<br/><b>Reference:</b> {E(reference)}</p><p>Funds should reflect within 1-3 business days.</p>"));
+    public static (string subject, string body) PaymentReleased(
+        string name,
+        string period,
+        decimal amount,
+        string method,
+        string reference
+    ) =>
+        (
+            $"IskolarAid - Stipend Released ({period})",
+            Wrap(
+                "Payment Released!",
+                $@"<p>Dear <b>{E(name)}</b>,</p><p>Your stipend for <b>{E(period)}</b> has been <b>released</b>.</p>
+<p><b>Amount:</b> ₱{amount:N2}<br/><b>Method:</b> {E(method)}<br/><b>Reference:</b> {E(reference)}</p><p>Funds should reflect within 1-3 business days.</p>"
+            )
+        );
 
     // [TRACE] the email for Admin > Notifications (called by NotificationService.ComposeAsync).
-    public static (string subject, string body) Notification(string name, string title, string message)
-        => ($"IskolarAid - {title}", Wrap(title, $"<p>Dear <b>{E(name)}</b>,</p><p>{E(message).Replace("\n", "<br/>")}</p>"));
+    public static (string subject, string body) Notification(
+        string name,
+        string title,
+        string message
+    ) =>
+        (
+            $"IskolarAid - {title}",
+            Wrap(title, $"<p>Dear <b>{E(name)}</b>,</p><p>{E(message).Replace("\n", "<br/>")}</p>")
+        );
 }
