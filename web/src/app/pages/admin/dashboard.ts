@@ -1,3 +1,11 @@
+// =====================================================================
+// dashboard.ts - admin home page (/admin/dashboard).
+// Shows 4 number cards, recent activity, upcoming payments, a pie chart
+// (scholars per scholarship) and a line chart (money paid per month).
+//
+// Data: 5 calls to /api/admin/dashboard/... (DashboardController -> DashboardService).
+// Live: reloads when payments, registrations or compliance change.
+// =====================================================================
 import { Component, ElementRef, OnDestroy, OnInit, inject, signal, viewChild } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { Chart } from 'chart.js';
@@ -61,6 +69,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   auth = inject(AuthService);
   private api = inject(Api);
   private dlg = inject(DialogService);
+  // The <canvas> elements in the template where the charts are drawn.
   private pieEl = viewChild<ElementRef<HTMLCanvasElement>>('pie');
   private lineEl = viewChild<ElementRef<HTMLCanvasElement>>('line');
   private charts: Chart[] = [];
@@ -72,13 +81,16 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   color = statusColor;
   rel = relativeTime;
 
+  // Reload this page when the server says something changed (core/realtime.ts).
   constructor() {
     const rt = inject(RealtimeService);
     reloadOn([rt.paymentsChanged$, rt.registrationReviewed$, rt.complianceChanged$], () => this.load());
   }
 
+  // Load the data once when the page opens.
   ngOnInit(): void { void this.load(); }
 
+  // Ask for all 5 pieces of data at the same time, then fill the page.
   async load(): Promise<void> {
     try {
       const [s, r, u, d, m] = await Promise.all([
@@ -96,6 +108,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
         { label: 'Pending Payments', value: String(s.pendingPayments), icon: 'wall-clock', danger: true, tone: 'pending', hint: 'Processed, not yet released' },
       ]);
       this.recent.set(r); this.upcoming.set(u);
+      // Wait one tick so the <canvas> exists, remove old charts, then draw new ones.
       setTimeout(async () => {
         this.charts.forEach((c) => c.destroy()); this.charts = [];
         const pe = this.pieEl()?.nativeElement, le = this.lineEl()?.nativeElement;
@@ -105,5 +118,6 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     } catch (e) { void this.dlg.error(errorMessage(e), 'Dashboard'); }
   }
 
+  // Free the charts when leaving the page.
   ngOnDestroy(): void { this.charts.forEach((c) => c.destroy()); }
 }

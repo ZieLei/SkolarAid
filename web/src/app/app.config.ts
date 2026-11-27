@@ -1,3 +1,9 @@
+// =====================================================================
+// app.config.ts - app-wide setup:
+// - the router (URL -> page), using app.routes.ts
+// - HttpClient with two "interceptors" (core/http.ts) that run on EVERY
+// API call: one logs it in dev, one adds the login token.
+// =====================================================================
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter, withComponentInputBinding } from '@angular/router';

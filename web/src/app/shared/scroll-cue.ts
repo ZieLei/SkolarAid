@@ -1,3 +1,7 @@
+// =====================================================================
+// scroll-cue.ts - add the "scrollCue" attribute to a scroll box and it
+// shows a shadow when there is more content to scroll to.
+// =====================================================================
 import { Directive, ElementRef, OnDestroy, OnInit, inject } from '@angular/core';
 
 /**

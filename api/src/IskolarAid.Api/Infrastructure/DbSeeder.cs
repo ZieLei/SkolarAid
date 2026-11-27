@@ -1,3 +1,13 @@
+// =====================================================================
+// DbSeeder.cs - puts starting data into the database when the API starts.
+// Called once from Program.cs. Each part is controlled by a setting:
+// Seed__AdminUsername/Password -> first admin account (only if no admin exists)
+// Seed__DemoLogins             -> demo admin "Adachi" and demo scholar "Shimamura"
+// Seed__HistoricalData         -> two years of fake history (HistorySeeder + SampleDocuments)
+// Seed__SampleData             -> three example scholarship types (only if none exist)
+// (always)                     -> common Philippine scholarships (ScholarshipCatalog), missing ones only
+// Safe to run many times: it checks before adding.
+// =====================================================================
 using Microsoft.EntityFrameworkCore;
 using IskolarAid.Core.Services;
 using IskolarAid.Data;
@@ -13,6 +23,7 @@ public static class DbSeeder
         var db = sp.GetRequiredService<IskolarDbContext>();
         var passwords = sp.GetRequiredService<PasswordService>();
 
+        // 1. First admin account.
         var adminUser = config["Seed:AdminUsername"];
         var adminPass = config["Seed:AdminPassword"];
         if (!string.IsNullOrWhiteSpace(adminUser) && !string.IsNullOrWhiteSpace(adminPass))
@@ -33,18 +44,21 @@ public static class DbSeeder
             log.LogWarning("No admin user exists. Set Seed__AdminUsername and Seed__AdminPassword to create one.");
         }
 
+        // 2. Demo logins for local development.
         if (config.GetValue<bool>("Seed:DemoLogins"))
         {
             await UpsertDemoAsync(db, passwords, Roles.Admin, "Adachi", "adachi123", "Adachi", log);
             await UpsertDemoAsync(db, passwords, Roles.Scholar, "Shimamura", "shimamura123", "Shimamura", log);
         }
 
+        // 3. Fake history so charts and tables have something to show.
         if (config.GetValue<bool>("Seed:HistoricalData"))
         {
             await HistorySeeder.SeedAsync(sp, log);
             await SampleDocuments.AttachAsync(db, log);
         }
 
+        // 4. Example scholarship types.
         if (config.GetValue<bool>("Seed:SampleData") && !await db.ScholarshipTypes.AnyAsync())
         {
             db.ScholarshipTypes.AddRange(
@@ -54,11 +68,16 @@ public static class DbSeeder
             await db.SaveChangesAsync();
             log.LogInformation("Seeded sample scholarship types");
         }
+
+        // 5. Common Philippine scholarships (always; only missing ones are added).
+        var catalog = await ScholarshipTypeService.EnsureCatalogAsync(db);
+        if (catalog > 0) log.LogInformation("Added {Count} scholarship types from the catalog", catalog);
     }
 
     /// <summary>Local-dev convenience logins. Re-applies the password on every start so they always work.</summary>
     private static async Task UpsertDemoAsync(IskolarDbContext db, PasswordService passwords, string role, string username, string password, string name, ILogger log)
     {
+        // Find the user, or create it if missing. Then reset the password so the demo login always works.
         var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
         if (user is null)
         {
@@ -70,6 +89,7 @@ public static class DbSeeder
         user.AccountStatus = "Active";
         await db.SaveChangesAsync();
 
+        // A scholar login also needs a matching Scholar profile row.
         if (role == Roles.Scholar && !await db.Scholars.AnyAsync(s => s.UserId == user.Id))
         {
             db.Scholars.Add(new Scholar

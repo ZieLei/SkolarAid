@@ -1,3 +1,7 @@
+// =====================================================================
+// dialog-host.ts - draws the pop-up box that DialogService (core/dialog.ts)
+// asks for. Placed once in app.ts, so any page can open a dialog.
+// =====================================================================
 import { Component, inject } from '@angular/core';
 import { DialogService } from '../core/dialog';
 

@@ -1,3 +1,7 @@
+// =====================================================================
+// fact-grid.ts - a small grid of "icon + label + value" tiles.
+// Usage: <app-fact-grid [facts]="[{ icon: 'user', label: 'Name', value: 'Ana' }]" />
+// =====================================================================
 import { Component, input } from '@angular/core';
 import { AppIcon } from './icon';
 

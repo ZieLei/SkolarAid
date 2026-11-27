@@ -1,3 +1,9 @@
+// =====================================================================
+// HistorySeeder.cs - DEVELOPMENT ONLY. Creates about two years of fake
+// but realistic data. Called by DbSeeder when Seed__HistoricalData=true.
+// Order of work: scholars -> registrations -> compliance -> payments
+// -> notifications -> activity logs. See the summary on the class below.
+// =====================================================================
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using IskolarAid.Core.Rules;
@@ -44,12 +50,14 @@ public static class HistorySeeder
     {
         var db = sp.GetRequiredService<IskolarDbContext>();
         var passwords = sp.GetRequiredService<PasswordService>();
+        // Already seeded before? Then stop, so we never add the data twice.
         if (await db.Scholars.AnyAsync(s => s.Email != null && s.Email.EndsWith(EmailSuffix)))
         {
             log.LogInformation("Historical demo data already present; skipping.");
             return;
         }
 
+        // Fixed seed (42) = the same "random" data every time.
         var rng = new Random(42);
         var today = DateTime.Today;
         var thisMonth = new DateTime(today.Year, today.Month, 1);

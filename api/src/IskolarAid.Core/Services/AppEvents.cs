@@ -1,3 +1,11 @@
+// =====================================================================
+// AppEvents.cs - the app's "something happened" announcements.
+//
+// Flow:  Service saves a change -> calls events.RaiseXxx(...)
+// -> every subscriber is told (today: RealtimeNotifier in the API,
+// which pushes a live update to browsers).
+// The services do not need to know who is listening.
+// =====================================================================
 namespace IskolarAid.Core.Services;
 
 // ---- Event arguments: small payloads (ids and what changed), never whole entities. ----
@@ -65,6 +73,8 @@ public class AppEvents
     public void RaiseComplianceChanged(int scholarId, string requirement, string status, bool byScholar) =>
         Raise(ComplianceChanged, nameof(ComplianceChanged), new ComplianceChangedEventArgs(scholarId, requirement, status, byScholar));
 
+    // Call each subscriber one by one. If one crashes we report it and keep going,
+    // so the user's request still succeeds.
     private void Raise<T>(EventHandler<T>? handlers, string name, T args)
     {
         if (handlers is null) return;

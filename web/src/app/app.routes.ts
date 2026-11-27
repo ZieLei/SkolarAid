@@ -1,10 +1,23 @@
+// =====================================================================
+// app.routes.ts - which page shows for which URL.
+//
+// /login, /signup     -> only when NOT logged in (guestGuard)
+// /admin/...          -> only for ADMIN users; pages sit inside AdminShell (sidebar)
+// /scholar/...        -> only for SCHOLAR users; pages sit inside ScholarShell
+// anything else       -> back to /login
+//
+// loadComponent(() => import(...)) loads a page's code only when it is
+// first opened, so the app starts faster.
+// Guards (roleGuard, guestGuard) are in core/http.ts.
+// =====================================================================
 import { Routes } from '@angular/router';
 import { guestGuard, roleGuard } from './core/http';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
   { path: 'login', canActivate: [guestGuard], loadComponent: () => import('./pages/login').then((m) => m.LoginPage) },
-  { path: 'register', canActivate: [guestGuard], loadComponent: () => import('./pages/register').then((m) => m.RegisterPage) },
+  { path: 'signup', canActivate: [guestGuard], loadComponent: () => import('./pages/signup').then((m) => m.SignUpPage) },
+  { path: 'register', redirectTo: 'signup' }, // old link
   {
     path: 'admin',
     canActivate: [roleGuard('ADMIN')],

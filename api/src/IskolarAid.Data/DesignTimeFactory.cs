@@ -1,3 +1,7 @@
+// =====================================================================
+// DesignTimeFactory.cs - only for the "dotnet ef" command line tool
+// (e.g. "dotnet ef migrations add ..."). The running app does not use it.
+// =====================================================================
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 

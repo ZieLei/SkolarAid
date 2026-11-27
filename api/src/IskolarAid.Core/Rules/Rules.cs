@@ -1,3 +1,12 @@
+// =====================================================================
+// Rules.cs - small, pure business rules (no database, no HTTP).
+// They take values in and give a result back, so they are easy to test
+// (see api/tests/IskolarAid.Tests/RulesTests.cs).
+// ComplianceRules -> which documents a scholar must submit, and "is it complete?"
+// PayrollRules    -> period names, release dates, reference numbers, who can be paid
+// ScholarRules    -> names, scholar numbers, student ids, passwords, phone numbers
+// AmountWords     -> 5000.50 -> "Five Thousand Pesos and 50/100 Centavos" (receipts)
+// =====================================================================
 using System.Globalization;
 using System.Security.Cryptography;
 
@@ -6,9 +15,11 @@ namespace IskolarAid.Core.Rules;
 /// <summary>Business rules ported from the WinForms code-behind, as pure functions.</summary>
 public static class ComplianceRules
 {
+    // The five documents every new scholar must submit.
     public static readonly string[] DefaultTypes =
         ["PSA Birth Certificate", "Enrollment Form", "COR", "Grades", "Scholarship Contract"];
 
+    // Text shown under each of the five documents above (same order).
     public static readonly string[] DefaultDescriptions =
     [
         "Submit PSA Birth Certificate",
@@ -24,6 +35,7 @@ public static class ComplianceRules
     public static readonly string[] Statuses = ["Pending", "Submitted", "Approved", "Rejected", "Overdue"];
 
     /// <summary>Payroll eligibility (strict, as enforced when processing): every record must be Approved.</summary>
+    // Examples: all Approved -> "Complete"; none Approved -> "Pending Approval"; some -> "Incomplete".
     public static string Summarize(IReadOnlyCollection<string> statuses)
     {
         if (statuses.Count == 0) return "No Records";
@@ -38,6 +50,7 @@ public static class ComplianceRules
     public static bool ShouldBecomeOverdue(string status, DateTime dueDate, DateTime today)
         => status == "Pending" && dueDate.Date < today.Date;
 
+    // Percent of requirements done, e.g. 3 of 5 -> 60.
     public static int ComplianceRate(int total, int completed) => total > 0 ? completed * 100 / total : 0;
 }
 
@@ -45,7 +58,44 @@ public static class PayrollRules
 {
     public static readonly string[] Methods = ["Bank Transfer", "Cash", "Mobile Wallet"];
 
+    // Old payments used a whole month as their period, written like "March 2026".
     public static string PeriodLabel(DateTime date) => date.ToString("MMMM yyyy", CultureInfo.InvariantCulture);
+
+    // A payment period is a date range picked on the payroll page. Its label:
+    //   a whole month         -> "March 2026" (same as old payments, so they still match)
+    //   inside one month      -> "Mar 01-15, 2026"
+    //   across months / years -> "Mar 16 - Apr 15, 2026" / "Dec 16, 2026 - Jan 15, 2027"
+    public static string PeriodLabel(DateTime start, DateTime end)
+    {
+        var ci = CultureInfo.InvariantCulture;
+        start = start.Date; end = end.Date;
+        if (start.Day == 1 && end == start.AddMonths(1).AddDays(-1)) return PeriodLabel(start);
+        if (start.Year == end.Year && start.Month == end.Month) return $"{start.ToString("MMM dd", ci)}-{end:dd}, {end.Year}";
+        if (start.Year == end.Year) return $"{start.ToString("MMM dd", ci)} - {end.ToString("MMM dd", ci)}, {end.Year}";
+        return $"{start.ToString("MMM dd, yyyy", ci)} - {end.ToString("MMM dd, yyyy", ci)}";
+    }
+
+    // Checks the range picked on the payroll page. Returns what is wrong, or null.
+    public static string? PeriodProblem(DateTime start, DateTime end)
+    {
+        if (end.Date < start.Date) return "The period end date must be on or after the start date.";
+        if ((end.Date - start.Date).TotalDays > 366) return "A payment period cannot be longer than one year.";
+        return null;
+    }
+
+    // The dates a payment covers. Old payments only have a "March 2026" label, so we read that as the whole month.
+    // Returns null when the label cannot be read (then it is only compared by label).
+    public static (DateTime Start, DateTime End)? RangeOf(DateTime? start, DateTime? end, string label)
+    {
+        if (start is { } s && end is { } e) return (s.Date, e.Date);
+        if (DateTime.TryParseExact(label, "MMMM yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var m))
+            return (m, m.AddMonths(1).AddDays(-1));
+        return null;
+    }
+
+    // True when two date ranges share at least one day.
+    public static bool Overlaps((DateTime Start, DateTime End) a, (DateTime Start, DateTime End) b)
+        => a.Start <= b.End && b.Start <= a.End;
 
     /// <summary>Expected release = today + 3 days, moved forward past Saturday/Sunday.</summary>
     public static DateTime CalculateReleaseDate(DateTime today)
@@ -55,15 +105,18 @@ public static class PayrollRules
         return d;
     }
 
+    // Unique payment reference, e.g. PAY-20260301-0042-093015123 (date, scholar id, time).
     public static string ReferenceNumber(DateTime now, int scholarId)
         => $"PAY-{now:yyyyMMdd}-{scholarId:D4}-{now:HHmmssfff}";
 
+    // A scholar can be paid when: Active + all documents Approved + has a stipend + not paid yet this period.
     public static bool IsEligible(string scholarStatus, IReadOnlyCollection<string> complianceStatuses, decimal stipend, bool alreadyPaid)
         => scholarStatus == "Active" && ComplianceRules.IsComplete(complianceStatuses) && stipend > 0 && !alreadyPaid;
 }
 
 public static class ScholarRules
 {
+    // "Juan", "Santos", "Cruz" -> "Juan Santos Cruz" (empty parts are skipped).
     public static string FullName(string first, string? middle, string last, string? suffix = null)
         => $"{first} {middle} {last} {suffix}".Replace("  ", " ").Trim();
 
@@ -82,8 +135,10 @@ public static class ScholarRules
         return $"{prefix}{max + 1:D3}";
     }
 
+    // Student id made from year + sequence, e.g. 2026-000042. Also used as the login username.
     public static string GeneratedStudentId(int year, int sequence) => $"{year}-{sequence:D6}";
 
+    // "SCH-2026-042" -> 42.
     public static int SequenceOf(string scholarNumber)
         => int.TryParse(scholarNumber[(scholarNumber.LastIndexOf('-') + 1)..], out var v) ? v : 0;
 
@@ -97,12 +152,23 @@ public static class ScholarRules
         });
     }
 
+    // "+63 912-345-6789" -> "09123456789" (one format for every stored mobile number).
+    // Password rule for sign-up: at least 8 characters with a letter and a number.
+    // Returns what is wrong, or null when the password is fine.
+    public static string? PasswordProblem(string password)
+    {
+        if (password.Length < 8) return "Your password must be at least 8 characters long.";
+        if (!password.Any(char.IsLetter) || !password.Any(char.IsDigit)) return "Your password must contain at least one letter and one number.";
+        return null;
+    }
+
     public static string NormalizePhone(string phone)
     {
         var p = phone.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "").Replace("+", "");
         return p.StartsWith("63") ? "0" + p[2..] : p;
     }
 
+    // Next expected payment date, based on how often the scholarship pays.
     public static string NextPaymentDate(string? frequency, DateTime now)
     {
         const string f = "MMM dd, yyyy";
@@ -130,6 +196,7 @@ public static class ScholarRules
     }
 }
 
+// Writes a peso amount in words for printed receipts.
 public static class AmountWords
 {
     private static readonly string[] Ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
@@ -147,6 +214,7 @@ public static class AmountWords
         else
         {
             var idx = 0;
+            // Work in groups of three digits: ones, then thousands, then millions...
             while (whole > 0)
             {
                 var part = (int)(whole % 1000);

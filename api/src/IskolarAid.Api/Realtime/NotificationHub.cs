@@ -1,3 +1,13 @@
+// =====================================================================
+// NotificationHub.cs - the SignalR endpoint for LIVE updates
+// (no page refresh needed). URL: /hubs/notifications
+//
+// Flow of a live update:
+// Service changes data -> AppEvents raises a C# event
+// -> RealtimeNotifier sends a message to a group here
+// -> browsers in that group get it (web/src/app/core/realtime.ts)
+// -> the page reloads its data over normal HTTP.
+// =====================================================================
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using IskolarAid.Data.Entities;
@@ -23,6 +33,8 @@ public static class HubGroups
 [Authorize]
 public class NotificationHub(ILogger<NotificationHub> logger) : Hub
 {
+    // Runs when a browser connects. Put admins in the "admins" group and
+    // each scholar in their own "scholar-<id>" group.
     public override async Task OnConnectedAsync()
     {
         var user = Context.User;

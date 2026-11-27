@@ -1,20 +1,27 @@
+// =====================================================================
+// FileStore.cs - saving and reading uploaded files on disk.
+// Used by RegistrationService for the documents sent with a registration.
+// =====================================================================
 using Microsoft.Extensions.Options;
 using IskolarAid.Core.Common;
 
 namespace IskolarAid.Core.Services;
 
+// Settings from "Uploads" config: the folder for files and the max file size (default 10 MB).
 public class UploadOptions
 {
     public string Directory { get; set; } = "uploads";
     public long MaxBytes { get; set; } = 10 * 1024 * 1024;
 }
 
+// Save returns a relative path (e.g. "registrations/PSA_2026..._abc.pdf") that we store in the database.
 public interface IFileStore
 {
     Task<string> SaveAsync(string key, string originalName, Stream content);
     Task<byte[]?> ReadAsync(string relativePath);
 }
 
+// Which files are allowed, and which content type to send back when downloading.
 public static class UploadRules
 {
     public static readonly string[] AllowedExtensions = [".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png"];
@@ -29,6 +36,7 @@ public static class UploadRules
         _ => "application/octet-stream"
     };
 
+    // Checks extension and size. Returns the clean file name, or throws a friendly AppException.
     public static string Validate(string fileName, long length, long maxBytes)
     {
         var name = Path.GetFileName(fileName);
@@ -45,6 +53,7 @@ public class LocalFileStore(IOptions<UploadOptions> options) : IFileStore
 {
     private string Root => Path.GetFullPath(options.Value.Directory);
 
+    // New file name = key + time + random id, so two uploads never overwrite each other.
     public async Task<string> SaveAsync(string key, string originalName, Stream content)
     {
         var ext = Path.GetExtension(originalName).ToLowerInvariant();

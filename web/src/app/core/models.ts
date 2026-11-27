@@ -1,6 +1,13 @@
+// =====================================================================
+// models.ts - TypeScript shapes of the data the API sends and receives.
+// Each one matches a C# DTO in api/src/IskolarAid.Core/Dtos/Dtos.cs.
+// If you add a field there, add it here too.
+// =====================================================================
 // Interfaces mirror the API DTOs (camelCase JSON).
 export interface UserInfo { id: number; username: string; role: 'ADMIN' | 'SCHOLAR'; name: string; scholarId: number | null; scholarNumber: string | null; }
 export interface LoginResponse { token: string; expiresAt: string; user: UserInfo; }
+/** Sign-up for a scholar already in the system (POST /api/auth/signup). */
+export interface SignUpRequest { scholarNumber: string; studentIdOrEmail: string; password: string; }
 export interface Option { id: number; name: string; }
 export interface Paged<T> { items: T[]; total: number; page: number; pageSize: number; }
 
@@ -17,13 +24,17 @@ export interface ScholarDetail {
 }
 export interface ScholarSave {
   studentId: string | null; firstName: string; middleName: string | null; lastName: string; suffix: string | null; email: string; contactNumber: string | null;
-  dateOfBirth: string | null; gender: string | null; address: string | null; course: string; yearLevel: string; scholarshipTypeId: number;
+  dateOfBirth: string | null; gender: string | null; address: string | null; course: string; yearLevel: string;
+  /** Pick an existing type (id) OR type its name; a new name creates a new type. */
+  scholarshipTypeId: number | null; scholarshipTypeName: string | null;
   stipendAmount: number; stipendFrequency: string | null; scholarshipFundSource: string | null; renewalConditions: string | null;
   bankName: string | null; bankAccountNumber: string | null; enrollmentDate: string | null; expectedGraduation: string | null; status: string | null;
 }
-export interface ScholarCreated { id: number; scholarNumber: string; studentId: string; fullName: string; email: string; username: string; temporaryPassword: string; emailSent: boolean; smsSent: boolean; }
+export interface ScholarCreated { id: number; scholarNumber: string; studentId: string; fullName: string; email: string; username: string; emailSent: boolean; }
 export interface ScholarFilters { statuses: string[]; scholarships: Option[]; courses: string[]; }
 
+/** One row of the admin "show all" compliance list: a requirement plus whose it is. */
+export interface ComplianceOverviewItem { id: number; scholarId: number; scholarName: string; scholarNumber: string; requirementType: string; description: string | null; dueDate: string; dateSubmitted: string | null; status: string; remarks: string | null; checkedBy: string | null; fileCount: number; fileName: string | null; }
 export interface ComplianceItem { id: number; requirementType: string; description: string | null; dueDate: string; dateSubmitted: string | null; status: string; remarks: string | null; checkedBy: string | null; fileCount: number; fileName: string | null; }
 export interface ComplianceScholarInfo { id: number; fullName: string; scholarNumber: string; course: string | null; yearLevel: string | null; scholarship: string | null; items: ComplianceItem[]; overall: string; }
 export interface ComplianceScholarOption { id: number; label: string; }
@@ -40,7 +51,7 @@ export interface RegistrationApproved { scholarId: number; scholarNumber: string
 
 export interface PayrollCandidate { id: number; scholarNumber: string; fullName: string; course: string | null; yearLevel: string | null; scholarshipType: string; stipendAmount: number; complianceStatus: string; paymentStatus: string; isEligible: boolean; }
 export interface PayrollPreview { period: string; method: string; selected: number; alreadyPaid: number; new: number; totalAmount: number; lines: { scholarId: number; fullName: string; amount: number; alreadyPaid: boolean }[]; }
-export interface PayrollResult { period: string; method: string; processed: number; skipped: number; total: number; emailsSent: number; smsSent: number; }
+export interface PayrollResult { period: string; method: string; processed: number; skipped: number; total: number; emailsSent: number; }
 export interface ProcessedPayment { paymentId: number; scholarId: number; scholarName: string; scholarNumber: string; period: string; amount: number; releaseDate: string | null; paymentMethod: string | null; referenceNumber: string | null; }
 export interface ReleaseResult { released: number; emailsSent: number; total: number; }
 export interface DisbursementHistory { id: number; scholarName: string; scholarNumber: string; period: string; amount: number; status: string; releaseDate: string | null; paymentMethod: string | null; referenceNumber: string | null; }
@@ -48,7 +59,7 @@ export interface PayrollStats { processedToday: number; readyForRelease: number;
 
 export interface NotificationItem { id: number; title: string; message: string; type: string; dateCreated: string; isRead: boolean; readAt: string | null; senderName: string; recipientName: string | null; scholarNumber: string | null; }
 export interface NotificationStats { total: number; unread: number; read: number; pendingRegistrations: number; }
-export interface ComposeResult { created: number; emailsSent: number; smsSent: number; }
+export interface ComposeResult { created: number; emailsSent: number; }
 export interface ScholarNotification { id: number; title: string; message: string; type: string; dateCreated: string; isRead: boolean; readAt: string | null; senderName: string; }
 export interface ScholarNotifications { items: ScholarNotification[]; total: number; unread: number; payment: number; alert: number; }
 

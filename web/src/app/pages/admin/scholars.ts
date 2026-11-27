@@ -1,3 +1,19 @@
+// =====================================================================
+// scholars.ts - Admin > Scholar Management (/admin/scholars).
+//
+// Two tabs:
+// "Scholar Information"   -> table of scholars + add / edit / view details
+// "Compliance Management" -> <app-compliance-tab> (compliance-tab.ts)
+//
+// Main flows:
+// Open page   -> loadList() + loadTypes()       GET /api/admin/scholars
+// Search      -> onSearch() waits 300 ms, then loadList()
+// Add         -> openAdd() -> save() -> POST /api/admin/scholars,
+// then uploads any chosen documents. The scholar then activates
+// their own account on the Sign up page (no password is sent).
+// Edit        -> openEdit() -> select() fills the form -> save() -> PUT
+// (De)activate-> toggleStatus() -> POST .../toggle-status
+// =====================================================================
 import { Component, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { FormsModule } from '@angular/forms';
@@ -8,12 +24,14 @@ import { DatePipeShort, PesoPipe, dateInput, statusColor } from '../../core/form
 import { ComplianceItem, Paged, ScholarCreated, ScholarDetail, ScholarFilters, ScholarListItem, ScholarSave, ScholarshipType } from '../../core/models';
 import { Modal } from '../../shared/modal';
 import { ErrorSummary, FieldError, FormErrors, focusField } from '../../shared/form-errors';
-import { BANKS, COURSES, GENDERS, YEAR_LEVELS } from '../register';
+import { BANKS, COURSES, GENDERS, YEAR_LEVELS } from '../../core/options';
 import { ComplianceTab } from './compliance-tab';
+import { Avatar } from '../../shared/avatar';
 import { ScholarshipTypesDialog } from './scholarship-types';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
 
+// The five documents that can be attached when adding a scholar.
 const DOCS = [
   { key: 'PSA', label: 'PSA Birth Certificate' }, { key: 'COE', label: 'COE (current sem)' }, { key: 'COR', label: 'COR' },
   { key: 'Grades', label: 'Latest Grades' }, { key: 'Contract', label: 'Scholarship Contract' },
@@ -24,19 +42,20 @@ const FUND_SOURCES = ['Government', 'Private', 'Alumni', 'Corporate', 'Others'];
 
 interface Form {
   studentId: string; firstName: string; middleName: string; lastName: string; suffix: string; email: string; contactNumber: string;
-  dateOfBirth: string; gender: string; address: string; course: string; yearLevel: string; scholarshipTypeId: number; stipendAmount: number | null;
+  dateOfBirth: string; gender: string; address: string; course: string; yearLevel: string; scholarshipTypeId: number; scholarshipTypeName: string; stipendAmount: number | null;
   stipendFrequency: string; scholarshipFundSource: string; renewalConditions: string; bankName: string; bankAccountNumber: string;
   enrollmentDate: string; expectedGraduation: string; status: string; scholarNumber: string;
 }
+// An empty form (used for "Add scholar").
 const blank = (): Form => ({
   studentId: '', firstName: '', middleName: '', lastName: '', suffix: '', email: '', contactNumber: '', dateOfBirth: '', gender: '', address: '', course: '',
-  yearLevel: '', scholarshipTypeId: 0, stipendAmount: null, stipendFrequency: 'Monthly', scholarshipFundSource: 'Government', renewalConditions: '', bankName: '',
+  yearLevel: '', scholarshipTypeId: 0, scholarshipTypeName: '', stipendAmount: null, stipendFrequency: 'Monthly', scholarshipFundSource: 'Government', renewalConditions: '', bankName: '',
   bankAccountNumber: '', enrollmentDate: '', expectedGraduation: '', status: 'Active', scholarNumber: '',
 });
 
 @Component({
   selector: 'app-scholars',
-  imports: [ErrorSummary, ScrollCue, AppIcon, ScrollingModule, FormsModule, Modal, PesoPipe, DatePipeShort, ComplianceTab, ScholarshipTypesDialog],
+  imports: [Avatar, ErrorSummary, ScrollCue, AppIcon, ScrollingModule, FormsModule, Modal, PesoPipe, DatePipeShort, ComplianceTab, ScholarshipTypesDialog],
   template: `
     <div class="mb-4 flex gap-1 border-b-2 border-[#d9d9d9]">
       @for (t of tabs; track t.id) {
@@ -68,7 +87,7 @@ const blank = (): Form => ({
       <section class="card overflow-hidden">
           <div scrollCue class="grid-wrap">
             <div class="min-w-[900px]" role="table" aria-label="Scholars">
-              <div role="row" class="grid overflow-hidden bg-brand text-left text-[13px] font-bold text-white [scrollbar-gutter:stable]" [style.grid-template-columns]="cols">
+              <div role="row" class="grid overflow-hidden border-b border-line bg-[#eef3f4] text-left text-[12px] font-semibold uppercase tracking-wider text-[#3d5359] [scrollbar-gutter:stable]" [style.grid-template-columns]="cols">
                 @for (h of heads; track h) { <div role="columnheader" class="h-[42px] truncate px-[14px] leading-[42px]">{{ h }}</div> }
               </div>
               @if (!list().length) { <div class="py-8 text-center text-[12px] text-[#595959]">No scholars found</div> }
@@ -92,13 +111,13 @@ const blank = (): Form => ({
     }
 
     @if (formOpen()) {
-      <app-modal [title]="selectedId() ? 'Edit ' + f.firstName + ' ' + f.lastName : 'Add a new scholar'" [width]="920" (closed)="closeForm()">
+      <app-modal [title]="selectedId() ? 'Edit ' + f.firstName + ' ' + f.lastName : 'Add a new scholar'" [width]="920" (closed)="cancelForm()">
                   <app-error-summary [errors]="errs.list()" (pick)="goTo($event)" />
         <p class="mb-1 text-[12px] text-[#555]"><span class="font-bold text-[#c62828]">*</span> required.</p>
 
                 <div (input)="recheck()" (change)="recheck()">
         <h3 class="section-title">Basic Information</h3>
-        <div class="grid grid-cols-3 gap-x-3 gap-y-2">
+        <div class="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
           <div><label class="field-label req">First Name</label><input id="sf-fn" class="input" [class.input-invalid]="errs.has('sf-fn')" [attr.aria-invalid]="errs.has('sf-fn')" [(ngModel)]="f.firstName" maxlength="100" />@if (errs.get('sf-fn'); as m) { <p class="field-err">{{ m }}</p> }</div>
           <div><label class="field-label req">Last Name</label><input id="sf-ln" class="input" [class.input-invalid]="errs.has('sf-ln')" [attr.aria-invalid]="errs.has('sf-ln')" [(ngModel)]="f.lastName" maxlength="100" />@if (errs.get('sf-ln'); as m) { <p class="field-err">{{ m }}</p> }</div>
           <div><label class="field-label">Middle Name</label><input class="input" [(ngModel)]="f.middleName" maxlength="100" /></div>
@@ -112,23 +131,28 @@ const blank = (): Form => ({
         </div>
 
         <h3 class="section-title">Academic Details</h3>
-        <div class="grid grid-cols-[1fr_90px] gap-x-3">
+        <div class="grid grid-cols-[1fr_110px] gap-x-3">
           <div><label class="field-label req">Course</label><select id="sf-co" class="input" [class.input-invalid]="errs.has('sf-co')" [attr.aria-invalid]="errs.has('sf-co')" [(ngModel)]="f.course"><option value="">Select...</option>@for (c of courses; track c) { <option>{{ c }}</option> }</select>@if (errs.get('sf-co'); as m) { <p class="field-err">{{ m }}</p> }</div>
           <div><label class="field-label req">Year Level</label><select id="sf-yl" class="input" [class.input-invalid]="errs.has('sf-yl')" [attr.aria-invalid]="errs.has('sf-yl')" [(ngModel)]="f.yearLevel"><option value="">-</option>@for (y of years; track y) { <option>{{ y }}</option> }</select>@if (errs.get('sf-yl'); as m) { <p class="field-err">{{ m }}</p> }</div>
         </div>
 
         <h3 class="section-title">Scholarship Details</h3>
-        <div class="grid grid-cols-2 gap-x-3 gap-y-2">
-          <div><label class="field-label req">Scholarship Type</label>
-            <select id="sf-st" class="input" [class.input-invalid]="errs.has('sf-st')" [attr.aria-invalid]="errs.has('sf-st')" [ngModel]="f.scholarshipTypeId" (ngModelChange)="onTypeChange($event)"><option [ngValue]="0">Select...</option>@for (t of types(); track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }</select>@if (errs.get('sf-st'); as m) { <p class="field-err">{{ m }}</p> }</div>
-          <div><label class="field-label">Stipend Amount</label><input class="input" type="number" min="0" step="0.01" [(ngModel)]="f.stipendAmount" placeholder="Set by scholarship type" /></div>
+        <div class="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2">
+          <div><label class="field-label req" for="sf-st">Scholarship Type</label>
+            <input id="sf-st" class="input" list="sf-st-options" autocomplete="off" maxlength="150" placeholder="Type to search, e.g. CHED, DOST, TES…"
+                   [class.input-invalid]="errs.has('sf-st')" [attr.aria-invalid]="errs.has('sf-st')" [ngModel]="f.scholarshipTypeName" (ngModelChange)="onTypeChange($event)" />
+            <datalist id="sf-st-options">@for (t of types(); track t.id) { <option [value]="t.name">{{ t.stipendAmount ? (t.stipendAmount | peso) + ' / ' + t.paymentFrequency : 'amount not set' }}</option> }</datalist>
+            @if (errs.get('sf-st'); as m) { <p class="field-err">{{ m }}</p> }
+            @else if (f.scholarshipTypeName.trim() && !f.scholarshipTypeId) { <p class="mt-1 text-[12px] text-[#8a5300]">New scholarship type: it will be added with the stipend amount and frequency below.</p> }</div>
+          <div><label class="field-label" for="sf-amt">Stipend Amount</label><input id="sf-amt" class="input" type="number" min="0" step="0.01" [(ngModel)]="f.stipendAmount" placeholder="Set by scholarship type" [class.input-invalid]="errs.has('sf-amt')" [attr.aria-invalid]="errs.has('sf-amt')" />
+            @if (errs.get('sf-amt'); as m) { <p class="field-err">{{ m }}</p> }</div>
           <div><label class="field-label">Stipend Frequency</label><select class="input" [(ngModel)]="f.stipendFrequency">@for (x of freqs; track x) { <option>{{ x }}</option> }</select></div>
           <div><label class="field-label">Scholarship Fund Source</label><select class="input" [(ngModel)]="f.scholarshipFundSource">@for (x of funds; track x) { <option>{{ x }}</option> }</select></div>
           <div class="col-span-2"><label class="field-label">Renewal Conditions</label><input class="input" [(ngModel)]="f.renewalConditions" maxlength="1000" /></div>
         </div>
 
         <h3 class="section-title">Bank Information</h3>
-        <div class="grid grid-cols-[1.5fr_1fr] gap-x-3 gap-y-2">
+        <div class="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-[1.5fr_1fr]">
           <div><label class="field-label">Bank Name</label><select class="input" [(ngModel)]="f.bankName"><option value="">Select…</option>@for (b of banks; track b) { <option>{{ b }}</option> }@if (f.bankName && !banks.includes(f.bankName)) { <option>{{ f.bankName }}</option> }</select></div>
           <div><label class="field-label">Account Number</label><input class="input" [(ngModel)]="f.bankAccountNumber" maxlength="50" /></div>
           <div><label class="field-label">Enrollment Date</label><input class="input" type="date" [(ngModel)]="f.enrollmentDate" /></div>
@@ -138,7 +162,7 @@ const blank = (): Form => ({
         </div>
 
         <h3 class="section-title">Files Attachments</h3>
-        <div class="grid grid-cols-3 gap-x-3 gap-y-2">
+        <div class="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
           @for (d of docs; track d.key) {
             <div>
               <label class="field-label">{{ d.label }}</label>
@@ -169,7 +193,7 @@ const blank = (): Form => ({
             <button class="btn btn-warn" (click)="toggleStatus()">{{ f.status === 'Active' ? 'Deactivate' : 'Reactivate' }}</button>
             <button class="btn btn-accent" (click)="closeForm(); complianceFor.set(selectedId()); tab.set('compliance')">Compliance</button>
           }
-          <button class="btn btn-gray ml-auto" (click)="selectedId() ? closeForm() : clear()">{{ selectedId() ? 'Cancel' : 'Clear form' }}</button>
+          <button class="btn btn-gray ml-auto" (click)="selectedId() ? cancelForm() : clear()">{{ selectedId() ? 'Cancel' : 'Clear form' }}</button>
         </div>
       </app-modal>
     }
@@ -180,28 +204,28 @@ const blank = (): Form => ({
     @if (created(); as c) {
       <app-modal title="Scholar added successfully" [width]="480" (closed)="created.set(null)">
         <p class="mb-3 text-[14px]"><app-icon name="checked" class="mr-1 inline-flex h-4 w-4 align-[-3px]"></app-icon><b>{{ c.fullName }}</b> has been added.</p>
-        <dl class="grid grid-cols-[130px_1fr] gap-y-1 text-[14px]">
+        <dl class="grid grid-cols-[120px_1fr] gap-x-2 gap-y-1 text-[14px]">
           <dt class="text-muted">Scholar Number</dt><dd class="font-bold">{{ c.scholarNumber }}</dd>
           <dt class="text-muted">Student ID / Username</dt><dd class="font-bold">{{ c.username }}</dd>
-          <dt class="text-muted">Temporary Password</dt><dd class="font-mono font-bold">{{ c.temporaryPassword }}</dd>
-          <dt class="text-muted">Email</dt><dd>{{ c.email }} {{ c.emailSent ? '(sent)' : '(not sent)' }}</dd>
-          <dt class="text-muted">SMS</dt><dd>{{ c.smsSent ? 'sent' : 'not sent' }}</dd>
+          <dt class="text-muted">Email</dt><dd>{{ c.email }} {{ c.emailSent ? '(sign-up email sent)' : '(email not sent)' }}</dd>
         </dl>
-        <p class="mt-3 rounded bg-[#fff8e1] p-2 text-[12px] text-[#7a5b00]">Copy the password now — it is stored only as a hash and cannot be shown again.</p>
+        <p class="mt-3 rounded bg-[#eef8f8] p-2 text-[12px] text-[#333]">The scholar activates their account on the <b>Sign up</b> page with Scholar ID <b>{{ c.scholarNumber }}</b> and their Student ID or email, then chooses their own password.@if (!c.emailSent) { Give them the Scholar ID, since the email was not sent. }</p>
         <button class="btn btn-brand mt-4 w-full" (click)="created.set(null)">Done</button>
       </app-modal>
     }
 
     @if (details(); as d) {
       <app-modal [title]="d.firstName + ' ' + d.lastName" [width]="860" (closed)="details.set(null)">
-        <div class="mb-3 flex justify-end gap-2"><button class="btn btn-brand" (click)="details.set(null); openEdit(d.id)">Edit this scholar</button></div>
+        <div class="mb-3 flex items-center gap-3"><app-avatar [path]="'/admin/scholars/' + d.id + '/picture'" [alt]="'Profile picture of ' + d.firstName" class="h-[56px] w-[56px]" />
+          <p class="text-[13px] text-muted">{{ d.course || '—' }} · {{ d.yearLevel || '—' }}</p>
+          <button class="btn btn-brand ml-auto" (click)="details.set(null); openEdit(d.id)">Edit this scholar</button></div>
         <div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div class="rounded-lg bg-[#f0f7f8] p-3"><p class="text-[12px] text-muted">Scholar #</p><p class="font-bold text-brand">{{ d.scholarNumber }}</p></div>
           <div class="rounded-lg bg-[#f0f7f8] p-3"><p class="text-[12px] text-muted">Total Received</p><p class="font-bold text-brand">{{ d.totalReceived | peso }}</p></div>
           <div class="rounded-lg bg-[#f0f7f8] p-3"><p class="text-[12px] text-muted">Payments</p><p class="font-bold text-brand">{{ d.paymentCount }}</p></div>
           <div class="rounded-lg bg-[#f0f7f8] p-3"><p class="text-[12px] text-muted">Compliance</p><p class="font-bold text-brand">{{ d.approvedCompliance }}/{{ d.totalCompliance }} approved</p></div>
         </div>
-        <dl class="grid grid-cols-[150px_1fr_150px_1fr] gap-y-1 text-[13px]">
+        <dl class="grid grid-cols-[110px_1fr] gap-x-2 gap-y-1 text-[13px] sm:grid-cols-[150px_1fr_150px_1fr]">
           <dt class="text-muted">Student ID</dt><dd>{{ d.studentId }}</dd><dt class="text-muted">Status</dt><dd class="font-bold" [style.color]="color(d.status)">{{ d.status }}</dd>
           <dt class="text-muted">Email</dt><dd>{{ d.email }}</dd><dt class="text-muted">Contact</dt><dd>{{ d.contactNumber }}</dd>
           <dt class="text-muted">Course</dt><dd class="col-span-3">{{ d.course }} — {{ d.yearLevel }}</dd>
@@ -253,9 +277,17 @@ export class ScholarsPage implements OnInit {
   created = signal<ScholarCreated | null>(null);
   /** The add/edit form lives in a dialog; the list stays full width. */
   formOpen = signal(false);
-  openAdd(): void { this.clear(); this.formOpen.set(true); }
-  async openEdit(id: number): Promise<void> { await this.select(id); if (this.selectedId() === id) this.formOpen.set(true); }
+  openAdd(): void { this.clear(); this.formOpen.set(true); this.snapshot = JSON.stringify(this.f); }
+  async openEdit(id: number): Promise<void> { await this.select(id); if (this.selectedId() === id) { this.formOpen.set(true); this.snapshot = JSON.stringify(this.f); } }
   closeForm(): void { this.formOpen.set(false); this.clear(); this.errs.clear(); }
+  // The form as it was when opened, to notice unsaved changes.
+  private snapshot = '';
+  // × button, Cancel, Escape or a click outside: ask first if something was typed, so it is not lost by accident.
+  async cancelForm(): Promise<void> {
+    const dirty = JSON.stringify(this.f) !== this.snapshot || Object.values(this.pending).some(Boolean);
+    if (dirty && !(await this.dlg.confirm('You have changes that are not saved. Close the form and lose them?', 'Discard changes?', 'Discard', 'Keep editing', true))) return;
+    this.closeForm();
+  }
   details = signal<ScholarDetail | null>(null);
   detailItems = signal<ComplianceItem[]>([]);
   f: Form = blank();
@@ -264,15 +296,18 @@ export class ScholarsPage implements OnInit {
   color = statusColor;
   private timer: ReturnType<typeof setTimeout> | undefined;
 
+  // On open: load the table, the scholarship types and the filter choices together.
   async ngOnInit(): Promise<void> {
     await Promise.all([this.loadList(), this.loadTypes(), firstValueFrom(this.api.get<ScholarFilters>('/admin/scholars/filters')).then((v) => this.filters.set(v))]);
   }
 
+  // Active scholarship types (for the form) and filter choices. Also called after the types pop-up changes something.
   async loadTypes(): Promise<void> {
     this.types.set((await firstValueFrom(this.api.get<ScholarshipType[]>('/admin/scholarship-types'))).filter((t) => t.isActive));
     this.filters.set(await firstValueFrom(this.api.get<ScholarFilters>('/admin/scholars/filters')));
   }
 
+  // Load the table using the current search / status / type filters.
   async loadList(): Promise<void> {
     try {
       const r = await firstValueFrom(this.api.get<Paged<ScholarListItem>>('/admin/scholars', { search: this.search(), status: this.filterStatus(), scholarshipTypeId: this.filterType() || null, pageSize: 200 }));
@@ -280,17 +315,24 @@ export class ScholarsPage implements OnInit {
     } catch (e) { void this.dlg.error(errorMessage(e)); }
   }
 
+  // Wait until the user stops typing for 300 ms before searching (fewer API calls).
   onSearch(v: string): void { this.search.set(v); clearTimeout(this.timer); this.timer = setTimeout(() => void this.loadList(), 300); }
 
-  onTypeChange(id: number): void {
-    this.f.scholarshipTypeId = id;
-    const t = this.types().find((x) => x.id === id);
+  // The scholarship type box: the admin types a name (with suggestions from the list).
+  // A name that matches a type (ignoring upper/lower case) selects it; anything else is a new type.
+  // When adding a new scholar, copy the stipend details from the matched type.
+  onTypeChange(name: string): void {
+    this.f.scholarshipTypeName = name;
+    const t = this.types().find((x) => x.name.toLowerCase() === name.trim().toLowerCase());
+    this.f.scholarshipTypeId = t?.id ?? 0;
+    this.recheck();
     if (t && !this.selectedId()) {
       this.f.stipendAmount = t.stipendAmount; this.f.stipendFrequency = t.paymentFrequency;
       this.f.scholarshipFundSource = t.fundSource ?? 'Government'; this.f.renewalConditions = t.renewalConditions ?? '';
     }
   }
 
+  // Load one scholar and copy their data into the form (for editing).
   async select(id: number): Promise<void> {
     try {
       const d = await firstValueFrom(this.api.get<ScholarDetail>(`/admin/scholars/${id}`));
@@ -298,7 +340,7 @@ export class ScholarsPage implements OnInit {
       this.f = {
         studentId: d.studentId ?? '', firstName: d.firstName, middleName: d.middleName ?? '', lastName: d.lastName, suffix: '', email: d.email ?? '', contactNumber: d.contactNumber ?? '',
         dateOfBirth: dateInput(d.dateOfBirth), gender: d.gender ?? '', address: d.address ?? '', course: d.course ?? '', yearLevel: d.yearLevel ?? '',
-        scholarshipTypeId: d.scholarshipTypeId ?? 0, stipendAmount: d.stipendAmount, stipendFrequency: d.stipendFrequency ?? 'Monthly',
+        scholarshipTypeId: d.scholarshipTypeId ?? 0, scholarshipTypeName: d.scholarshipName ?? '', stipendAmount: d.stipendAmount, stipendFrequency: d.stipendFrequency ?? 'Monthly',
         scholarshipFundSource: d.scholarshipFundSource ?? 'Government', renewalConditions: d.renewalConditions ?? '', bankName: d.bankName ?? '',
         bankAccountNumber: d.bankAccountNumber ?? '', enrollmentDate: dateInput(d.enrollmentDate), expectedGraduation: dateInput(d.expectedGraduation),
         status: d.status, scholarNumber: d.scholarNumber,
@@ -315,6 +357,7 @@ export class ScholarsPage implements OnInit {
   errs = new FormErrors();
   goTo(id: string): void { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); focusField(id); }
   recheck(): void { if (this.errs.attempted) this.errs.set(this.validate()); }
+  // Required fields of the add/edit form. Returns the list of problems.
   private validate(): FieldError[] {
     const f = this.f; const e: FieldError[] = [];
     if (!f.firstName.trim()) e.push({ id: 'sf-fn', message: 'First Name is required.' });
@@ -323,21 +366,24 @@ export class ScholarsPage implements OnInit {
     if (!f.gender) e.push({ id: 'sf-gd', message: 'Please select a gender.' });
     if (!f.course) e.push({ id: 'sf-co', message: 'Please select a course.' });
     if (!f.yearLevel) e.push({ id: 'sf-yl', message: 'Please select a year level.' });
-    if (!f.scholarshipTypeId) e.push({ id: 'sf-st', message: 'Please select a scholarship type.' });
+    if (!f.scholarshipTypeName.trim()) e.push({ id: 'sf-st', message: 'Please type or pick a scholarship type.' });
+    else if (!f.scholarshipTypeId && !(Number(f.stipendAmount) > 0)) e.push({ id: 'sf-amt', message: 'Enter the stipend amount for this new scholarship type.' });
     return e;
   }
 
+  // Turn the form into the object the API expects. Empty text becomes null.
   private payload(): ScholarSave {
     const f = this.f; const n = (s: string) => (s.trim() ? s.trim() : null);
     return {
       studentId: n(f.studentId), firstName: f.firstName.trim(), middleName: n(f.middleName), lastName: f.lastName.trim(), suffix: n(f.suffix), email: f.email.trim(),
       contactNumber: n(f.contactNumber), dateOfBirth: n(f.dateOfBirth), gender: f.gender, address: n(f.address), course: f.course, yearLevel: f.yearLevel,
-      scholarshipTypeId: f.scholarshipTypeId, stipendAmount: Number(f.stipendAmount) || 0, stipendFrequency: f.stipendFrequency, scholarshipFundSource: f.scholarshipFundSource,
+      scholarshipTypeId: f.scholarshipTypeId || null, scholarshipTypeName: f.scholarshipTypeName.trim() || null, stipendAmount: Number(f.stipendAmount) || 0, stipendFrequency: f.stipendFrequency, scholarshipFundSource: f.scholarshipFundSource,
       renewalConditions: n(f.renewalConditions), bankName: n(f.bankName), bankAccountNumber: n(f.bankAccountNumber), enrollmentDate: n(f.enrollmentDate),
       expectedGraduation: n(f.expectedGraduation), status: f.status,
     };
   }
 
+  // Save button: add a new scholar (no selectedId) or update the selected one.
   async save(): Promise<void> {
     const problems = this.validate();
     if (problems.length) {
@@ -356,6 +402,7 @@ export class ScholarsPage implements OnInit {
           const file = this.pending[d.key]; const doc = detail.documents.find((x) => x.key === d.key);
           if (file && doc) { const fd = new FormData(); fd.append('file', file, file.name); await firstValueFrom(this.api.upload(`/admin/compliance/${doc.complianceId}/file`, fd)); }
         }
+        // Show the "scholar created" box with the login details.
         this.created.set(c); this.closeForm();
       } else {
         await firstValueFrom(this.api.put(`/admin/scholars/${this.selectedId()}`, this.payload()));
@@ -363,27 +410,35 @@ export class ScholarsPage implements OnInit {
         this.closeForm();
         void this.dlg.success('Scholar updated successfully!');
       }
-      await this.loadList();
+      // A typed new scholarship type now exists, so refresh the list of types too.
+      await Promise.all([this.loadList(), this.loadTypes()]);
     } catch (e) { void this.dlg.error(errorMessage(e), 'Error saving scholar'); } finally { this.busy.set(false); }
   }
 
+  // Deactivate an active scholar, or reactivate an inactive one (asks first).
   async toggleStatus(): Promise<void> {
     const id = this.selectedId(); if (!id) return;
     const active = this.f.status === 'Active';
     if (!(await this.dlg.confirm(`Are you sure you want to ${active ? 'deactivate' : 'reactivate'} this scholar?`, `Confirm ${active ? 'deactivate' : 'reactivate'}`))) return;
-    try { await firstValueFrom(this.api.post(`/admin/scholars/${id}/toggle-status`)); await this.select(id); await this.loadList(); }
-    catch (e) { void this.dlg.error(errorMessage(e)); }
+    try {
+      await firstValueFrom(this.api.post(`/admin/scholars/${id}/toggle-status`)); await this.select(id); await this.loadList();
+      void this.dlg.success(`${this.f.firstName} ${this.f.lastName} is now ${active ? 'inactive' : 'active'}.`);
+    } catch (e) { void this.dlg.error(errorMessage(e)); }
   }
 
+  // Open an uploaded document in a new browser tab.
   async openDoc(complianceId: number): Promise<void> { try { await this.api.open(`/admin/compliance/${complianceId}/file`); } catch (e) { void this.dlg.error(errorMessage(e)); } }
 
+  // Upload a new file for one document of the selected scholar.
   async replaceDoc(complianceId: number, ev: Event): Promise<void> {
     const input = ev.target as HTMLInputElement; const file = input.files?.[0]; if (!file) return;
     const fd = new FormData(); fd.append('file', file, file.name);
-    try { await firstValueFrom(this.api.upload(`/admin/compliance/${complianceId}/file`, fd)); await this.select(this.selectedId()!); } catch (e) { void this.dlg.error(errorMessage(e)); }
+    try { await firstValueFrom(this.api.upload(`/admin/compliance/${complianceId}/file`, fd)); await this.select(this.selectedId()!); void this.dlg.success(`${file.name} was uploaded.`, 'Document uploaded'); }
+    catch (e) { void this.dlg.error(errorMessage(e)); }
     input.value = '';
   }
 
+  // "View" button: load the scholar and their compliance list for the details pop-up.
   async openDetails(id: number): Promise<void> {
     try {
       const [d, c] = await Promise.all([

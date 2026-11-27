@@ -28,10 +28,25 @@ The other commands:
 ./run.sh cert     # create or refresh the HTTPS certificate (demo and dev do this by themselves)
 ./run.sh share-ca # let another device trust this machine's certificates
 ./run.sh db       # start a MariaDB in .run/ without sudo, using the names in .env
+./run.sh mailpit  # install Mailpit once; demo/dev then show every email at http://localhost:8025
 ./run.sh docker   # build and start API, MySQL and web with Docker
 ./run.sh test     # run the API and web tests
 ./run.sh stop     # stop whatever the script started, the local MariaDB included
 ```
+
+## Email while developing
+
+With `SMTP_HOST` empty, nothing would be emailed, so a new scholar would not get the email with their Scholar ID and sign-up link. Run `./run.sh mailpit` once. After that, `./run.sh demo` and `./run.sh dev` start [Mailpit](https://github.com/axllent/mailpit) next to the app and send every email to it: open http://localhost:8025 to read them. Nothing reaches real inboxes. It listens on `localhost` only, even with `--lan`, because the inbox shows scholars' personal details. Set `SMTP_HOST` to use a real mail server, or `MAIL_CATCHER=0` to switch Mailpit off.
+
+## How scholars get an account
+
+The site is for people who are already scholars; it does not take scholarship applications.
+
+1. An admin adds the scholar in **Scholar Management**. The scholarship type box suggests common Philippine scholarships (CHED, UniFAST TES/TDP, DOST-SEI, OWWA and more); typing a new name creates a new type.
+2. The scholar gets an email with their **Scholar ID** (e.g. `SCH-2026-001`). The account stays locked until step 3.
+3. On **Sign up** (`/signup`) the scholar enters the Scholar ID plus their Student ID or email and chooses a password (8+ characters, a letter and a number). They are signed in straight away and log in with their Student ID from then on.
+
+Older scholars from the desktop app can sign up the same way. Each scholar can sign up only once. Applications already in the database still show under **Registrations**.
 
 ## HTTPS
 
@@ -138,7 +153,6 @@ ASP.NET reads `Section__Key` as `Section:Key`. Docker reads the names in [.env.e
 | `Seed__AdminUsername` / `Seed__AdminPassword` | first run | Creates the first admin if none exists |
 | `Seed__SampleData` | no | Adds sample scholarship types to an empty table |
 | `Smtp__Host`, `Port`, `User`, `Password`, `FromAddress`, `LoginUrl` | no | Sends email (welcome, approval, rejection, payroll). No host, no email |
-| `Sms__ApiKey` / `Sms__SenderName` | no | Sends texts through Semaphore. No key, no texts |
 | `Uploads__Directory` / `Uploads__MaxBytes` | no, `uploads` and 10 MB | Stores registration documents |
 
 > The desktop app's public source contains a Gmail app password and a Semaphore API key. This version does not use them, but they are still exposed upstream, so revoke them.
@@ -177,7 +191,7 @@ Run `./run.sh test` before you push. It runs the API and web test suites in one 
 
 ## Live updates
 
-Screens update by themselves when something changes elsewhere: a scholar sees a new notification or payment without pressing Refresh, and an admin sees new registrations and uploaded documents as they arrive. The header shows **Live**, **Reconnecting…** or **Offline**. When it is offline, every page still works over plain HTTP.
+Screens update by themselves when something changes elsewhere: a scholar sees a new notification or payment without pressing Refresh, and an admin sees uploaded documents and payroll changes as they arrive. The header shows **Live**, **Reconnecting…** or **Offline**. When it is offline, every page still works over plain HTTP.
 
 How one change travels, from a click to every screen that cares:
 
@@ -201,7 +215,6 @@ flowchart LR
 
 | C# event (raised by) | SignalR event | Who hears it | What reacts |
 | --- | --- | --- | --- |
-| `RegistrationSubmitted` (public registration form) | `RegistrationSubmitted { id, name }` | admins | badge count, toast with **Review**, Registrations list |
 | `RegistrationReviewed` (approve / reject) | `RegistrationReviewed { id, name, status }` | admins | badge count, Registrations list, dashboard |
 | `NotificationsSent` (compose, compliance reminder, payroll) | `NotificationReceived { title, type }` | each recipient scholar | toast with **View**, notifications, dashboard |
 | | `NotificationsChanged { count }` | admins | Notifications page |
@@ -224,7 +237,7 @@ To watch it work, open the admin portal and a scholar portal in two browser wind
 
 * `ADMIN` reaches every `/api/admin/*` endpoint and `/admin/*` route.
 * `SCHOLAR` reaches `/api/scholar/*` only. The API reads the scholar from the JWT and never trusts an id from the client.
-* Passwords go through ASP.NET's `PasswordHasher` (PBKDF2). Login errors never say whether a username exists, and login and public registration are rate limited.
+* Passwords go through ASP.NET's `PasswordHasher` (PBKDF2). Login errors never say whether a username exists, and login and sign-up are rate limited. Sign-up gives the same answer for a wrong Scholar ID and a wrong Student ID or email.
 * Uploads accept PDF, Word, JPG and PNG up to 10 MB, and registration files are saved under generated names.
 * CSV exports defuse spreadsheet formula injection.
 

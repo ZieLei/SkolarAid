@@ -1,21 +1,46 @@
+// =====================================================================
+// Entities.cs - one C# class per database table.
+// Each property is one column (column names are set in IskolarDbContext).
+//
+// Main tables and how they link:
+// User (login)  1 --- 1  Scholar (profile)  --- ScholarshipType
+// Scholar 1 --- many  Payment, ComplianceRecord, Notification
+// ComplianceRecord 1 --- many  FileAttachment (the uploaded documents)
+// ScholarRegistration = an application that is not a scholar yet
+// ActivityLog = the audit trail ("who did what")
+// =====================================================================
 namespace IskolarAid.Data.Entities;
 
+// Tables with a CreatedAt date (filled in automatically on save).
 public interface ITimestamped
 {
     DateTime CreatedAt { get; set; }
 }
 
+// Tables that also have an UpdatedAt date.
 public interface IUpdatable : ITimestamped
 {
     DateTime UpdatedAt { get; set; }
 }
 
+// The two kinds of accounts. Stored in users.role.
 public static class Roles
 {
     public const string Admin = "ADMIN";
     public const string Scholar = "SCHOLAR";
 }
 
+// Values of users.account_status.
+public static class AccountStatuses
+{
+    public const string Active = "Active";
+    public const string Inactive = "Inactive";
+    // Created by an admin, but the scholar has not signed up (chosen a password) yet. Cannot log in.
+    public const string Pending = "Pending";
+}
+
+// A login account (admin or scholar). Username for scholars = Student ID.
+// Password holds a hash, never the real password.
 public class User : IUpdatable
 {
     public int Id { get; set; }
@@ -29,6 +54,7 @@ public class User : IUpdatable
     public DateTime UpdatedAt { get; set; }
 }
 
+// A scholarship program: name, stipend amount and how often it pays.
 public class ScholarshipType : IUpdatable
 {
     public int Id { get; set; }
@@ -44,6 +70,7 @@ public class ScholarshipType : IUpdatable
     public DateTime UpdatedAt { get; set; }
 }
 
+// A scholar's profile: personal info, course, scholarship, bank details, status.
 public class Scholar : IUpdatable
 {
     public int Id { get; set; }
@@ -81,6 +108,8 @@ public class Scholar : IUpdatable
     public string FullName => $"{FirstName} {MiddleName} {LastName}".Replace("  ", " ").Trim();
 }
 
+// An application sent from the Register page. Status: Pending, Approved or Rejected.
+// The File* columns hold paths to the uploaded documents on disk.
 public class ScholarRegistration : ITimestamped
 {
     public int Id { get; set; }
@@ -119,12 +148,16 @@ public class ScholarRegistration : ITimestamped
     public DateTime CreatedAt { get; set; }
 }
 
+// One stipend payment for one month. Status: Processed (queued) -> Released (paid).
 public class Payment : IUpdatable
 {
     public int Id { get; set; }
     public int ScholarId { get; set; }
     public Scholar? Scholar { get; set; }
     public string PaymentPeriod { get; set; } = "";
+    // First and last day the payment covers. Null on old rows that only have a "March 2026" style label.
+    public DateTime? PeriodStart { get; set; }
+    public DateTime? PeriodEnd { get; set; }
     public decimal Amount { get; set; }
     public DateTime ComputationDate { get; set; }
     public DateTime? ReleaseDate { get; set; }
@@ -138,6 +171,8 @@ public class Payment : IUpdatable
     public DateTime UpdatedAt { get; set; }
 }
 
+// One required document for a scholar.
+// Status: Pending, Submitted, Approved, Rejected or Overdue.
 public class ComplianceRecord : IUpdatable
 {
     public int Id { get; set; }
@@ -156,6 +191,7 @@ public class ComplianceRecord : IUpdatable
     public DateTime UpdatedAt { get; set; }
 }
 
+// An uploaded file for a compliance record. The file bytes are stored in FileData.
 public class FileAttachment
 {
     public int Id { get; set; }
@@ -171,6 +207,7 @@ public class FileAttachment
     public DateTime UploadedAt { get; set; }
 }
 
+// An in-app message to one scholar (RecipientId = scholar id).
 public class Notification
 {
     public int Id { get; set; }
@@ -186,6 +223,7 @@ public class Notification
     public DateTime? ReadAt { get; set; }
 }
 
+// One audit log line: who, what action, which table/record, when, from which IP.
 public class ActivityLog : ITimestamped
 {
     public int Id { get; set; }
@@ -198,4 +236,14 @@ public class ActivityLog : ITimestamped
     public string? Details { get; set; }
     public string? IpAddress { get; set; }
     public DateTime CreatedAt { get; set; }
+}
+
+// A user's profile picture. Kept in its own table so loading users never loads the image bytes.
+public class ProfilePicture
+{
+    public int UserId { get; set; }
+    public User? User { get; set; }
+    public byte[] Data { get; set; } = [];
+    public string ContentType { get; set; } = "image/jpeg";
+    public DateTime UpdatedAt { get; set; }
 }

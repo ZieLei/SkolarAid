@@ -1,13 +1,21 @@
+// =====================================================================
+// print.ts - builds HTML for printing (reports, receipts, blank forms)
+// and prints it. The user can pick "Save as PDF" in the print dialog.
+// Used by the Reports page (pages/admin/reports.ts).
+// =====================================================================
 import { Receipt } from '../core/models';
 
+// Escape text before putting it into HTML, so names like "<b>" print as text.
 export const esc = (s: unknown): string =>
   String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+// Load the app's font inside the print page too.
 const fontUrl = (f: string): string => new URL(`fonts/NimbusSans-${f}.otf`, document.baseURI).href;
 const fontFaces = (): string => `
   @font-face{font-family:'Nimbus Sans';src:url('${fontUrl('Regular')}');font-weight:400}
   @font-face{font-family:'Nimbus Sans';src:url('${fontUrl('Bold')}');font-weight:700}`;
 
+// CSS for every printout.
 const STYLE = `
   body{font-family:'Nimbus Sans',Arial,sans-serif;color:#222;margin:28px}
   .head{text-align:center;border-bottom:3px solid #00444f;padding-bottom:10px;margin-bottom:18px}
@@ -48,6 +56,7 @@ export function printHtml(title: string, body: string): void {
   setTimeout(run, 1500);
 }
 
+// A report table: title, column headers, rows.
 export function reportHtml(title: string, columns: string[], rows: (string | null)[][]): string {
   return `<h2>${esc(title)}</h2><p class="meta">Generated ${esc(new Date().toLocaleString())} · ${rows.length} record(s)</p>
   <table><thead><tr>${columns.map((c) => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
@@ -56,6 +65,7 @@ export function reportHtml(title: string, columns: string[], rows: (string | nul
 const money = (n: number): string => '₱' + n.toLocaleString('en-US', { minimumFractionDigits: 2 });
 const day = (s: string | null): string => (s ? new Date(s.length === 10 ? s + 'T00:00:00' : s).toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' }) : '-');
 
+// One payment receipt with signature lines.
 export function receiptHtml(r: Receipt): string {
   const row = (k: string, v: string | null | undefined) => `<div class="row"><span>${esc(k)}</span><b>${esc(v || '-')}</b></div>`;
   return `<h2 style="text-align:center">DISBURSEMENT RECEIPT</h2><p class="meta" style="text-align:center">Reference: ${esc(r.referenceNumber)}</p>
@@ -65,6 +75,7 @@ export function receiptHtml(r: Receipt): string {
   <div class="sign"><div>Received by (Scholar)</div><div>Authorized Signatory</div></div>`;
 }
 
+// Blank printable forms (empty table rows to fill in by hand).
 const TEMPLATES: Record<string, { columns: string[]; note: string }> = {
   'Scholar Census Report': { columns: ['Scholar #', 'Name', 'Course', 'Year', 'Scholarship', 'Status'], note: 'List of scholars for the reporting period.' },
   'Payroll Summary Report': { columns: ['Period', 'Total Payments', 'Total Amount', 'Status'], note: 'Summary of stipend payroll per period.' },
@@ -76,11 +87,15 @@ const TEMPLATES: Record<string, { columns: string[]; note: string }> = {
   'Stipend Release Form': { columns: ['Scholar #', 'Name', 'Period', 'Amount', 'Signature'], note: 'Acknowledgement of stipend release.' },
 };
 export const TEMPLATE_LIST = Object.keys(TEMPLATES);
+/** The layout of a blank form, sent to the API to build its Word (.docx) copy. */
+export const templateDef = (name: string): { title: string; note: string; columns: string[]; blankRows: number } =>
+  ({ title: name, note: TEMPLATES[name].note, columns: TEMPLATES[name].columns, blankRows: 12 });
 export const TEMPLATE_ICONS: Record<string, string> = {
   'Scholar Census Report': 'chart', 'Payroll Summary Report': 'money', 'Compliance Report': 'task', 'Payment History Report': 'wallet',
   'Activity Log Report': 'note', 'Disbursement Voucher': 'invoice', 'Liquidation Report': 'file', 'Stipend Release Form': 'dollar',
 };
 
+// Build a blank form: header, 12 empty rows, signature lines.
 export function templateHtml(name: string): string {
   const t = TEMPLATES[name];
   const blank = Array.from({ length: 12 }, () => `<tr>${t.columns.map(() => '<td>&nbsp;</td>').join('')}</tr>`).join('');

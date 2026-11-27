@@ -1,3 +1,7 @@
+// =====================================================================
+// charts.ts - ready-made Chart.js settings (pie, line, bar) used by the
+// admin dashboard and the Reports page.
+// =====================================================================
 import type { Chart, ChartConfiguration } from 'chart.js';
 
 /** Colours used by the WinForms charts (teal first, then the Material-ish series colours). */
@@ -12,7 +16,7 @@ export async function makeChart(canvas: HTMLCanvasElement, config: ChartConfigur
 export const pieConfig = (labels: string[], data: number[]): ChartConfiguration => ({
   type: 'pie',
   data: { labels, datasets: [{ data, backgroundColor: CHART_COLORS, borderColor: '#fff', borderWidth: 2 }] },
-  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 14, font: { family: 'Nimbus Sans, Arial, sans-serif', size: 12 } } } } },
+  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 14, font: { family: 'Inter, system-ui, Arial, sans-serif', size: 12 } } } } },
 });
 
 /** "Bachelor of Science in Tourism Management" -> "BS Tourism Management", so bar labels fit and stay distinguishable. */

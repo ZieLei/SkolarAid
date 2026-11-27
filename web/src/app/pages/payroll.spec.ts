@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { PayrollPage } from './admin/payroll';
+import { PayrollPage, periodLabel } from './admin/payroll';
 import { PayrollCandidate } from '../core/models';
 
 const row = (id: number, amount: number, eligible: boolean): PayrollCandidate => ({ id, scholarNumber: `SCH-${id}`, fullName: `Scholar ${id}`, course: 'C', yearLevel: '1st Year', scholarshipType: 'T', stipendAmount: amount, complianceStatus: eligible ? 'Complete' : 'Pending Approval', paymentStatus: 'Not Paid', isEligible: eligible });
@@ -38,5 +38,26 @@ describe('PayrollPage', () => {
     expect(process.disabled).toBe(true);
     fx.componentInstance.toggle(1); fx.detectChanges();
     expect(process.disabled).toBe(false);
+  });
+
+  it('labels periods the same way the API saves them', () => {
+    expect(periodLabel('2026-03-01', '2026-03-31')).toBe('March 2026');
+    expect(periodLabel('2026-03-01', '2026-03-15')).toBe('Mar 01-15, 2026');
+    expect(periodLabel('2026-03-16', '2026-04-15')).toBe('Mar 16 - Apr 15, 2026');
+    expect(periodLabel('2026-12-16', '2027-01-15')).toBe('Dec 16, 2026 - Jan 15, 2027');
+  });
+
+  it('a period template reloads the table for its From / To dates', async () => {
+    const { c } = await setup();
+    const http = TestBed.inject(HttpTestingController);
+    c.setPeriod('2026-03-10', '2026-03-20');
+    http.expectOne((r) => r.url === '/api/admin/payroll/candidates').flush([]);
+    http.expectOne((r) => r.url === '/api/admin/payroll/history').flush([]);
+    c.applyPreset('second');
+    const req = http.expectOne((r) => r.url === '/api/admin/payroll/candidates');
+    expect([req.request.params.get('from'), req.request.params.get('to')]).toEqual(['2026-03-16', '2026-03-31']);
+    req.flush([]);
+    http.expectOne((r) => r.url === '/api/admin/payroll/history').flush([]);
+    expect(c.periodLabel()).toBe('Mar 16-31, 2026');
   });
 });

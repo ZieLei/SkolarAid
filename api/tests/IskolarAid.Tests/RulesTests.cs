@@ -102,3 +102,49 @@ public class AmountWordsTests
     [InlineData(2000000, "Two Million Pesos Only")]
     public void Words(double amount, string expected) => Assert.Equal(expected, AmountWords.ToWords((decimal)amount));
 }
+
+public class SmtpTlsModeTests
+{
+    [Theory]
+    [InlineData("smtp.gmail.com", 587, MailKit.Security.SecureSocketOptions.StartTls)]
+    [InlineData("smtp.gmail.com", 465, MailKit.Security.SecureSocketOptions.SslOnConnect)]
+    [InlineData("127.0.0.1", 1025, MailKit.Security.SecureSocketOptions.StartTlsWhenAvailable)]
+    [InlineData("localhost", 1025, MailKit.Security.SecureSocketOptions.StartTlsWhenAvailable)]
+    [InlineData("::1", 1025, MailKit.Security.SecureSocketOptions.StartTlsWhenAvailable)]
+    [InlineData("10.0.0.5", 25, MailKit.Security.SecureSocketOptions.StartTls)]
+    public void Only_a_local_server_may_skip_tls(string host, int port, MailKit.Security.SecureSocketOptions expected) =>
+        Assert.Equal(expected, IskolarAid.Core.Services.SmtpEmailSender.TlsMode(new() { Host = host, Port = port }));
+}
+
+public class PaymentPeriodRulesTests
+{
+    [Theory]
+    [InlineData("2026-03-01", "2026-03-31", "March 2026")]          // whole month: same label as old payments
+    [InlineData("2026-03-01", "2026-03-15", "Mar 01-15, 2026")]
+    [InlineData("2026-03-16", "2026-04-15", "Mar 16 - Apr 15, 2026")]
+    [InlineData("2026-12-16", "2027-01-15", "Dec 16, 2026 - Jan 15, 2027")]
+    public void Period_label(string start, string end, string expected)
+        => Assert.Equal(expected, PayrollRules.PeriodLabel(DateTime.Parse(start), DateTime.Parse(end)));
+
+    [Fact]
+    public void Old_month_labels_are_read_as_the_whole_month()
+        => Assert.Equal((new DateTime(2026, 2, 1), new DateTime(2026, 2, 28)), PayrollRules.RangeOf(null, null, "February 2026"));
+
+    [Fact]
+    public void Ranges_overlap_when_they_share_a_day()
+    {
+        var march = (new DateTime(2026, 3, 1), new DateTime(2026, 3, 31));
+        Assert.True(PayrollRules.Overlaps(march, (new DateTime(2026, 3, 31), new DateTime(2026, 4, 15))));
+        Assert.False(PayrollRules.Overlaps(march, (new DateTime(2026, 4, 1), new DateTime(2026, 4, 15))));
+    }
+
+    [Fact]
+    public void End_before_start_is_refused() => Assert.NotNull(PayrollRules.PeriodProblem(new DateTime(2026, 3, 2), new DateTime(2026, 3, 1)));
+
+    [Theory]
+    [InlineData("short1", false)]
+    [InlineData("onlyletters", false)]
+    [InlineData("12345678", false)]
+    [InlineData("Scholar2026", true)]
+    public void Sign_up_password_rule(string password, bool ok) => Assert.Equal(ok, ScholarRules.PasswordProblem(password) is null);
+}

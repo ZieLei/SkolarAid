@@ -1,3 +1,15 @@
+// =====================================================================
+// reports.ts - Admin > Reports & Analytics (/admin/reports).
+//
+// Tab "Generate Reports":
+// pick a report type + filters -> generate() -> GET /api/admin/reports/generate
+// then export as CSV (exportCsv) or print / save as PDF (exportPdf).
+// Also: print blank forms (printTemplate) and payment receipts (printReceipt).
+// Tab "Analytics Dashboard":
+// loadAnalytics() -> GET /api/admin/reports/analytics -> 3 charts.
+// API: ReportsController -> ReportService / DashboardService.
+// Printing helpers are in shared/print.ts.
+// =====================================================================
 import { Component, ElementRef, OnDestroy, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Chart } from 'chart.js';
@@ -8,7 +20,7 @@ import { DatePipeShort, PesoPipe, daysAgo, today, formatPeso } from '../../core/
 import { Analytics, Receipt, ReleasedPayment, ReportResult, ScholarFilters } from '../../core/models';
 import { Modal } from '../../shared/modal';
 import { barConfig, lineConfig, makeChart, pieConfig } from '../../shared/charts';
-import { TEMPLATE_ICONS, TEMPLATE_LIST, printHtml, receiptHtml, reportHtml, templateHtml } from '../../shared/print';
+import { TEMPLATE_ICONS, TEMPLATE_LIST, printHtml, receiptHtml, reportHtml, templateDef, templateHtml } from '../../shared/print';
 import { AppIcon } from '../../shared/icon';
 import { ScrollCue } from '../../shared/scroll-cue';
 import { StatItem, StatStrip } from '../../shared/stat-strip';
@@ -17,9 +29,9 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
   selector: 'app-reports',
   imports: [StatStrip, ScrollCue, AppIcon, FormsModule, Modal, PesoPipe, DatePipeShort],
   template: `
-    <div class="mb-4 flex gap-1 border-b-2 border-[#d9d9d9]">
+    <div class="inline-flex gap-1 self-start rounded-full bg-[#e3eaec] p-1">
       @for (t of tabs; track t.id) {
-        <button class="rounded-t-lg px-5 py-2 text-[14px] font-bold" [class.bg-accent]="tab() === t.id" [class.text-white]="tab() === t.id" [class.text-label]="tab() !== t.id" (click)="switchTab(t.id)">{{ t.label }}</button>
+        <button class="rounded-full px-5 py-2 text-[14px] font-semibold transition" [class.bg-white]="tab() === t.id" [class.text-brand]="tab() === t.id" [class.shadow-sm]="tab() === t.id" [class.text-muted]="tab() !== t.id" (click)="switchTab(t.id)">{{ t.label }}</button>
       }
     </div>
 
@@ -28,17 +40,18 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
         <section class="card p-5">
           <div class="mb-3 flex flex-wrap items-end gap-4">
             <div><label class="field-label-b">Report Type:</label><select class="input !w-[230px]" [(ngModel)]="q.type">@for (t of reportTypes(); track t) { <option>{{ t }}</option> }</select></div>
-            <div><label class="field-label-b">Date Range:</label><div class="flex items-center gap-2"><input class="input !w-[130px]" type="date" [(ngModel)]="q.from" /> to <input class="input !w-[130px]" type="date" [(ngModel)]="q.to" /></div></div>
+            <div><label class="field-label-b">Date Range:</label><div class="flex flex-wrap items-center gap-2"><input class="input !w-[150px]" type="date" [(ngModel)]="q.from" /> to <input class="input !w-[150px]" type="date" [(ngModel)]="q.to" /></div></div>
           </div>
           <div class="mb-4 flex flex-wrap items-end gap-3">
             <span class="pb-1 text-[13px] font-bold">Filter Options:</span>
             <select class="input !w-[200px]" [(ngModel)]="q.course"><option>All Courses</option>@for (c of filters()?.courses ?? []; track c) { <option>{{ c }}</option> }</select>
             <select class="input !w-[180px]" [(ngModel)]="q.scholarship"><option>All Scholarships</option>@for (s of filters()?.scholarships ?? []; track s.id) { <option>{{ s.name }}</option> }</select>
             <select class="input !w-[150px]" [(ngModel)]="q.status"><option>All Status</option>@for (s of filters()?.statuses ?? []; track s) { <option>{{ s }}</option> }</select>
-            <div class="ml-auto flex gap-2">
+            <div class="ml-auto flex flex-wrap gap-2">
               <button class="btn btn-accent" [disabled]="busy()" (click)="generate()">Generate Report</button>
               <button class="btn btn-accent" (click)="exportPdf()">Export PDF</button>
               <button class="btn btn-ok" (click)="exportCsv()">Export Excel</button>
+              <button class="btn btn-brand" (click)="exportDocx()" title="Editable copy you can open and change in Microsoft Word">Export Word (.docx)</button>
               <button class="btn" style="background:#646464" (click)="exportPdf()">Print</button>
             </div>
           </div>
@@ -54,8 +67,13 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
 
         <aside class="card p-5">
           <h2 class="mb-1 text-[14pt] font-bold text-accent">Blank forms to print</h2>
-          <p class="mb-3 text-[12px] text-[#444]">Empty forms to print and fill in by hand. (To get a report with your data, use the report builder on the left.)</p>
-          @for (t of templates; track t) { <button class="mb-2 w-full rounded bg-brand px-3 py-2 text-left text-[13px] text-white hover:bg-brand-hover" (click)="printTemplate(t)"><app-icon [name]="icons[t]" class="mr-2 inline-flex h-4 w-4 align-[-3px]"></app-icon>{{ t }}</button> }
+          <p class="mb-3 text-[12px] text-[#444]">Empty forms to print and fill in by hand, or download as Word (.docx) to edit. (To get a report with your data, use the report builder on the left.)</p>
+          @for (t of templates; track t) {
+            <div class="mb-2 flex gap-1">
+              <button class="flex-1 rounded-xl bg-brand px-3 py-2.5 text-left text-[13px] font-medium text-white transition hover:bg-brand-hover" (click)="printTemplate(t)" [attr.aria-label]="'Print ' + t"><app-icon [name]="icons[t]" class="mr-2 inline-flex h-4 w-4 align-[-3px]"></app-icon>{{ t }}</button>
+              <button class="rounded border border-brand px-2 text-[12px] font-bold text-brand hover:bg-[#f0f7f8]" (click)="templateDocx(t)" [attr.aria-label]="'Download ' + t + ' as Word'" title="Download as an editable Word file">.docx</button>
+            </div>
+          }
           <hr class="my-3" />
           <h2 class="mb-2 text-[14pt] font-bold text-accent">Disbursement receipt</h2>
           <button class="btn btn-ok w-full !h-[40px]" (click)="openReceipts()"><app-icon name="invoice" class="h-4 w-4"></app-icon>Choose a payment to print…</button>
@@ -79,7 +97,8 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
           <table class="dgrid"><thead><tr><th>ID</th><th>Scholar #</th><th>Scholar Name</th><th>Period</th><th>Amount</th><th>Release Date</th><th></th></tr></thead>
             <tbody>@for (p of released(); track p.id; let i = $index) {
               <tr [class.alt]="i % 2 === 1"><td>{{ p.id }}</td><td>{{ p.scholarNumber }}</td><td>{{ p.scholarName }}</td><td>{{ p.period }}</td><td>{{ p.amount | peso }}</td><td>{{ p.releaseDate | dmy }}</td>
-                <td><button class="btn btn-ok !h-[26px] !px-3 !text-[12px]" (click)="printReceipt(p.id)" [attr.aria-label]="'Print receipt for ' + p.scholarName + ', ' + p.period">Print receipt</button></td></tr>
+                <td class="whitespace-nowrap"><button class="btn btn-ok !h-[26px] !px-3 !text-[12px]" (click)="printReceipt(p.id)" [attr.aria-label]="'Print receipt for ' + p.scholarName + ', ' + p.period">Print receipt</button>
+                  <button class="btn btn-outline ml-1 !h-[26px] !px-3 !text-[12px]" (click)="receiptDocx(p.id)" [attr.aria-label]="'Download receipt for ' + p.scholarName + ' as Word'">.docx</button></td></tr>
             } @empty { <tr><td colspan="7" class="!py-6 text-center text-[#595959]">No released payments yet</td></tr> }</tbody></table>
         </div>
       </app-modal>
@@ -104,8 +123,10 @@ export class ReportsPage implements OnInit, OnDestroy {
   receiptsOpen = signal(false);
   busy = signal(false);
   templates = TEMPLATE_LIST; icons = TEMPLATE_ICONS;
+  // The report form values (type, date range, filters). Default range: last 365 days.
   q = { type: 'Scholar Census Report', from: daysAgo(365), to: today(), course: 'All Courses', scholarship: 'All Scholarships', status: 'All Status' };
 
+  // Number cards on the analytics tab.
   statCards = computed<StatItem[]>(() => {
     const s = this.analytics()?.stats;
     return [
@@ -115,6 +136,7 @@ export class ReportsPage implements OnInit, OnDestroy {
     ];
   });
 
+  // On open: load the filter choices and the list of report types.
   async ngOnInit(): Promise<void> {
     try {
       const [f, t] = await Promise.all([firstValueFrom(this.api.get<ScholarFilters>('/admin/scholars/filters')), firstValueFrom(this.api.get<string[]>('/admin/reports/types'))]);
@@ -123,8 +145,10 @@ export class ReportsPage implements OnInit, OnDestroy {
   }
   ngOnDestroy(): void { this.charts.forEach((c) => c.destroy()); }
 
+  // The report form as URL parameters.
   private params() { return { type: this.q.type, from: this.q.from, to: this.q.to, course: this.q.course, scholarship: this.q.scholarship, status: this.q.status }; }
 
+  // Build the report on the server and show it as a table.
   async generate(): Promise<void> {
     this.busy.set(true);
     try {
@@ -136,6 +160,24 @@ export class ReportsPage implements OnInit, OnDestroy {
 
   async exportCsv(): Promise<void> { try { await this.api.download('/admin/reports/csv', this.params(), 'Report.csv'); } catch (e) { void this.dlg.error(errorMessage(e), 'Export Excel'); } }
 
+  // Print the shown report. The user can choose "Save as PDF" in the print dialog.
+  // Editable Word copy of the same report (GET /api/admin/reports/docx).
+  async exportDocx(): Promise<void> {
+    if (!this.report()) { void this.dlg.warning('Generate a report first, then export it.', 'Export Word'); return; }
+    try { await this.api.download('/admin/reports/docx', this.params(), 'Report.docx'); }
+    catch (e) { void this.dlg.error(errorMessage(e), 'Export Word'); }
+  }
+
+  // Blank form as an editable Word file (the layout comes from shared/print.ts).
+  async templateDocx(name: string): Promise<void> {
+    try { await this.api.downloadPost('/admin/reports/template-docx', templateDef(name), name + '.docx'); } catch (e) { void this.dlg.error(errorMessage(e)); }
+  }
+
+  // One receipt as an editable Word file.
+  async receiptDocx(id: number): Promise<void> {
+    try { await this.api.download(`/admin/reports/receipts/${id}/docx`, {}, `Receipt_${id}.docx`); } catch (e) { void this.dlg.error(errorMessage(e)); }
+  }
+
   exportPdf(): void {
     const r = this.report();
     if (!r || !r.rows.length) { void this.dlg.warning('No data to export.', 'Export'); return; }
@@ -144,15 +186,20 @@ export class ReportsPage implements OnInit, OnDestroy {
 
   printTemplate(name: string): void { printHtml(name, templateHtml(name)); }
 
+  // Open the list of released payments to choose a receipt from.
   async openReceipts(): Promise<void> {
     try { this.released.set(await firstValueFrom(this.api.get<ReleasedPayment[]>('/admin/reports/released-payments'))); this.receiptsOpen.set(true); } catch (e) { void this.dlg.error(errorMessage(e)); }
   }
+  // Load one receipt and print it.
   async printReceipt(id: number): Promise<void> {
     try { const r = await firstValueFrom(this.api.get<Receipt>(`/admin/reports/receipts/${id}`)); printHtml('Receipt ' + r.referenceNumber, receiptHtml(r)); } catch (e) { void this.dlg.error(errorMessage(e)); }
   }
 
+  // Switching to analytics loads the charts (after the tab is drawn).
   switchTab(t: 'reports' | 'analytics'): void { this.tab.set(t); if (t === 'analytics') setTimeout(() => void this.loadAnalytics()); }
 
+  // Load the numbers, remove old charts, then draw pie (by scholarship),
+  // bar (by course) and line (money per month).
   async loadAnalytics(): Promise<void> {
     try {
       const a = await firstValueFrom(this.api.get<Analytics>('/admin/reports/analytics'));

@@ -1,12 +1,21 @@
+// =====================================================================
+// Support.cs - services used by many other services:
+// ActivityLogService -> writes the "who did what" audit trail
+// PasswordService    -> hashes and checks passwords
+// AuthService        -> login / logout logic
+// =====================================================================
 using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using IskolarAid.Core.Common;
+using IskolarAid.Core.Rules;
 using IskolarAid.Data;
 using IskolarAid.Data.Entities;
 
 namespace IskolarAid.Core.Services;
 
+// Writes one row into the activity_logs table. Used after almost every change
+// (create, update, delete, login...). The Admin > Activity logs page shows these rows.
 public class ActivityLogService(IskolarDbContext db, ICurrentUser current)
 {
     public async Task LogAsync(string action, string? details, string? table = null, int? recordId = null,
@@ -35,11 +44,14 @@ public class ActivityLogService(IskolarDbContext db, ICurrentUser current)
         }
     }
 
+    // Short cuts for the three most common actions.
     public Task LogCreate(string table, int id, string details) => LogAsync("CREATE", details, table, id);
     public Task LogUpdate(string table, int id, string details) => LogAsync("UPDATE", details, table, id);
     public Task LogDelete(string table, int id, string details) => LogAsync("DELETE", details, table, id);
 }
 
+// Passwords are never stored as plain text. We store a one-way "hash" (ASP.NET Identity format).
+// The old desktop app stored plain text, so those are still accepted once and then upgraded.
 public class PasswordService
 {
     private readonly PasswordHasher<User> _hasher = new();
@@ -65,6 +77,14 @@ public class PasswordService
     }
 }
 
+// Login steps:
+// 1. Find the user by username (for scholars this is their Student ID).
+// 2. Check the password.
+// 3. Check the account is Active (and, for scholars, that the scholar profile is Active).
+// 4. Upgrade an old plain-text password to a hash if needed.
+// 5. Save the last login time and write a LOGIN activity log.
+// The controller then makes the JWT token from the returned user.
+// Sign-up (for scholars the admin already added) is SignUpAsync below.
 public class AuthService(IskolarDbContext db, PasswordService passwords, ActivityLogService log)
 {
     public async Task<UserInfoDtoInternal> LoginAsync(string username, string password)
@@ -74,6 +94,8 @@ public class AuthService(IskolarDbContext db, PasswordService passwords, Activit
         // Same message for unknown user and wrong password (no user enumeration).
         var fail = new AppException("Invalid Student ID or Password.", 401);
         if (user is null) throw fail;
+        if (user.AccountStatus == AccountStatuses.Pending)
+            throw new AppException("You have not activated your account yet. Choose \"Sign up\" and enter your Scholar ID to set your password.", 401);
 
         var (ok, rehash) = passwords.Verify(user.Password, password);
         if (!ok) throw fail;
@@ -95,7 +117,49 @@ public class AuthService(IskolarDbContext db, PasswordService passwords, Activit
         return new UserInfoDtoInternal(user, scholar);
     }
 
+    // Sign-up for a scholar the Scholarship Office already added. Steps:
+    // 1. Find the scholar by Scholar ID (e.g. SCH-2026-001).
+    // 2. The Student ID or email they typed must match that scholar.
+    // 3. The scholar must be Active and must not have a working account yet.
+    // 4. Save their chosen password and switch the account to Active.
+    // The controller then logs them in straight away (returns a token).
+    public async Task<UserInfoDtoInternal> SignUpAsync(string scholarNumber, string studentIdOrEmail, string password)
+    {
+        var number = scholarNumber.Trim().ToUpperInvariant();
+        var id = studentIdOrEmail.Trim();
+        var idLower = id.ToLowerInvariant();
+        // One message for "no such Scholar ID" and "ID and email do not match", so nobody can guess IDs.
+        var notFound = new AppException("We could not find a scholar with that Scholar ID and Student ID or email. Check both, or contact the Scholarship Office.", 404);
+
+        var scholar = await db.Scholars.Include(s => s.User).FirstOrDefaultAsync(s => s.ScholarNumber == number) ?? throw notFound;
+        var matches = (scholar.StudentId != null && scholar.StudentId == id) || (scholar.Email != null && scholar.Email.ToLower() == idLower);
+        if (!matches) throw notFound;
+        if (scholar.Status != "Active")
+            throw AppException.Forbidden("Your scholarship is not active, so you cannot sign up. Please contact the Scholarship Office.");
+        if (scholar.User is { AccountStatus: not AccountStatuses.Pending })
+            throw AppException.Conflict("This scholar already has an account. Please log in with your Student ID instead.");
+        if (ScholarRules.PasswordProblem(password) is { } problem) throw new AppException(problem);
+
+        var user = scholar.User;
+        if (user is null)
+        {
+            // Older scholars (from the desktop app) may have no login row at all: make one.
+            var username = scholar.StudentId ?? scholar.ScholarNumber;
+            if (await db.Users.AnyAsync(u => u.Username == username))
+                throw AppException.Conflict("An account with this Student ID already exists. Please contact the Scholarship Office.");
+            user = new User { Username = username, Role = Roles.Scholar, Name = scholar.FullName };
+            scholar.User = user;
+        }
+        user.Password = passwords.Hash(password);
+        user.AccountStatus = AccountStatuses.Active;
+        user.LastLogin = DateTime.Now;
+        await db.SaveChangesAsync();
+        await log.LogAsync("SIGNUP", $"{scholar.FullName} signed up ({scholar.ScholarNumber})", "users", user.Id, user.Id, user.Name);
+        return new UserInfoDtoInternal(user, scholar);
+    }
+
     public Task LogoutAsync(int userId, string name) => log.LogAsync("LOGOUT", $"{name} logged out", "users", userId, userId, name);
 }
 
+// What LoginAsync returns: the user row and, for scholars, their scholar row.
 public record UserInfoDtoInternal(User User, Scholar? Scholar);

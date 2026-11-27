@@ -1,3 +1,9 @@
+// =====================================================================
+// http.ts - code that runs around every API call and every page change.
+// authInterceptor        -> adds "Authorization: Bearer <token>"; on 401 logs out
+// httpLoggingInterceptor -> dev only: prints each call in the browser console
+// roleGuard / guestGuard -> decide if a URL may be opened (used in app.routes.ts)
+// =====================================================================
 import { HttpErrorResponse, HttpEventType, HttpInterceptorFn } from '@angular/common/http';
 import { inject, isDevMode } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
@@ -33,6 +39,8 @@ export const httpLoggingInterceptor: HttpInterceptorFn = (req, next) => {
   );
 };
 
+// Only lets in users with this role. Not logged in -> /login.
+// Wrong role (e.g. scholar opens /admin) -> their own home page.
 export const roleGuard = (role: 'ADMIN' | 'SCHOLAR'): CanActivateFn => () => {
   const auth = inject(AuthService);
   const router = inject(Router);
@@ -41,6 +49,7 @@ export const roleGuard = (role: 'ADMIN' | 'SCHOLAR'): CanActivateFn => () => {
   return true;
 };
 
+// For /login and /register: if already logged in, go straight to the home page.
 export const guestGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   return auth.isLoggedIn() ? inject(Router).parseUrl(auth.homeRoute()) : true;

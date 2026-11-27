@@ -1,3 +1,8 @@
+// =====================================================================
+// format.ts - helpers that turn raw values into nice text:
+// status colours, requirement names, dates, "5m ago", and pesos.
+// The @Pipe classes are used in HTML templates, e.g. {{ amount | peso }}.
+// =====================================================================
 import { Pipe, PipeTransform } from '@angular/core';
 
 // One colour per meaning, each >= 4.5:1 on white: amber = waiting, blue = in progress / received, green = done, red = problem.
@@ -9,9 +14,16 @@ export const STATUS_COLORS: Record<string, string> = {
   Rejected: RED, Overdue: RED, Failed: RED, Suspended: RED, Terminated: RED, Expelled: RED, Dropped: RED,
   Inactive: GRAY, Withdrawn: GRAY,
 };
+// Colour for a status word; unknown words are gray.
 export const statusColor = (s: string | null | undefined): string => STATUS_COLORS[s ?? ''] ?? GRAY;
 
+// Colour for each notification type.
 export const NOTIFICATION_COLORS: Record<string, string> = { Payment: GREEN, Reminder: AMBER, Alert: RED, Update: BLUE, Announcement: PURPLE };
+// Icon for each notification type (names from shared/icon.ts).
+export const NOTIFICATION_ICONS: Record<string, string> = { Payment: 'wallet', Reminder: 'wall-clock', Alert: 'alert', Update: 'info', Announcement: 'bell' };
+export const notificationIcon = (type: string, title = ''): string => (/payment|stipend/i.test(title) ? 'wallet' : NOTIFICATION_ICONS[type] ?? 'bell');
+// A very light background in the same colour, for status pills: "#17692c" -> "#17692c1a".
+export const tint = (hex: string): string => hex + '1a';
 
 /** Spell out abbreviations once, so "COR" / "COE" are never a mystery. Stored names are left unchanged. */
 const REQUIREMENT_NAMES: Record<string, string> = {
@@ -22,6 +34,7 @@ export const requirementName = (t: string | null | undefined): string => REQUIRE
 @Pipe({ name: 'reqName' })
 export class RequirementNamePipe implements PipeTransform { transform(v: string | null | undefined): string { return requirementName(v); } }
 
+// Date -> "yyyy-MM-dd" (the format the API expects in URLs).
 export const toIso = (d: Date | string | null | undefined): string | null => {
   if (!d) return null;
   const v = typeof d === 'string' ? d : d.toISOString();
@@ -29,9 +42,11 @@ export const toIso = (d: Date | string | null | undefined): string | null => {
 };
 /** yyyy-MM-dd for <input type="date"> from an API date string. */
 export const dateInput = (s: string | null | undefined): string => (s ? s.slice(0, 10) : '');
+// Today / n days ago as "yyyy-MM-dd" (default values for date filters).
 export const today = (): string => new Date().toISOString().slice(0, 10);
 export const daysAgo = (n: number): string => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 
+// "Just now", "5m ago", "3h ago", "2d ago", or a normal date if older than a week.
 export function relativeTime(iso: string): string {
   const mins = (Date.now() - new Date(iso).getTime()) / 60_000;
   if (mins < 1) return 'Just now';
@@ -52,6 +67,7 @@ export class PesoPipe implements PipeTransform {
   }
 }
 
+// {{ date | dmy }} -> "Mar 05, 2026" ("-" when empty).
 @Pipe({ name: 'dmy' })
 export class DatePipeShort implements PipeTransform {
   transform(v: string | null | undefined, fallback = '-'): string {
@@ -61,6 +77,7 @@ export class DatePipeShort implements PipeTransform {
   }
 }
 
+// {{ date | dt }} -> "Mar 05, 2026, 09:30 AM".
 @Pipe({ name: 'dt' })
 export class DateTimePipe implements PipeTransform {
   transform(v: string | null | undefined): string {

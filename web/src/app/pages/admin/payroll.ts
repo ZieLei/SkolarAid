@@ -1,3 +1,17 @@
+// =====================================================================
+// payroll.ts - Admin > Payroll Processing (/admin/payroll).
+//
+// How paying scholars works on this page:
+// 1. Pick the period (From / To dates, or a template like "1st–15th"),
+//    filter the table, tick the eligible scholars.
+// 2. "Preview"  -> preview()    -> POST /api/admin/payroll/preview (nothing saved)
+// 3. "Process"  -> process() shows a confirm box -> runProcess()
+// -> POST /api/admin/payroll/process (payments become "Processed")
+// 4. "Release"  -> release() lists ready payments -> runRelease()
+// -> POST /api/admin/payroll/release (payments become "Released")
+// The rules for who can be paid live in the API (PayrollService / PayrollRules).
+// Live: reloads when payments or compliance change.
+// =====================================================================
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -6,12 +20,39 @@ import { Api, errorMessage } from '../../core/api';
 import { DialogService } from '../../core/dialog';
 import { DatePipeShort, PesoPipe, statusColor, formatPeso } from '../../core/format';
 import { DisbursementHistory, Option, PayrollCandidate, PayrollPreview, PayrollResult, PayrollStats, ProcessedPayment, ReleaseResult, ScholarFilters } from '../../core/models';
-import { YEAR_LEVELS } from '../register';
+import { YEAR_LEVELS } from '../../core/options';
 import { AppIcon } from '../../shared/icon';
 import { Fact, FactGrid } from '../../shared/fact-grid';
 import { Modal } from '../../shared/modal';
 import { ScrollCue } from '../../shared/scroll-cue';
 import { StatItem, StatStrip } from '../../shared/stat-strip';
+
+// ---- Payment period helpers ----
+type PresetId = 'month' | 'first' | 'second' | 'quarter' | 'semester';
+/** Local date -> "yyyy-MM-dd" (not toISOString, which would shift the day by the time zone). */
+const iso = (d: Date): string => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const parse = (s: string): Date => new Date(s + 'T00:00:00');
+/** The [from, to] dates of a period template, for the month of `from`. */
+function presetRange(id: PresetId, from: string): [string, string] {
+  const d = parse(from); const y = d.getFullYear(); const m = d.getMonth();
+  switch (id) {
+    case 'first': return [iso(new Date(y, m, 1)), iso(new Date(y, m, 15))];
+    case 'second': return [iso(new Date(y, m, 16)), iso(new Date(y, m + 1, 0))];
+    case 'quarter': { const q = Math.floor(m / 3) * 3; return [iso(new Date(y, q, 1)), iso(new Date(y, q + 3, 0))]; }
+    case 'semester': { const h = m < 6 ? 0 : 6; return [iso(new Date(y, h, 1)), iso(new Date(y, h + 6, 0))]; }
+    default: return [iso(new Date(y, m, 1)), iso(new Date(y, m + 1, 0))];
+  }
+}
+/** Mirrors PayrollRules.PeriodLabel in the API so the page shows the same text that gets saved. */
+export function periodLabel(from: string, to: string): string {
+  const s = parse(from), e = parse(to);
+  const mon = (d: Date) => d.toLocaleDateString('en-US', { month: 'short' });
+  const dd = (d: Date) => String(d.getDate()).padStart(2, '0');
+  if (s.getDate() === 1 && iso(e) === iso(new Date(s.getFullYear(), s.getMonth() + 1, 0))) return s.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  if (s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth()) return `${mon(s)} ${dd(s)}-${dd(e)}, ${e.getFullYear()}`;
+  if (s.getFullYear() === e.getFullYear()) return `${mon(s)} ${dd(s)} - ${mon(e)} ${dd(e)}, ${e.getFullYear()}`;
+  return `${mon(s)} ${dd(s)}, ${s.getFullYear()} - ${mon(e)} ${dd(e)}, ${e.getFullYear()}`;
+}
 
 @Component({
   selector: 'app-payroll',
@@ -19,32 +60,55 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
   template: `
     <app-stat-strip [items]="cards()" />
 
-    <div class="card mb-3 flex flex-wrap items-end gap-4 p-4">
+    <div class="card flex flex-wrap items-end gap-x-4 gap-y-3 p-5">
       <div class="min-w-[220px] flex-1"><label class="field-label-b">Search by Name/ID</label><input class="input" [ngModel]="search()" (ngModelChange)="search.set($event); reloadSoon()" /></div>
       <div><label class="field-label-b">Scholarship Type</label>
         <select class="input !w-[190px]" [ngModel]="typeId()" (ngModelChange)="typeId.set($event); load()"><option [ngValue]="0">All Scholarships</option>@for (o of typeOptions(); track o.id) { <option [ngValue]="o.id">{{ o.name }}</option> }</select></div>
       <div><label class="field-label-b">Year Level</label>
         <select class="input !w-[140px]" [ngModel]="year()" (ngModelChange)="year.set($event); load()"><option>All Year Levels</option>@for (y of years; track y) { <option>{{ y }}</option> }</select></div>
-      <div class="ml-auto flex gap-2"><button class="btn btn-accent" (click)="selectAll()">Select All Eligible</button><button class="btn btn-gray" (click)="selected.set(new_set())">Clear Selection</button></div>
+      <div class="ml-auto flex flex-wrap gap-2"><button class="btn btn-accent" (click)="selectAll()">Select All Eligible</button><button class="btn btn-gray" (click)="selected.set(new_set())">Clear Selection</button></div>
     </div>
 
-    <div class="card mb-4 flex flex-wrap items-end gap-4 p-4">
-      <div><label class="field-label-b">Payment Period</label><input class="input !w-[210px]" type="month" [ngModel]="periodMonth()" (ngModelChange)="periodMonth.set($event); load(); loadHistory()" /></div>
-      <div><label class="field-label-b">Payment Method</label>
-        <select class="input !w-[180px]" [(ngModel)]="method">@for (m of methods; track m) { <option>{{ m }}</option> }</select></div>
-      <p class="pb-1 text-[14px]" aria-live="polite"><b>{{ selected().size }}</b> selected · Total <b class="text-accent">{{ total() | peso }}</b> for {{ periodLabel() }}</p>
-      <div class="ml-auto flex flex-col items-end gap-2">
-        <div class="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Payroll steps">
-          <span class="text-[12px] font-bold text-label">Step 1</span>
-          <button class="btn btn-gray !h-[40px] !text-[14px]" [disabled]="busy() || !selected().size" [attr.title]="selected().size ? null : needSelection" (click)="preview()"><app-icon name="analysis" class="h-5 w-5"></app-icon>Preview</button>
-          <span class="text-[12px] font-bold text-label">Step 2</span>
-          <button class="btn btn-brand !h-[40px] !text-[14px]" [disabled]="busy() || !selected().size" [attr.title]="selected().size ? null : needSelection" (click)="process()"><app-icon name="dollar" class="h-5 w-5"></app-icon>Process Payroll</button>
-          <span class="mx-1 hidden h-[28px] w-px bg-[#c9c9c9] sm:block" aria-hidden="true"></span>
-          <span class="text-[12px] font-bold text-label">Step 3</span>
-          <button class="btn btn-outline !h-[40px] !text-[14px]" [disabled]="busy() || !(stats()?.readyForRelease)" [attr.title]="stats()?.readyForRelease ? null : noRelease" (click)="release()"><app-icon name="wallet" class="h-5 w-5"></app-icon>Release Payments{{ stats()?.readyForRelease ? ' (' + stats()!.readyForRelease + ' ready)' : '' }}</button>
+    <div class="card overflow-hidden">
+      <!-- Top: what to pay (period + method) and what it adds up to. -->
+      <div class="grid gap-6 p-5 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div class="flex flex-wrap items-end gap-x-5 gap-y-4">
+          <fieldset class="flex flex-wrap items-end gap-3">
+            <legend class="field-label-b mb-2">Payment period</legend>
+            <div><label class="mb-1 block text-[12px] text-muted" for="ps">From</label><input id="ps" class="input !w-[160px]" type="date" [ngModel]="periodStart()" (ngModelChange)="setPeriod($event, periodEnd())" /></div>
+            <div><label class="mb-1 block text-[12px] text-muted" for="pe">To</label><input id="pe" class="input !w-[160px]" type="date" [min]="periodStart()" [ngModel]="periodEnd()" (ngModelChange)="setPeriod(periodStart(), $event)" /></div>
+            <div class="flex flex-wrap gap-1.5" role="group" aria-label="Period templates">
+              @for (p of presets; track p.id) { <button type="button" class="btn btn-outline !h-[34px] !px-3 !text-[12px]" [class.!bg-brand-soft]="activePreset() === p.id" [class.!border-brand]="activePreset() === p.id" (click)="applyPreset(p.id)">{{ p.label }}</button> }
+            </div>
+          </fieldset>
+          <div><label class="field-label-b">Payment method</label>
+            <select class="input !w-[190px]" [(ngModel)]="method">@for (m of methods; track m) { <option>{{ m }}</option> }</select></div>
         </div>
-        @if (!selected().size) { <p class="text-[12px] text-muted">Preview and Process are off until you tick at least one eligible scholar.</p> }
-        @if (!stats()?.readyForRelease) { <p class="text-[12px] text-muted">{{ noRelease }}</p> }
+        <div class="rounded-xl bg-brand-soft px-5 py-3 lg:min-w-[260px] lg:text-right" aria-live="polite">
+          <p class="text-[12px] font-semibold uppercase tracking-wider text-muted">{{ selected().size }} selected · {{ periodLabel() }}</p>
+          <p class="text-[26px] font-bold leading-tight tracking-tight text-brand">{{ total() | peso }}</p>
+        </div>
+      </div>
+
+      <!-- Bottom: the three steps, in order. -->
+      <div class="border-t border-line bg-[#fafcfc] p-5">
+        <div class="grid gap-3 md:grid-cols-3" role="group" aria-label="Payroll steps">
+          <div class="flex items-center gap-3 rounded-xl border border-line bg-white p-3">
+            <span class="reg-n shrink-0">1</span>
+            <button class="btn btn-gray !h-[40px] flex-1 !text-[14px]" [disabled]="busy() || !selected().size" [attr.title]="selected().size ? null : needSelection" (click)="preview()"><app-icon name="analysis" class="h-5 w-5"></app-icon>Preview</button></div>
+          <div class="flex items-center gap-3 rounded-xl border border-line bg-white p-3">
+            <span class="reg-n shrink-0">2</span>
+            <button class="btn btn-brand !h-[40px] flex-1 !text-[14px]" [disabled]="busy() || !selected().size" [attr.title]="selected().size ? null : needSelection" (click)="process()"><app-icon name="dollar" class="h-5 w-5"></app-icon>Process Payroll</button></div>
+          <div class="flex items-center gap-3 rounded-xl border border-line bg-white p-3">
+            <span class="reg-n shrink-0">3</span>
+            <button class="btn btn-outline !h-[40px] flex-1 !text-[14px]" [disabled]="busy() || !(stats()?.readyForRelease)" [attr.title]="stats()?.readyForRelease ? null : noRelease" (click)="release()"><app-icon name="wallet" class="h-5 w-5"></app-icon>Release{{ stats()?.readyForRelease ? ' (' + stats()!.readyForRelease + ' ready)' : ' payments' }}</button></div>
+        </div>
+        @if (!selected().size || !stats()?.readyForRelease) {
+          <div class="mt-3 space-y-1 text-[12px] text-muted">
+            @if (!selected().size) { <p>Preview and Process are off until you tick at least one eligible scholar.</p> }
+            @if (!stats()?.readyForRelease) { <p>{{ noRelease }}</p> }
+          </div>
+        }
       </div>
     </div>
 
@@ -69,7 +133,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
 
 
     <section class="card overflow-hidden">
-      <h2 class="px-4 pt-3 text-[14pt] font-bold text-accent">Disbursement History — {{ periodLabel() }}</h2>
+      <h2 class="px-5 pt-4 text-[16px] font-semibold tracking-tight text-ink">Disbursement History — {{ periodLabel() }}</h2>
       <div scrollCue class="grid-wrap max-h-[300px] p-2">
         <table class="dgrid roomy">
           <thead><tr><th>Scholar</th><th>Period</th><th>Amount</th><th>Status</th><th>Release Date</th><th>Method</th><th>Reference</th></tr></thead>
@@ -107,7 +171,10 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
           @if (v.confirm) {
             <button class="btn btn-gray !h-[40px]" (click)="previewDlg.set(null)">Cancel</button>
             <button class="btn btn-brand !h-[40px]" [disabled]="busy()" (click)="runProcess()"><app-icon name="dollar" class="h-5 w-5"></app-icon>Process {{ v.p.new }} payment{{ v.p.new === 1 ? '' : 's' }}</button>
-          } @else { <button class="btn btn-brand !h-[40px]" (click)="previewDlg.set(null)">Close</button> }
+          } @else {
+            <button class="btn btn-gray !h-[40px]" (click)="previewDlg.set(null)">Close</button>
+            @if (v.p.new) { <button class="btn btn-brand !h-[40px]" (click)="previewDlg.set({ p: v.p, confirm: true })"><app-icon name="dollar" class="h-5 w-5"></app-icon>Continue to process…</button> }
+          }
         </div>
       </app-modal>
     }
@@ -172,9 +239,17 @@ export class PayrollPage implements OnInit {
   history = signal<DisbursementHistory[]>([]);
   stats = signal<PayrollStats | null>(null);
   typeOptions = signal<Option[]>([]);
+  // Ids of the ticked scholars.
   selected = signal<Set<number>>(new Set());
   search = signal(''); typeId = signal(0); year = signal('All Year Levels');
-  periodMonth = signal(new Date().toISOString().slice(0, 7));
+  // The payment period: first and last day (yyyy-MM-dd). Starts as the current month.
+  periodStart = signal(iso(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
+  periodEnd = signal(iso(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)));
+  // Quick templates, based on the month of the "From" date.
+  presets = [
+    { id: 'month', label: 'Whole month' }, { id: 'first', label: '1st–15th' }, { id: 'second', label: '16th–end' },
+    { id: 'quarter', label: 'Quarter' }, { id: 'semester', label: 'Semester' },
+  ] as const;
   method = 'Bank Transfer';
   busy = signal(false);
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -182,8 +257,21 @@ export class PayrollPage implements OnInit {
   readonly needSelection = 'Select at least one eligible scholar in the table first.';
   readonly noRelease = 'Release is off: no processed payment has reached its release date yet (new payments wait about 3 days).';
   new_set(): Set<number> { return new Set<number>(); }
-  periodDate = computed(() => `${this.periodMonth() || new Date().toISOString().slice(0, 7)}-01`);
-  periodLabel = computed(() => new Date(this.periodDate() + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
+  // "2026-03" from the month picker -> "2026-03-01" for the API, and "March 2026" for display.
+  // Same label the API saves on each payment (PayrollRules.PeriodLabel), e.g. "March 2026" or "Mar 01-15, 2026".
+  periodLabel = computed(() => periodLabel(this.periodStart(), this.periodEnd()));
+  // Which template matches the current dates (to highlight its button).
+  activePreset = computed(() => this.presets.find((p) => { const r = presetRange(p.id, this.periodStart()); return r[0] === this.periodStart() && r[1] === this.periodEnd(); })?.id ?? null);
+
+  // A date was changed: keep end >= start, then reload the table and history for the new period.
+  setPeriod(start: string, end: string): void {
+    if (!start) return;
+    if (!end || end < start) end = start;
+    this.periodStart.set(start); this.periodEnd.set(end);
+    void this.load(); void this.loadHistory();
+  }
+  applyPreset(id: PresetId): void { const [s, e] = presetRange(id, this.periodStart()); this.setPeriod(s, e); }
+  // Sum of the stipends of the ticked scholars.
   total = computed(() => this.rows().filter((r) => this.selected().has(r.id)).reduce((s, r) => s + r.stipendAmount, 0));
   /** Why a scholar can't be selected, so "No" is never a dead end. */
   reason(c: PayrollCandidate): string {
@@ -191,6 +279,7 @@ export class PayrollPage implements OnInit {
     if (c.complianceStatus !== 'Complete') return 'compliance ' + (c.complianceStatus === 'Pending Approval' ? 'awaiting approval' : c.complianceStatus.toLowerCase());
     return 'scholar not active';
   }
+  // Number cards at the top of the page.
   cards = computed<{ label: string; value: string; icon: string; small: boolean; hint?: string }[]>(() => [
     { label: 'Eligible Scholars', value: String(this.rows().filter((r) => r.isEligible).length), icon: 'user-groups', small: false, hint: `of ${this.rows().length} listed · rest already paid or need compliance approved` },
     { label: 'Processed Today', value: String(this.stats()?.processedToday ?? 0), icon: 'dollar', small: false, hint: 'Payments processed today' },
@@ -202,28 +291,34 @@ export class PayrollPage implements OnInit {
     reloadOn([rt.paymentsChanged$, rt.complianceChanged$], () => Promise.all([this.load(), this.loadHistory(), this.loadStats()]));
   }
 
+  // On open: load the scholarship filter, then the table, history and numbers.
   async ngOnInit(): Promise<void> {
     const f = await firstValueFrom(this.api.get<ScholarFilters>('/admin/scholars/filters'));
     this.typeOptions.set(f.scholarships);
     await Promise.all([this.load(), this.loadHistory(), this.loadStats()]);
   }
 
+  // Wait 300 ms after the last filter change before reloading.
   reloadSoon(): void { clearTimeout(this.timer); this.timer = setTimeout(() => void this.load(), 300); }
 
+  // Load the candidates table. Un-tick anyone who is no longer in the list or no longer eligible.
   async load(): Promise<void> {
     try {
-      this.rows.set(await firstValueFrom(this.api.get<PayrollCandidate[]>('/admin/payroll/candidates', { period: this.periodDate(), scholarshipTypeId: this.typeId() || null, yearLevel: this.year(), search: this.search() })));
+      this.rows.set(await firstValueFrom(this.api.get<PayrollCandidate[]>('/admin/payroll/candidates', { from: this.periodStart(), to: this.periodEnd(), scholarshipTypeId: this.typeId() || null, yearLevel: this.year(), search: this.search() })));
       this.selected.update((s) => new Set([...s].filter((id) => this.rows().some((r) => r.id === id && r.isEligible))));
     } catch (e) { void this.dlg.error(errorMessage(e)); }
   }
-  async loadHistory(): Promise<void> { this.history.set(await firstValueFrom(this.api.get<DisbursementHistory[]>('/admin/payroll/history', { period: this.periodDate() }))); }
+  async loadHistory(): Promise<void> { this.history.set(await firstValueFrom(this.api.get<DisbursementHistory[]>('/admin/payroll/history', { from: this.periodStart(), to: this.periodEnd() }))); }
   async loadStats(): Promise<void> { this.stats.set(await firstValueFrom(this.api.get<PayrollStats>('/admin/payroll/stats'))); }
 
+  // Tick / un-tick one scholar. selectAll() ticks every eligible one.
   toggle(id: number): void { this.selected.update((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
   selectAll(): void { this.selected.set(new Set(this.rows().filter((r) => r.isEligible).map((r) => r.id))); }
 
-  private body() { return { periodDate: this.periodDate(), method: this.method, scholarIds: [...this.selected()] }; }
+  // The request body for preview / process: month, payment method, ticked ids.
+  private body() { return { periodStart: this.periodStart(), periodEnd: this.periodEnd(), method: this.method, scholarIds: [...this.selected()] }; }
 
+  // Which pop-up is open and what it shows (null = closed).
   previewDlg = signal<{ p: PayrollPreview; confirm: boolean } | null>(null);
   processed = signal<PayrollResult | null>(null);
   releaseDlg = signal<{ ready: ProcessedPayment[]; total: number } | null>(null);
@@ -244,7 +339,7 @@ export class PayrollPage implements OnInit {
       { icon: 'checked', label: 'Processed', value: String(r.processed), tone: 'ok' },
       ...(r.skipped ? [{ icon: 'alert', label: 'Skipped', value: String(r.skipped), tone: 'pending' } as Fact] : []),
       { icon: 'dollar', label: 'Total', value: formatPeso(r.total), tone: 'strong' },
-      { icon: 'mail', label: 'Emails sent', value: String(r.emailsSent) }, { icon: 'phone', label: 'Texts sent', value: String(r.smsSent) },
+      { icon: 'mail', label: 'Emails sent', value: String(r.emailsSent) },
     ];
   }
   releaseFacts(ready: ProcessedPayment[], total: number): Fact[] {
@@ -255,6 +350,7 @@ export class PayrollPage implements OnInit {
     return [{ icon: 'checked', label: 'Released', value: String(r.released), tone: 'ok' }, { icon: 'dollar', label: 'Total', value: formatPeso(r.total), tone: 'strong' }, { icon: 'mail', label: 'Emails sent', value: String(r.emailsSent) }];
   }
 
+  // Step 1 (optional): show what would be paid, without saving.
   async preview(): Promise<void> {
     try { this.previewDlg.set({ p: await firstValueFrom(this.api.post<PayrollPreview>('/admin/payroll/preview', this.body())), confirm: false }); }
     catch (e) { void this.dlg.error(errorMessage(e)); }
@@ -268,6 +364,7 @@ export class PayrollPage implements OnInit {
     this.previewDlg.set({ p: pv, confirm: true });
   }
 
+  // "Process" pressed in the confirm box: create the payments, then refresh everything.
   async runProcess(): Promise<void> {
     this.busy.set(true);
     try {
@@ -278,6 +375,7 @@ export class PayrollPage implements OnInit {
     } catch (e) { void this.dlg.error(errorMessage(e), 'Processing error'); } finally { this.busy.set(false); }
   }
 
+  // Step 3: find payments ready for release and show them in a confirm box.
   async release(): Promise<void> {
     try {
       const ready = await firstValueFrom(this.api.get<ProcessedPayment[]>('/admin/payroll/ready-for-release'));
@@ -286,6 +384,7 @@ export class PayrollPage implements OnInit {
     } catch (e) { void this.dlg.error(errorMessage(e), 'Release error'); }
   }
 
+  // "Release" pressed in the confirm box: release them all, then refresh.
   async runRelease(): Promise<void> {
     this.busy.set(true);
     try {

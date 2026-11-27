@@ -39,7 +39,7 @@ public class AppEventsTests
         var ok = await f.AddScholarAsync(t.Id, "Approved");
         var no = await f.AddScholarAsync(t.Id, "Pending", number: "SCH-2026-002");
 
-        await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodDate = new DateTime(2026, 3, 1), Method = "Cash", ScholarIds = [ok.Id, no.Id] });
+        await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = new DateTime(2026, 3, 1), PeriodEnd = new DateTime(2026, 3, 31), Method = "Cash", ScholarIds = [ok.Id, no.Id] });
 
         var p = Assert.Single(payments);
         Assert.Equal("Processed", p.Status);
@@ -56,7 +56,7 @@ public class AppEventsTests
         f.Events.NotificationsSent += (_, _) => raised++;
         var no = await f.AddScholarAsync((await f.AddTypeAsync()).Id, "Pending");
 
-        await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodDate = new DateTime(2026, 3, 1), Method = "Cash", ScholarIds = [no.Id] });
+        await f.Payroll.ProcessAsync(new PayrollRequestDto { PeriodStart = new DateTime(2026, 3, 1), PeriodEnd = new DateTime(2026, 3, 31), Method = "Cash", ScholarIds = [no.Id] });
 
         Assert.Equal(0, raised);
     }
@@ -101,6 +101,14 @@ public class AppEventsTests
 /// <summary>The SignalR hub over the in-memory test server: authentication, groups, and pushed events.</summary>
 public class HubTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
+    // Activates an admin-created scholar (they choose a password) and returns their token.
+    private async Task<string> SignUpAsync(ScholarCreatedDto s)
+    {
+        var res = await factory.CreateClient().PostAsJsonAsync("/api/auth/signup", new SignUpRequest(s.ScholarNumber, s.Email, "Scholar2026"));
+        res.EnsureSuccessStatusCode();
+        return (await res.Content.ReadFromJsonAsync<LoginResponse>())!.Token;
+    }
+
     private async Task<string> TokenAsync(string user, string pass)
     {
         var res = await factory.CreateClient().PostAsJsonAsync("/api/auth/login", new LoginRequest(user, pass));
@@ -141,8 +149,8 @@ public class HubTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var other = await AddScholar("Leo");
 
         await using var adminHub = Connect(adminToken);
-        await using var targetHub = Connect(await TokenAsync(target.Username, target.TemporaryPassword));
-        await using var otherHub = Connect(await TokenAsync(other.Username, other.TemporaryPassword));
+        await using var targetHub = Connect(await SignUpAsync(target));
+        await using var otherHub = Connect(await SignUpAsync(other));
         var adminGot = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         var targetGot = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         var otherGot = 0;

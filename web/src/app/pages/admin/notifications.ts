@@ -1,3 +1,13 @@
+// =====================================================================
+// notifications.ts - Admin > Notifications (/admin/notifications).
+// Two tabs:
+// "notifs" -> list, read, compose, delete in-app notifications
+// API: /api/admin/notifications (NotificationsController)
+// "reg"    -> review scholarship applications (approve / reject)
+// API: /api/admin/registrations (RegistrationsController)
+// The sidebar "Registrations" link opens this page with ?tab=reg.
+// Live: reloads when notifications or registrations change.
+// =====================================================================
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
@@ -30,6 +40,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
           <select class="input !w-[150px]" [ngModel]="typeFilter()" (ngModelChange)="typeFilter.set($event); loadList()"><option>All Types</option>@for (t of types; track t) { <option>{{ t }}</option> }</select></div>
         <label class="flex items-center gap-2 pb-1 text-[13px]"><input type="checkbox" [ngModel]="unreadOnly()" (ngModelChange)="unreadOnly.set($event); loadList()" /> Unread only</label>
         <div class="ml-auto flex flex-wrap items-center gap-2">
+          <button class="btn btn-ok" (click)="composeOpen.set(true)"><app-icon name="bell" class="h-4 w-4"></app-icon>Compose</button>
           <button class="btn btn-accent" (click)="refresh()">Refresh</button>
           <button class="btn btn-gray" (click)="clearFilters()">Clear</button>
           <button class="btn btn-brand" (click)="markAllRead()" title="Mark every unread notification as read">Mark all read</button>
@@ -38,27 +49,7 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
         </div>
       </div>
 
-      <div class="grid items-start gap-4" [class]="sel() ? 'xl:grid-cols-[360px_1fr_260px]' : 'xl:grid-cols-[360px_1fr]'">
-        <section class="card p-5">
-          <h2 class="mb-3 text-[14pt] font-bold text-accent">Compose Notification</h2>
-          <div class="grid grid-cols-2 gap-3">
-            <div><label class="field-label-b">Recipient</label>
-              <select class="input" [(ngModel)]="c.recipientId"><option [ngValue]="0">All Active Scholars</option>@for (r of recipients(); track r.id) { <option [ngValue]="r.id">{{ r.name }}</option> }</select></div>
-            <div><label class="field-label-b">Notification Type</label><select class="input" [(ngModel)]="c.type">@for (t of composeTypes; track t) { <option>{{ t }}</option> }</select></div>
-          </div>
-          <div class="my-3 flex gap-6 text-[13px]">
-            <label class="flex items-center gap-2"><input type="checkbox" checked disabled /> Send In-App</label>
-            <label class="flex items-center gap-2"><input type="checkbox" [(ngModel)]="c.sendEmail" /> Send email</label>
-            <label class="flex items-center gap-2"><input type="checkbox" [(ngModel)]="c.sendSms" /> Send SMS</label>
-          </div>
-          <label class="field-label-b">Notification Title</label><input class="input mb-3" [(ngModel)]="c.title" maxlength="200" />
-          <label class="field-label-b">Message</label><textarea class="input mb-4" rows="8" [(ngModel)]="c.message" maxlength="4000"></textarea>
-          <div class="flex justify-between">
-            <button class="btn btn-gray !h-[50px] w-[120px]" (click)="clearCompose()">Clear Form</button>
-            <button class="btn btn-ok !h-[50px] w-[200px] !text-[14px]" [disabled]="busy()" (click)="send()"><app-icon name="bell" class="h-5 w-5"></app-icon>Send Notification</button>
-          </div>
-        </section>
-
+      <div class="grid items-start gap-4" [class]="sel() ? 'xl:grid-cols-[1fr_300px]' : ''">
         <section class="card overflow-hidden">
           <div scrollCue class="grid-wrap max-h-[560px]">
             <table class="dgrid">
@@ -87,23 +78,48 @@ import { StatItem, StatStrip } from '../../shared/stat-strip';
           }
         </aside> }
       </div>
+      @if (composeOpen()) {
+        <app-modal title="Compose notification" [width]="620" (closed)="composeOpen.set(false)">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div><label class="field-label-b">Recipient</label>
+              <select class="input" [(ngModel)]="c.recipientId"><option [ngValue]="0">All Active Scholars</option>@for (r of recipients(); track r.id) { <option [ngValue]="r.id">{{ r.name }}</option> }</select></div>
+            <div><label class="field-label-b">Notification type</label><select class="input" [(ngModel)]="c.type">@for (t of composeTypes; track t) { <option>{{ t }}</option> }</select></div>
+          </div>
+          <div class="my-4 flex flex-wrap gap-6 text-[13px]">
+            <label class="flex items-center gap-2"><input type="checkbox" checked disabled /> Send in-app</label>
+            <label class="flex items-center gap-2"><input type="checkbox" [(ngModel)]="c.sendEmail" /> Send email</label>
+          </div>
+          <label class="field-label-b">Title</label><input class="input mb-4" [(ngModel)]="c.title" maxlength="200" />
+          <label class="field-label-b">Message</label><textarea class="input mb-5" rows="8" [(ngModel)]="c.message" maxlength="4000"></textarea>
+          <div class="flex flex-wrap justify-between gap-2">
+            <button class="btn btn-gray" (click)="clearCompose()">Clear form</button>
+            <div class="flex gap-2">
+              <button class="btn btn-gray" (click)="composeOpen.set(false)">Cancel</button>
+              <button class="btn btn-ok" [disabled]="busy()" (click)="send()"><app-icon name="bell" class="h-4 w-4"></app-icon>Send notification</button>
+            </div>
+          </div>
+        </app-modal>
+      }
     } @else {
       <div class="grid items-start gap-4" [class]="regSel() ? 'xl:grid-cols-[480px_1fr]' : ''">
         <section class="card max-h-[640px] overflow-auto p-3">
           @for (r of regs(); track r.id) {
-            <button class="mb-2 w-full rounded-lg border p-3 text-left transition hover:bg-[#f0f7f8]" [class.border-accent]="regSel()?.id === r.id" [class.border-[#e6e6e6]]="regSel()?.id !== r.id" (click)="openReg(r.id)">
+            <div class="mb-2 w-full rounded-lg border p-3" [class.border-accent]="regSel()?.id === r.id" [class.bg-[#f0f7f8]]="regSel()?.id === r.id" [class.border-[#e6e6e6]]="regSel()?.id !== r.id">
               <div class="flex items-center"><b class="text-[14px] text-brand">{{ r.fullName }}</b><span class="ml-auto text-[12px] font-bold" [style.color]="color(r.status)">{{ r.status }}</span></div>
               <p class="text-[12px] text-muted">{{ r.email }} · {{ r.contactNumber }}</p>
-              <p class="truncate text-[12px]">{{ r.course }} — {{ r.yearLevel }}</p><p class="text-[12px] text-[#595959]">Submitted {{ rel(r.createdAt) }}</p>
-            </button>
+              <p class="text-[12px]">{{ r.course }} — {{ r.yearLevel }}</p>
+              <div class="mt-1 flex items-center"><p class="text-[12px] text-[#595959]">Submitted {{ rel(r.createdAt) }}</p>
+                <button class="btn btn-brand ml-auto !h-[28px] !px-3 !text-[12px]" (click)="openReg(r.id)" [attr.aria-label]="'View registration of ' + r.fullName">View</button></div>
+            </div>
           } @empty { <p class="p-6 text-center text-[13px] text-[#595959]">No registrations</p> }
         </section>
 
         @if (regSel()) { <section class="card p-5">
           @if (regSel(); as r) {
             <div class="mb-3 flex items-center"><h2 class="text-[14pt] font-bold text-accent">{{ r.firstName }} {{ r.middleName }} {{ r.lastName }}</h2>
-              <span class="ml-3 text-[13px] font-bold" [style.color]="color(r.status)">{{ r.status }}</span></div>
-            <dl class="grid grid-cols-[160px_1fr] gap-y-1 text-[13px]">
+              <span class="ml-3 text-[13px] font-bold" [style.color]="color(r.status)">{{ r.status }}</span>
+              <button class="ml-auto flex h-[32px] w-[32px] items-center justify-center rounded-full text-[22px] leading-none text-muted hover:bg-black/5 hover:text-black" aria-label="Close registration" title="Close" (click)="regSel.set(null)">×</button></div>
+            <dl class="grid grid-cols-[110px_1fr] gap-x-2 gap-y-1 text-[13px] sm:grid-cols-[160px_1fr]">
               <dt class="text-muted">Student ID</dt><dd>{{ r.studentId || '(will be generated)' }}</dd>
               <dt class="text-muted">Email</dt><dd>{{ r.email || '—' }}</dd><dt class="text-muted">Contact</dt><dd>{{ r.contactNumber || '—' }}</dd>
               <dt class="text-muted">Date of Birth</dt><dd>{{ r.dateOfBirth | dmy: '—' }}</dd><dt class="text-muted">Gender</dt><dd>{{ r.gender || '—' }}</dd>
@@ -178,6 +194,7 @@ export class NotificationsPage implements OnInit, OnDestroy {
   private dlg = inject(DialogService);
   private toast = inject(ToastService);
   private route = inject(ActivatedRoute);
+  // Pick the tab from the URL (?tab=reg) and set up live reloads.
   constructor() {
     this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.tab.set(q.get('tab') === 'reg' ? 'reg' : 'notifs'));
     const rt = inject(RealtimeService);
@@ -191,11 +208,13 @@ export class NotificationsPage implements OnInit, OnDestroy {
   regSel = signal<RegistrationDetail | null>(null);
   sel = signal<NotificationItem | null>(null);
   busy = signal(false);
+  composeOpen = signal(false);
   rejectOpen = signal(false);
   rejectReason = ''; rejectEmail = true;
   search = signal(''); recipientFilter = signal(0); typeFilter = signal('All Types'); unreadOnly = signal(false);
   types = ['Reminder', 'Alert', 'Update', 'Announcement']; composeTypes = this.types;
-  c = { recipientId: 0, type: 'Update', title: '', message: '', sendEmail: false, sendSms: false };
+  // The compose form values.
+  c = { recipientId: 0, type: 'Update', title: '', message: '', sendEmail: false };
   color = statusColor; tcolor = (t: string) => NOTIFICATION_COLORS[t] ?? '#646464'; rel = relativeTime;
   private timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -214,35 +233,40 @@ export class NotificationsPage implements OnInit, OnDestroy {
     await this.refresh();
   }
 
+  // Reload the list, the numbers and the registrations together.
   async refresh(): Promise<void> { await Promise.all([this.loadList(), this.loadStats(), this.loadRegs()]); }
   async loadStats(): Promise<void> { this.stats.set(await firstValueFrom(this.api.get<NotificationStats>('/admin/notifications/stats'))); }
   async loadRegs(): Promise<void> { this.regs.set(await firstValueFrom(this.api.get<RegistrationListItem[]>('/admin/registrations'))); }
   reloadSoon(): void { clearTimeout(this.timer); this.timer = setTimeout(() => void this.loadList(), 300); }
 
+  // Load notifications with the current filters.
   async loadList(): Promise<void> {
     try { this.list.set(await firstValueFrom(this.api.get<NotificationItem[]>('/admin/notifications', { type: this.typeFilter(), unreadOnly: this.unreadOnly(), search: this.search(), recipientId: this.recipientFilter() || null }))); }
     catch (e) { void this.dlg.error(errorMessage(e)); }
   }
 
   clearFilters(): void { this.search.set(''); this.recipientFilter.set(0); this.typeFilter.set('All Types'); this.unreadOnly.set(false); void this.loadList(); }
-  clearCompose(): void { this.c = { recipientId: 0, type: 'Update', title: '', message: '', sendEmail: false, sendSms: false }; }
+  clearCompose(): void { this.c = { recipientId: 0, type: 'Update', title: '', message: '', sendEmail: false }; }
 
+  // Open one notification (and mark it read).
   async show(n: NotificationItem): Promise<void> {
     this.sel.set(n);
     if (!n.isRead) { try { await firstValueFrom(this.api.post(`/admin/notifications/${n.id}/read`)); } catch { /* non-critical */ } await Promise.all([this.loadList(), this.loadStats()]); }
   }
 
+  // Send the compose form. No recipient = all active scholars.
   async send(): Promise<void> {
     if (!this.c.title.trim() || !this.c.message.trim()) { void this.dlg.warning('Please fill in title and message.'); return; }
     this.busy.set(true);
     try {
-      const r = await firstValueFrom(this.api.post<ComposeResult>('/admin/notifications', { recipientId: this.c.recipientId || null, type: this.c.type, title: this.c.title.trim(), message: this.c.message.trim(), sendEmail: this.c.sendEmail, sendSms: this.c.sendSms }));
-      void this.dlg.success(`Notification sent successfully!\n\nRecipients: ${r.created}${this.c.sendEmail ? `\nEmails sent: ${r.emailsSent}` : ''}${this.c.sendSms ? `\nSMS sent: ${r.smsSent}` : ''}`);
-      this.clearCompose(); await Promise.all([this.loadList(), this.loadStats()]);
+      const r = await firstValueFrom(this.api.post<ComposeResult>('/admin/notifications', { recipientId: this.c.recipientId || null, type: this.c.type, title: this.c.title.trim(), message: this.c.message.trim(), sendEmail: this.c.sendEmail }));
+      void this.dlg.success(`Notification sent successfully!\n\nRecipients: ${r.created}${this.c.sendEmail ? `\nEmails sent: ${r.emailsSent}` : ''}`);
+      this.clearCompose(); this.composeOpen.set(false); await Promise.all([this.loadList(), this.loadStats()]);
     } catch (e) { void this.dlg.error(errorMessage(e), 'Error sending notification'); } finally { this.busy.set(false); }
   }
 
-  resend(n: NotificationItem): void { this.c.title = n.title; this.c.message = n.message; this.c.type = n.type; this.c.recipientId = 0; void this.dlg.info('The notification was copied into the compose form. Choose a recipient and send.'); }
+  // Copy an old notification into the compose form.
+  resend(n: NotificationItem): void { this.c.title = n.title; this.c.message = n.message; this.c.type = n.type; this.c.recipientId = 0; this.composeOpen.set(true); }
 
   // Deletes are applied after a short grace period so they can be undone (the API delete is permanent).
   private pending: { timer: ReturnType<typeof setTimeout>; commit: () => Promise<void> } | null = null;
@@ -250,6 +274,8 @@ export class NotificationsPage implements OnInit, OnDestroy {
     const p = this.pending; if (!p) return;
     this.pending = null; clearTimeout(p.timer); await p.commit();
   }
+  // How "Undo" works: hide the row now, wait 8 seconds, then really delete.
+  // Clicking "Undo" in the toast cancels the timer and puts the row back.
   private deferDelete(message: string, hide: () => () => void, commit: () => Promise<unknown>): void {
     void this.flush();
     const restore = hide();
@@ -262,11 +288,13 @@ export class NotificationsPage implements OnInit, OnDestroy {
   }
   ngOnDestroy(): void { void this.flush(); }
 
+  // Delete one notification (with Undo).
   remove(n: NotificationItem): void {
     const before = this.list(); const wasSel = this.sel();
     this.deferDelete(`Notification “${n.title}” deleted.`, () => { this.list.set(before.filter((x) => x.id !== n.id)); this.sel.set(null); return () => { this.list.set(before); this.sel.set(wasSel); }; },
       () => firstValueFrom(this.api.delete(`/admin/notifications/${n.id}`)));
   }
+  // Delete all read notifications (with Undo).
   async deleteRead(): Promise<void> {
     const count = this.stats()?.read ?? 0;
     if (!count) { void this.dlg.info('There are no read notifications to delete.'); return; }
@@ -275,13 +303,16 @@ export class NotificationsPage implements OnInit, OnDestroy {
     this.deferDelete(`${count} read notification${count === 1 ? '' : 's'} deleted.`, () => { this.list.set(before.filter((x) => !x.isRead)); return () => this.list.set(before); },
       () => firstValueFrom(this.api.delete<{ deleted: number }>('/admin/notifications/read')));
   }
+  // Mark every notification as read.
   async markAllRead(): Promise<void> {
     const n = this.stats()?.unread ?? 0;
     if (!n) { void this.dlg.info('Everything is already marked as read.'); return; }
     if (!(await this.dlg.confirm(`Mark ${n} unread notification${n === 1 ? '' : 's'} as read for all scholars?\n\nThis can't be reversed.`, 'Mark all as read', 'Mark as read', 'Cancel'))) return;
-    await firstValueFrom(this.api.post('/admin/notifications/read-all')); await this.refresh();
+    try { await firstValueFrom(this.api.post('/admin/notifications/read-all')); await this.refresh(); this.toast.show(`${n} notification${n === 1 ? '' : 's'} marked as read.`); }
+    catch (e) { void this.dlg.error(errorMessage(e)); }
   }
 
+  // Open one application in the review pop-up.
   async openReg(id: number): Promise<void> {
     try { this.regSel.set(await firstValueFrom(this.api.get<RegistrationDetail>(`/admin/registrations/${id}`))); } catch (e) { void this.dlg.error(errorMessage(e)); }
   }
@@ -299,6 +330,8 @@ export class NotificationsPage implements OnInit, OnDestroy {
       { icon: 'file', label: 'Username (Student ID)', value: v.a.studentId, tone: 'strong' }];
   }
 
+  // Approve: the API creates the scholar + login and emails the password.
+  // Then we show a box with the new scholar's details.
   async approve(r: RegistrationDetail): Promise<void> {
     const missing = this.missingDocs(r);
     if (!(await this.dlg.confirm(`Approve registration for ${r.firstName} ${r.lastName}?\n\nThis will create a scholar account and send a welcome email.${missing.length ? `\n\nMissing required documents: ${missing.join(', ')}.` : ''}`, 'Confirm Approval'))) return;
@@ -310,6 +343,7 @@ export class NotificationsPage implements OnInit, OnDestroy {
     } catch (e) { void this.dlg.error(errorMessage(e)); } finally { this.busy.set(false); }
   }
 
+  // Reject: a reason is required; the email to the applicant is optional.
   async reject(): Promise<void> {
     const r = this.regSel(); if (!r) return;
     this.rejectEmailAsked = this.rejectEmail;

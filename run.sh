@@ -7,6 +7,7 @@
 #   cert     create or refresh the HTTPS certificate (done automatically by demo/dev)
 #   share-ca let another device trust this machine's certificates (shows a link and QR code)
 #   db       start a user-space MariaDB in .run/ (no sudo; creates the DB and app user from .env)
+#   mailpit  download Mailpit into .run/bin. demo/dev then catch every email (with SMTP_HOST empty) at http://localhost:8025
 #   docker   docker compose up --build (API + MySQL + web)
 #   test     run the API and web test suites
 #   stop     stop anything started by this script, including the local MariaDB
@@ -33,7 +34,7 @@ web_deps() {
 }
 
 stop_all() {
-  for f in "$RUN_DIR"/api.pid "$RUN_DIR"/web.pid "$RUN_DIR"/ca.pid; do
+  for f in "$RUN_DIR"/api.pid "$RUN_DIR"/web.pid "$RUN_DIR"/ca.pid "$RUN_DIR"/mailpit.pid; do
     if [[ -f $f ]]; then
       pid=$(cat "$f")
       # kill the whole process group so dotnet/ng children die too
@@ -43,7 +44,7 @@ stop_all() {
   done
   if [[ -f "$RUN_DIR/mariadb.pid" && "${1:-}" == "--db" ]]; then kill "$(cat "$RUN_DIR/mariadb.pid")" 2>/dev/null || true; fi
   # fallback: anything still listening on our ports (dotnet/ng can outlive the wrapper process)
-  for port in 5080 4200; do
+  for port in 5080 4200 8025 1025; do
     for pid in $(ss -ltnp "sport = :$port" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u); do
       kill "$pid" 2>/dev/null || true
     done
@@ -141,9 +142,45 @@ share_ca() {  # serve the CA certificate in the foreground until Ctrl+C
   exec python3 -I -m http.server "$CA_PORT_USED" --bind "$CA_IP" --directory "$CA_DIR"
 }
 
+MAILPIT_VERSION=v1.33.1
+MAILPIT_BIN="$RUN_DIR/bin/mailpit"
+MAIL_URL=""
+
+install_mailpit() {  # official release from github.com/axllent/mailpit into .run/bin (no sudo)
+  need curl "curl"; need tar "tar"
+  local arch; case "$(uname -m)" in x86_64) arch=amd64;; aarch64|arm64) arch=arm64;; armv7l) arch=arm;; *) echo "No Mailpit build for $(uname -m)" >&2; exit 1;; esac
+  local url="https://github.com/axllent/mailpit/releases/download/$MAILPIT_VERSION/mailpit-linux-$arch.tar.gz"
+  mkdir -p "$RUN_DIR/bin"
+  echo "Downloading Mailpit $MAILPIT_VERSION ..."
+  curl -fsSL "$url" | tar -xz -C "$RUN_DIR/bin" mailpit
+  chmod +x "$MAILPIT_BIN"
+  echo "Installed Mailpit $MAILPIT_VERSION at $MAILPIT_BIN"
+}
+
+# With no real SMTP server configured, point the API at Mailpit so emails (welcome passwords etc.) can be read locally.
+use_mail_catcher() {
+  [[ -n "${SMTP_HOST:-}" || "${MAIL_CATCHER:-1}" == 0 ]] && return 0
+  local bin; bin=$(command -v mailpit 2>/dev/null || true); [[ -z $bin && -x $MAILPIT_BIN ]] && bin=$MAILPIT_BIN
+  if [[ -z $bin ]]; then
+    echo "Note: emails are off (SMTP_HOST empty). Run ./run.sh mailpit once to read them at http://localhost:8025."
+    return 0
+  fi
+  MAILPIT_CMD=$bin
+  export Smtp__Host=127.0.0.1 Smtp__Port=1025 Smtp__User="" Smtp__Password=""
+  export Smtp__FromAddress="${SMTP_FROM_ADDRESS:-no-reply@iskolaraid.local}"
+  MAIL_URL="http://localhost:8025"
+}
+
+start_mail_catcher() {  # localhost only: the inbox shows passwords, so it is never exposed with --lan
+  [[ -n $MAIL_URL ]] || return 0
+  (setsid "$MAILPIT_CMD" --listen 127.0.0.1:8025 --smtp 127.0.0.1:1025 \
+     --database "$RUN_DIR/mailpit.db" >"$RUN_DIR/mailpit.log" 2>&1 & echo $! >"$RUN_DIR/mailpit.pid")
+}
+
 start_stack() {  # assumes API env vars are exported
   need dotnet ".NET 10 SDK"; need node "Node 22+"; need npm "Node 22+"; need curl "curl"
   stop_all
+  start_mail_catcher
   web_deps
   (cd api && dotnet build src/IskolarAid.Api -v q --nologo >"$RUN_DIR/build.log" 2>&1) || { cat "$RUN_DIR/build.log"; exit 1; }
 
@@ -163,6 +200,7 @@ start_stack() {  # assumes API env vars are exported
   echo "  Web : $WEB_URL"
   if [[ $LAN == 1 ]]; then for ip in $(lan_ips); do echo "        $SCHEME://$ip:4200   (other devices on this network)"; done; fi
   echo "  API : $API_URL/health"
+  [[ -n $MAIL_URL ]] && echo "  Mail: $MAIL_URL   (every email the app sends lands here, not in real inboxes)"
   echo "  Logs: $RUN_DIR/api.log, $RUN_DIR/web.log"
   # --lan with mkcert: also share the CA certificate so a new device can trust the app (stops with the app)
   if [[ $LAN == 1 && $SCHEME == https ]] && command -v mkcert >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
@@ -209,6 +247,7 @@ case "$cmd" in
     export Seed__DemoLogins=true
     export Seed__HistoricalData="${SEED_HISTORICAL_DATA:-false}"
     echo "Demo mode: SQLite at $RUN_DIR/demo.db (delete it to reset). Login: $Seed__AdminUsername / $Seed__AdminPassword"
+    use_mail_catcher
     start_stack
     ;;
   dev)
@@ -252,9 +291,39 @@ MSG
     export Seed__HistoricalData="${SEED_HISTORICAL_DATA:-false}"
     export Smtp__Host="${SMTP_HOST:-}" Smtp__Port="${SMTP_PORT:-587}" Smtp__User="${SMTP_USER:-}" Smtp__Password="${SMTP_PASSWORD:-}"
     export Smtp__FromAddress="${SMTP_FROM_ADDRESS:-}" Smtp__LoginUrl="${SMTP_LOGIN_URL:-$WEB_URL/login}"
-    export Sms__ApiKey="${SMS_API_KEY:-}" Sms__SenderName="${SMS_SENDER_NAME:-}"
     export Uploads__Directory="$RUN_DIR/uploads"
+    use_mail_catcher
     start_stack
+    ;;
+  mailpit)
+    install_mailpit
+    ;;
+  import)
+    # ./run.sh import "<file.xlsx>" [--purge-seed]
+    # Loads the real scholar list from the Excel file into the real (dev) database. See ScholarImportService.cs.
+    need dotnet ".NET 10 SDK"
+    file="${2:-}"; [[ -f "$file" ]] || { echo "Usage: ./run.sh import \"<file.xlsx>\" [--purge-seed]" >&2; exit 1; }
+    file="$(realpath "$file")"
+    load_env
+    : "${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}"; : "${JWT_KEY:?Set JWT_KEY in .env}"
+    if ! db_reachable; then
+      if [[ "${MYSQL_HOST:-localhost}" =~ ^(localhost|127\.0\.0\.1)$ ]] && command -v mariadbd >/dev/null 2>&1; then start_db; else echo "Cannot reach the database. Check .env." >&2; exit 1; fi
+    fi
+    mkdir -p "$RUN_DIR"
+    # Back the database up first, so the import can be undone.
+    backup="$RUN_DIR/backup-before-import-$(date +%Y%m%d-%H%M%S).sql"
+    if command -v mariadb-dump >/dev/null 2>&1; then
+      mariadb-dump -h "${MYSQL_HOST:-127.0.0.1}" -P "${MYSQL_PORT:-3306}" -u "${MYSQL_USER:-root}" -p"$MYSQL_PASSWORD" "${MYSQL_DATABASE:-iskolaraid}" > "$backup" 2>/dev/null && echo "Backup: $backup" || echo "Warning: could not back up the database." >&2
+    fi
+    export ASPNETCORE_ENVIRONMENT=Development
+    export ConnectionStrings__Default="${ConnectionStrings__Default:-Server=${MYSQL_HOST:-localhost};Port=${MYSQL_PORT:-3306};Database=${MYSQL_DATABASE:-iskolaraid};User=${MYSQL_USER:-root};Password=${MYSQL_PASSWORD};}"
+    export Jwt__Key="$JWT_KEY" Database__AutoMigrate=true
+    export Database__ServerType="${DB_SERVER_TYPE:-MySql}" Database__ServerVersion="${DB_SERVER_VERSION:-8.0.36}"
+    export Seed__AdminUsername="${SEED_ADMIN_USERNAME:-admin}" Seed__AdminPassword="${SEED_ADMIN_PASSWORD:-}"
+    # Never add fake data while importing the real list.
+    export Seed__SampleData=false Seed__HistoricalData=false Seed__DemoLogins=false
+    export IMPORT_LIST_DIR="$RUN_DIR"
+    cd api && dotnet run --project src/IskolarAid.Api -- "--import-scholars=$file" "${@:3}"
     ;;
   db)
     start_db

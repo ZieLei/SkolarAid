@@ -1,3 +1,15 @@
+// =====================================================================
+// ComplianceService.cs - the documents each scholar must submit.
+//
+// Life of a requirement:
+// Pending -> (file uploaded) Submitted -> (admin checks) Approved / Rejected
+// Pending past its due date -> Overdue
+// Only scholars with ALL requirements Approved can be paid (see PayrollRules).
+//
+// Called by ComplianceController (admin) and ScholarPortalController (scholar).
+// Uploaded files are stored inside the database (file_attachments.FileData).
+// After each change we raise AppEvents.ComplianceChanged for live updates.
+// =====================================================================
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using IskolarAid.Core.Common;
@@ -12,6 +24,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
 {
     private long MaxBytes => upload.Value.MaxBytes;
 
+    // Active scholars for the "pick a scholar" drop-down on the admin compliance tab.
     public async Task<List<ComplianceScholarOptionDto>> ScholarOptionsAsync()
     {
         var rows = await db.Scholars.Where(s => s.Status == "Active").OrderBy(s => s.LastName)
@@ -28,6 +41,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         await db.SaveChangesAsync();
     }
 
+    // Build one of the five default requirements (index i), due one month from now.
     public static ComplianceRecord NewDefault(int scholarId, int i, string status) => new()
     {
         ScholarId = scholarId,
@@ -37,6 +51,34 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         Status = status
     };
 
+    // Admin "show all" view: every requirement of every scholar in one list.
+    // Order: things that need the admin first (Submitted = waiting for review, then Overdue,
+    // Rejected, Pending), Approved last; earliest due date first inside each group.
+    // Filters: status ("All" = no filter) and search text (scholar name / number or requirement).
+    public async Task<List<ComplianceOverviewItemDto>> ListAllAsync(string? status, string? search)
+    {
+        var q = db.ComplianceRecords.AsNoTracking().Include(c => c.Scholar).Include(c => c.Checker).AsQueryable();
+        if (!string.IsNullOrWhiteSpace(status) && status != "All") q = q.Where(c => c.Status == status);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var t = search.Trim();
+            q = q.Where(c => c.RequirementType.Contains(t) || c.Scholar!.FirstName.Contains(t) || c.Scholar.LastName.Contains(t)
+                             || c.Scholar.ScholarNumber.Contains(t));
+        }
+        var records = await q.ToListAsync();
+        var ids = records.Select(r => r.Id).ToList();
+        var files = (await db.FileAttachments.Where(f => ids.Contains(f.ComplianceId)).Select(f => new { f.ComplianceId, f.FileName }).ToListAsync())
+            .GroupBy(f => f.ComplianceId).ToDictionary(g => g.Key, g => (Count: g.Count(), Name: g.First().FileName));
+        int Rank(string s) => s switch { "Submitted" => 0, "Overdue" => 1, "Rejected" => 2, "Pending" => 3, _ => 4 };
+        return records.OrderBy(r => Rank(r.Status)).ThenBy(r => r.DueDate).ThenBy(r => r.Scholar!.LastName).Take(3000).Select(r =>
+        {
+            var f = files.GetValueOrDefault(r.Id);
+            return new ComplianceOverviewItemDto(r.Id, r.ScholarId, r.Scholar!.FullName, r.Scholar.ScholarNumber, r.RequirementType, r.Description,
+                r.DueDate, r.DateSubmitted, r.Status, r.Remarks, r.Checker?.Name, f.Count, f.Name ?? r.FilePath);
+        }).ToList();
+    }
+
+    // Admin view of one scholar: their info, every requirement, and an "x/y approved" summary.
     public async Task<ComplianceScholarInfoDto> GetForScholarAsync(int scholarId)
     {
         var s = await db.Scholars.Include(x => x.ScholarshipType).FirstOrDefaultAsync(x => x.Id == scholarId)
@@ -49,6 +91,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         return new ComplianceScholarInfoDto(s.Id, s.FullName, s.ScholarNumber, s.Course, s.YearLevel, s.ScholarshipType?.Name, items, overall);
     }
 
+    // All requirements of a scholar, with how many files each one has and who checked it.
     public async Task<List<ComplianceItemDto>> ListItemsAsync(int scholarId)
     {
         var records = await db.ComplianceRecords.Include(c => c.Checker).Where(c => c.ScholarId == scholarId)
@@ -64,6 +107,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         }).ToList();
     }
 
+    // Admin approves / rejects / changes a requirement. Remembers which admin did it.
     public async Task UpdateStatusAsync(int id, string status, string? remarks)
     {
         var c = await db.ComplianceRecords.FindAsync(id) ?? throw AppException.NotFound("Compliance record");
@@ -76,8 +120,10 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         events.RaiseComplianceChanged(c.ScholarId, c.RequirementType, status, byScholar: false);
     }
 
+    // "Mark missing" = set to Overdue with a standard remark.
     public Task MarkMissingAsync(int id) => UpdateStatusAsync(id, "Overdue", "Marked as missing by admin");
 
+    // Admin adds an extra requirement (beyond the default five).
     public async Task<ComplianceItemDto> AddRequirementAsync(int scholarId, AddRequirementDto dto)
     {
         if (!await db.Scholars.AnyAsync(s => s.Id == scholarId)) throw AppException.NotFound("Scholar");
@@ -93,6 +139,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         return new ComplianceItemDto(c.Id, c.RequirementType, c.Description, c.DueDate, null, c.Status, null, null, 0, null);
     }
 
+    // Delete a requirement and its files.
     public async Task DeleteRequirementAsync(int id)
     {
         var c = await db.ComplianceRecords.FindAsync(id) ?? throw AppException.NotFound("Compliance record");
@@ -120,6 +167,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         await db.SaveChangesAsync();
     }
 
+    // Admin uploads a file for a scholar's requirement.
     public async Task UploadAsync(int id, string fileName, byte[] data)
     {
         var c = await db.ComplianceRecords.FindAsync(id) ?? throw AppException.NotFound("Compliance record");
@@ -128,6 +176,8 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         events.RaiseComplianceChanged(c.ScholarId, c.RequirementType, c.Status, byScholar: false);
     }
 
+    // Get the newest file of a requirement. When ownerScholarId is given (scholar portal),
+    // the file must belong to that scholar, so scholars cannot download other people's files.
     public async Task<(string Name, string ContentType, byte[] Data)> DownloadAsync(int id, int? ownerScholarId = null)
     {
         var f = await db.FileAttachments.Where(x => x.ComplianceId == id && (ownerScholarId == null || x.ScholarId == ownerScholarId))
@@ -135,6 +185,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         return (f.FileName, UploadRules.ContentType(f.FileName), f.FileData);
     }
 
+    // Remove the file and put the requirement back to Pending.
     public async Task DeleteFileAsync(int id)
     {
         var c = await db.ComplianceRecords.FindAsync(id) ?? throw AppException.NotFound("Compliance record");
@@ -145,6 +196,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
         events.RaiseComplianceChanged(c.ScholarId, c.RequirementType, c.Status, byScholar: false);
     }
 
+    // Send the scholar an in-app "please submit your documents" notification.
     public async Task RemindAsync(int scholarId)
     {
         if (!await db.Scholars.AnyAsync(s => s.Id == scholarId)) throw AppException.NotFound("Scholar");
@@ -161,6 +213,10 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
 
     // ---------- Scholar (own records only) ----------
 
+    // Scholar's own compliance page. First fix up old data:
+    // - Pending items past their due date become Overdue.
+    // - Submitted/Approved items with no submit date get one.
+    // Then return the list and the counts for the summary cards.
     public async Task<ScholarComplianceDto> ListForSelfAsync(int scholarId)
     {
         var today = DateTime.Today;
@@ -180,6 +236,7 @@ public class ComplianceService(IskolarDbContext db, ActivityLogService log, ICur
             items.Count(i => i.Status == "Overdue"), ComplianceRules.ComplianceRate(total, completed));
     }
 
+    // Scholar uploads their own document. Only allowed while the item still needs a file.
     public async Task UploadForSelfAsync(int scholarId, int complianceId, string fileName, byte[] data)
     {
         var c = await db.ComplianceRecords.FirstOrDefaultAsync(x => x.Id == complianceId && x.ScholarId == scholarId)

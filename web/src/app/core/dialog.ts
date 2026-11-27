@@ -1,3 +1,13 @@
+// =====================================================================
+// dialog.ts - pop-up boxes (confirm, info, success, warning, error).
+//
+// How to use from a page:
+// if (await this.dialog.confirm('Delete this file?')) { ...delete... }
+//
+// How it works: confirm() saves the box in the "current" signal and
+// returns a Promise. DialogHost (shared/dialog-host.ts) shows the box.
+// When the user clicks a button, close(true/false) answers the Promise.
+// =====================================================================
 import { Injectable, signal } from '@angular/core';
 
 export interface DialogState {
@@ -14,6 +24,7 @@ export class DialogService {
     return new Promise((resolve) => this.current.set({ title, message, kind, confirmText, cancelText, danger, resolve }));
   }
 
+  // Called by DialogHost when a button is clicked: hide the box and answer the waiting page.
   close(ok: boolean): void { const c = this.current(); this.current.set(null); c?.resolve(ok); }
 
   /** `danger` styles the confirm button red (irreversible actions). */

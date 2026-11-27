@@ -23,13 +23,6 @@ public class FakeEmail : IEmailSender
     { Sent.Add($"{toAddress}|{subject}"); return Task.FromResult(true); }
 }
 
-public class FakeSms : ISmsSender
-{
-    public List<string> Sent { get; } = [];
-    public Task<bool> SendAsync(string phoneNumber, string message, CancellationToken ct = default)
-    { Sent.Add(phoneNumber); return Task.FromResult(true); }
-}
-
 /// <summary>SQLite in-memory database + the service graph under test.</summary>
 public sealed class Fixture : IDisposable
 {
@@ -37,7 +30,6 @@ public sealed class Fixture : IDisposable
     public IskolarDbContext Db { get; }
     public FakeUser Current { get; } = new();
     public FakeEmail Email { get; } = new();
-    public FakeSms Sms { get; } = new();
     public PasswordService Passwords { get; } = new();
     public ActivityLogService Log { get; }
     public AppEvents Events { get; } = new();
@@ -54,8 +46,8 @@ public sealed class Fixture : IDisposable
 
     public AuthService Auth => new(Db, Passwords, Log);
     public ComplianceService Compliance => new(Db, Log, Current, Opt(new UploadOptions()), Events);
-    public ScholarService Scholars => new(Db, Passwords, Log, Email, Sms, Opt(new SmtpOptions()));
-    public PayrollService Payroll => new(Db, Log, Current, Email, Sms, Events);
+    public ScholarService Scholars => new(Db, Passwords, Log, Email, Opt(new SmtpOptions()));
+    public PayrollService Payroll => new(Db, Log, Current, Email, Events);
     public RegistrationService Registrations(IFileStore? store = null) =>
         new(Db, store ?? new MemoryFileStore(), Passwords, Log, Email, Opt(new SmtpOptions()), Opt(new UploadOptions()), Events);
 

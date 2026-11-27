@@ -41,8 +41,6 @@ public class ApiFactory : WebApplicationFactory<Program>
             s.AddDbContext<IskolarDbContext>(o => o.UseSqlite(_conn));
             s.RemoveAll<IEmailSender>();
             s.AddScoped<IEmailSender, FakeEmail>();
-            s.RemoveAll<ISmsSender>();
-            s.AddScoped<ISmsSender, FakeSms>();
             using var sp = s.BuildServiceProvider();
             using var scope = sp.CreateScope();
             scope.ServiceProvider.GetRequiredService<IskolarDbContext>().Database.EnsureCreated();
@@ -107,7 +105,16 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         var created = await create.Content.ReadFromJsonAsync<ScholarCreatedDto>();
 
-        var scholar = await LoginAsync(created!.Username, created.TemporaryPassword);
+        // The new account is "Pending": no login until the scholar signs up with their Scholar ID.
+        var anon = factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anon.PostAsJsonAsync("/api/auth/login", new LoginRequest(created!.Username, "whatever1"))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await anon.PostAsJsonAsync("/api/auth/signup", new SignUpRequest(created.ScholarNumber, "wrong@x.ph", "Scholar2026"))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await anon.PostAsJsonAsync("/api/auth/signup", new SignUpRequest(created.ScholarNumber, "eve@x.ph", "short"))).StatusCode);
+        var signUp = await anon.PostAsJsonAsync("/api/auth/signup", new SignUpRequest(created.ScholarNumber, "EVE@x.ph", "Scholar2026"));
+        Assert.Equal(HttpStatusCode.OK, signUp.StatusCode);
+        Assert.Equal(created.Username, (await signUp.Content.ReadFromJsonAsync<LoginResponse>())!.User.Username);
+        Assert.Equal(HttpStatusCode.Conflict, (await anon.PostAsJsonAsync("/api/auth/signup", new SignUpRequest(created.ScholarNumber, "eve@x.ph", "Scholar2027"))).StatusCode);
+        var scholar = await LoginAsync(created.Username, "Scholar2026");
         var dash = await scholar.GetFromJsonAsync<ScholarDashboardDto>("/api/scholar/dashboard");
         Assert.Equal(created.ScholarNumber, dash!.ScholarNumber);
 
@@ -134,34 +141,54 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task Public_registration_requires_documents_then_appears_for_admin()
+    public async Task New_admin_tools_word_exports_and_profile_pictures_work()
     {
         var admin = await LoginAsync("admin", "Adm1n!Pass");
         var type = await (await admin.PostAsJsonAsync("/api/admin/scholarship-types",
             new ScholarshipTypeSaveDto { Name = "Reg Grant", StipendAmount = 3000, PaymentFrequency = "Monthly" })).Content.ReadFromJsonAsync<ScholarshipTypeDto>();
 
-        MultipartFormDataContent Form(bool withFiles)
-        {
-            var f = new MultipartFormDataContent
-            {
-                { new StringContent("2026-555"), "StudentId" }, { new StringContent("Rey"), "FirstName" }, { new StringContent("Santos"), "LastName" },
-                { new StringContent("rey@x.ph"), "Email" }, { new StringContent("09170000000"), "ContactNumber" }, { new StringContent("Male"), "Gender" },
-                { new StringContent("Bachelor of Science in Criminology"), "DegreeProgram" }, { new StringContent("1st Year"), "YearLevel" },
-                { new StringContent(type!.Id.ToString()), "ScholarshipTypeId" }
-            };
-            if (withFiles) foreach (var k in new[] { "psa", "coe", "cor" }) f.Add(new ByteArrayContent([9, 9]), k, $"{k}.pdf");
-            return f;
-        }
-
+        // Public scholarship applications were removed (scholars sign up instead).
         var anon = factory.CreateClient();
-        Assert.Equal(HttpStatusCode.BadRequest, (await anon.PostAsync("/api/registrations", Form(false))).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await anon.PostAsync("/api/registrations", Form(true))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await anon.PostAsync("/api/registrations", new MultipartFormDataContent())).StatusCode);
 
-        var list = await admin.GetFromJsonAsync<List<RegistrationListItemDto>>("/api/admin/registrations");
-        var reg = Assert.Single(list!, r => r.Email == "rey@x.ph");
-        Assert.Equal("Pending", reg.Status);
-        var approved = await (await admin.PostAsync($"/api/admin/registrations/{reg.Id}/approve", null)).Content.ReadFromJsonAsync<RegistrationApprovedDto>();
-        Assert.Equal("2026-555", approved!.StudentId);
-        Assert.Equal(HttpStatusCode.Conflict, (await admin.PostAsync($"/api/admin/registrations/{reg.Id}/approve", null)).StatusCode);
+        // Edit a type's stipend.
+        var edited = await (await admin.PutAsJsonAsync($"/api/admin/scholarship-types/{type!.Id}",
+            new ScholarshipTypeSaveDto { Name = "Reg Grant", StipendAmount = 3500, PaymentFrequency = "Semi-Annual" })).Content.ReadFromJsonAsync<ScholarshipTypeDto>();
+        Assert.Equal(3500, edited!.StipendAmount);
+
+        // Typing a new scholarship name in the scholar form creates that type.
+        var created = await (await admin.PostAsJsonAsync("/api/admin/scholars", new ScholarSaveDto
+        {
+            FirstName = "Tess", LastName = "Typed", Email = "tess@x.ph", Course = "Bachelor of Science in Criminology",
+            YearLevel = "1st Year", ScholarshipTypeName = "Barangay Grant", StipendAmount = 1500
+        })).Content.ReadFromJsonAsync<ScholarCreatedDto>();
+        var types = await admin.GetFromJsonAsync<List<ScholarshipTypeDto>>("/api/admin/scholarship-types");
+        Assert.Contains(types!, t => t.Name == "Barangay Grant" && t.StipendAmount == 1500);
+
+        // "Show all" compliance lists every scholar's requirements.
+        var all = await admin.GetFromJsonAsync<List<ComplianceOverviewItemDto>>("/api/admin/compliance");
+        Assert.Equal(5, all!.Count(c => c.ScholarId == created!.Id));
+
+        // Every export has a Word copy (a .docx is a zip, so it starts with "PK").
+        foreach (var url in new[] { "/api/admin/reports/docx?type=Scholarship%20Masterlist", "/api/admin/activity-logs/docx" })
+        {
+            var res = await admin.GetAsync(url);
+            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+            Assert.Equal("application/vnd.openxmlformats-officedocument.wordprocessingml.document", res.Content.Headers.ContentType!.MediaType);
+            Assert.Equal("PK"u8.ToArray(), (await res.Content.ReadAsByteArrayAsync())[..2]);
+        }
+        var tpl = await admin.PostAsJsonAsync("/api/admin/reports/template-docx", new TemplateDocxRequest { Title = "Voucher", Columns = ["Payee", "Amount"] });
+        Assert.Equal(HttpStatusCode.OK, tpl.StatusCode);
+
+        // Profile picture: none yet -> upload -> admin can see it; non-images are refused.
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.GetAsync("/api/me/picture")).StatusCode);
+        byte[] png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0];
+        using (var bad = new MultipartFormDataContent { { new ByteArrayContent([1, 2, 3]), "file", "x.png" } })
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsync("/api/me/picture", bad)).StatusCode);
+        using (var good = new MultipartFormDataContent { { new ByteArrayContent(png), "file", "me.png" } })
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsync("/api/me/picture", good)).StatusCode);
+        var mine = await admin.GetAsync("/api/me/picture");
+        Assert.Equal("image/png", mine.Content.Headers.ContentType!.MediaType);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.GetAsync($"/api/admin/scholars/{created!.Id}/picture")).StatusCode);
     }
 }

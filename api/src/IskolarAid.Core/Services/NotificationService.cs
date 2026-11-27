@@ -1,3 +1,9 @@
+// =====================================================================
+// NotificationService.cs - in-app messages to scholars.
+// Admin side: list, send ("compose"), mark read, delete.
+// Scholar side: list their own, mark their own as read.
+// Other services (payroll, compliance) also add notifications directly.
+// =====================================================================
 using Microsoft.EntityFrameworkCore;
 using IskolarAid.Core.Common;
 using IskolarAid.Core.Dtos;
@@ -6,9 +12,10 @@ using IskolarAid.Data.Entities;
 
 namespace IskolarAid.Core.Services;
 
-public class NotificationService(IskolarDbContext db, ICurrentUser current, ActivityLogService log, IEmailSender email, ISmsSender sms, AppEvents events)
+public class NotificationService(IskolarDbContext db, ICurrentUser current, ActivityLogService log, IEmailSender email, AppEvents events)
 {
     // ---------- Admin ----------
+    // Newest 100 notifications, with optional filters (type, unread only, recipient, search text).
     public async Task<List<NotificationDto>> ListAsync(string? type, bool unreadOnly, string? search, int? recipientId)
     {
         var q = db.Notifications.AsNoTracking().Include(n => n.Sender).Include(n => n.Recipient).AsQueryable();
@@ -25,6 +32,7 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
             n.Sender?.Name ?? "System", n.Recipient?.FullName, n.Recipient?.ScholarNumber)).ToList();
     }
 
+    // Numbers for the cards on the admin Notifications page (also counts pending registrations).
     public async Task<NotificationStatsDto> StatsAsync()
     {
         var total = await db.Notifications.CountAsync();
@@ -33,6 +41,8 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
         return new NotificationStatsDto(total, unread, total - unread, pending);
     }
 
+    // Admin sends a message. No recipient = send to every active scholar.
+    // Steps: save one notification per scholar -> log -> live update -> optional email.
     public async Task<ComposeResultDto> ComposeAsync(ComposeNotificationDto dto)
     {
         List<Scholar> recipients;
@@ -50,20 +60,17 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
         await log.LogCreate("notifications", dto.RecipientId ?? 0, $"Sent '{dto.Title}' to {(dto.RecipientId is null ? "all active scholars" : recipients[0].FullName)}");
         events.RaiseNotificationsSent(recipients.Select(s => s.Id).ToList(), dto.Title.Trim(), dto.Type);
 
-        int emails = 0, texts = 0;
+        var emails = 0;
         foreach (var s in recipients)
         {
-            if (dto.SendEmail && !string.IsNullOrEmpty(s.Email))
-            {
-                var (subject, body) = MessageTemplates.Notification(s.FullName, dto.Title, dto.Message);
-                if (await email.SendAsync(s.Email, s.FullName, subject, body)) emails++;
-            }
-            if (dto.SendSms && !string.IsNullOrEmpty(s.ContactNumber) &&
-                await sms.SendAsync(s.ContactNumber, $"IskolarAid: {dto.Title} - {dto.Message}")) texts++;
+            if (!dto.SendEmail || string.IsNullOrEmpty(s.Email)) continue;
+            var (subject, body) = MessageTemplates.Notification(s.FullName, dto.Title, dto.Message);
+            if (await email.SendAsync(s.Email, s.FullName, subject, body)) emails++;
         }
-        return new ComposeResultDto(recipients.Count, emails, texts);
+        return new ComposeResultDto(recipients.Count, emails);
     }
 
+    // Mark one notification as read (and remember when).
     public async Task MarkReadAsync(int id)
     {
         var n = await db.Notifications.FindAsync(id) ?? throw AppException.NotFound("Notification");
@@ -87,6 +94,7 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
         await db.SaveChangesAsync();
     }
 
+    // Clean up: delete every notification that was already read.
     public async Task<int> DeleteAllReadAsync()
     {
         var read = await db.Notifications.Where(n => n.IsRead).ToListAsync();
@@ -95,6 +103,7 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
         return read.Count;
     }
 
+    // Active scholars for the "send to" drop-down.
     public async Task<List<OptionDto>> RecipientsAsync()
     {
         var rows = await db.Scholars.Where(s => s.Status == "Active").OrderBy(s => s.FirstName)
@@ -103,6 +112,7 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
     }
 
     // ---------- Scholar (own only) ----------
+    // A scholar's own inbox, plus counts for the summary cards (total, unread, payment, alert).
     public async Task<ScholarNotificationsDto> ListForScholarAsync(int scholarId, string? type, bool unreadOnly)
     {
         var all = await db.Notifications.AsNoTracking().Include(n => n.Sender).Where(n => n.RecipientId == scholarId)
@@ -116,6 +126,7 @@ public class NotificationService(IskolarDbContext db, ICurrentUser current, Acti
     public static ScholarNotificationDto ToScholarDto(Notification n)
         => new(n.Id, n.Title, n.Message, n.NotificationType, n.DateCreated, n.IsRead, n.ReadAt, n.Sender?.Name ?? "System");
 
+    // Same as above, but only for notifications that belong to this scholar.
     public async Task MarkReadForScholarAsync(int scholarId, int id)
     {
         var n = await db.Notifications.FirstOrDefaultAsync(x => x.Id == id && x.RecipientId == scholarId) ?? throw AppException.NotFound("Notification");

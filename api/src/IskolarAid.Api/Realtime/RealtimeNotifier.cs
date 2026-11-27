@@ -1,3 +1,13 @@
+// =====================================================================
+// RealtimeNotifier.cs - listens to AppEvents (C# events raised by the
+// services) and forwards each one to the right browsers via SignalR.
+// Which event goes to whom:
+// NotificationsSent     -> the scholars who got it + all admins
+// RegistrationSubmitted -> admins
+// RegistrationReviewed  -> admins
+// PaymentsChanged       -> admins + the scholars whose payments changed
+// ComplianceChanged     -> admins + that one scholar
+// =====================================================================
 using Microsoft.AspNetCore.SignalR;
 using IskolarAid.Core.Services;
 
@@ -13,6 +23,7 @@ public sealed class RealtimeNotifier
     private readonly IHubContext<NotificationHub> _hub;
     private readonly ILogger<RealtimeNotifier> _log;
 
+    // Subscribe to every event once, when the app starts (Program.cs creates this object).
     public RealtimeNotifier(AppEvents events, IHubContext<NotificationHub> hub, ILogger<RealtimeNotifier> log)
     {
         _hub = hub;
@@ -48,6 +59,7 @@ public sealed class RealtimeNotifier
         Send("ComplianceChanged", _hub.Clients.Groups(HubGroups.Admins, HubGroups.Scholar(e.ScholarId)).SendAsync("ComplianceChanged", payload));
     }
 
+    // Turn scholar ids into SignalR group names, without duplicates.
     private static List<string> ScholarGroups(IEnumerable<int> ids) => ids.Distinct().Select(HubGroups.Scholar).ToList();
 
     /// <summary>Fire and forget: the HTTP request that raised the event does not wait for browsers, but failures are logged.</summary>

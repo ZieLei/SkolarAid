@@ -1,3 +1,11 @@
+// =====================================================================
+// ReportService.cs - read-only numbers, charts, reports and CSV files.
+// Csv                     -> turns rows into a CSV file (Word files: Docx.cs)
+// DashboardService        -> admin dashboard cards and charts
+// ActivityLogQueryService -> Admin > Activity logs page
+// ReportService           -> Admin > Reports page (tables, CSV, receipts)
+// ScholarPortalService    -> the scholar's dashboard, profile and payments
+// =====================================================================
 using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +35,7 @@ public static class Csv
     }
 }
 
+// Numbers and charts for the admin dashboard and the analytics section of Reports.
 public class DashboardService(IskolarDbContext db)
 {
     public async Task<DashboardStatsDto> StatsAsync()
@@ -83,6 +92,7 @@ public class DashboardService(IskolarDbContext db)
         => new(await StatsAsync(), await ByScholarshipAsync(), await ByCourseAsync(), await MonthlyDisbursementAsync());
 }
 
+// Search, page through and export the activity log.
 public class ActivityLogQueryService(IskolarDbContext db, ActivityLogService log)
 {
     public const int PageSize = 25;
@@ -129,19 +139,39 @@ public class ActivityLogQueryService(IskolarDbContext db, ActivityLogService log
 
     public async Task<byte[]> CsvAsync(DateTime from, DateTime to, string? action, string? user, string? search)
     {
-        var rows = await Filtered(from, to, action, user, search).OrderByDescending(a => a.CreatedAt).Take(50_000).ToListAsync();
+        var (columns, rows) = await ExportRowsAsync(from, to, action, user, search);
         await log.LogAsync("EXPORT", "Exported activity logs to CSV");
-        return Csv.Write(["ID", "Timestamp", "User", "Role", "Action", "Table", "Record ID", "Details", "IP Address"],
+        return Csv.Write(columns, rows);
+    }
+
+    // Same rows as the CSV, as an editable Word file.
+    public async Task<byte[]> DocxAsync(DateTime from, DateTime to, string? action, string? user, string? search)
+    {
+        var (columns, rows) = await ExportRowsAsync(from, to, action, user, search);
+        await log.LogAsync("EXPORT", "Exported activity logs to Word");
+        return Docx.Table("Activity Log", columns, rows, $"From {from:MMM dd, yyyy} to {to:MMM dd, yyyy} · {rows.Count} entries");
+    }
+
+    // The filtered log as a table (shared by the CSV and Word exports).
+    private async Task<(string[] Columns, List<IReadOnlyList<string?>> Rows)> ExportRowsAsync(DateTime from, DateTime to, string? action, string? user, string? search)
+    {
+        var rows = await Filtered(from, to, action, user, search).OrderByDescending(a => a.CreatedAt).Take(50_000).ToListAsync();
+        return (["ID", "Timestamp", "User", "Role", "Action", "Table", "Record ID", "Details", "IP Address"],
             rows.Select(a => (IReadOnlyList<string?>)[a.Id.ToString(), a.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"), a.UserName,
-                a.User?.Role ?? "USER", a.ActionType, a.TableAffected, a.RecordId?.ToString(), a.Details, a.IpAddress ?? "-"]));
+                a.User?.Role ?? "USER", a.ActionType, a.TableAffected, a.RecordId?.ToString(), a.Details, a.IpAddress ?? "-"]).ToList());
     }
 }
 
 public class ReportService(IskolarDbContext db, ActivityLogService log)
 {
+    // The report names shown in the "Report type" drop-down. GenerateAsync switches on these.
     public static readonly string[] ReportTypes =
         ["Scholar Census Report", "Payroll Summary Report", "Compliance Report", "Payment History Report", "Activity Log Report", "Scholarship Masterlist"];
 
+    // A payment is in range when it was processed in the range OR is scheduled/released in it.
+    // (Release date alone would hide a payment processed today: its release date is a few days ahead.)
+    // Build one report as a table (title, column names, rows of text).
+    // The date range defaults to the last year. Filters that start with "All" mean "no filter".
     public async Task<ReportResultDto> GenerateAsync(ReportQuery q)
     {
         var from = (q.From ?? DateTime.Today.AddYears(-1)).Date;
@@ -163,7 +193,7 @@ public class ReportService(IskolarDbContext db, ActivityLogService log)
             }
             case "Payroll Summary Report":
             {
-                var rows = (await db.Payments.AsNoTracking().Where(p => p.ReleaseDate >= from && p.ReleaseDate < to).ToListAsync())
+                var rows = (await db.Payments.AsNoTracking().Where(p => (p.ComputationDate >= from && p.ComputationDate < to) || (p.ReleaseDate >= from && p.ReleaseDate < to)).ToListAsync())
                     .GroupBy(p => new { p.PaymentPeriod, p.Status }).OrderByDescending(g => g.Key.PaymentPeriod).ToList();
                 result = new ReportResultDto(q.Type, ["Period", "Total Payments", "Total Amount", "Status"],
                     rows.Select(g => (IReadOnlyList<string?>)[g.Key.PaymentPeriod, g.Count().ToString(), g.Sum(p => p.Amount).ToString("N2", CultureInfo.InvariantCulture), g.Key.Status]).ToList());
@@ -182,7 +212,7 @@ public class ReportService(IskolarDbContext db, ActivityLogService log)
             }
             case "Payment History Report":
             {
-                var rows = (await db.Payments.AsNoTracking().Include(p => p.Scholar).Where(p => p.ReleaseDate >= from && p.ReleaseDate < to).ToListAsync())
+                var rows = (await db.Payments.AsNoTracking().Include(p => p.Scholar).Where(p => (p.ComputationDate >= from && p.ComputationDate < to) || (p.ReleaseDate >= from && p.ReleaseDate < to)).ToListAsync())
                     .OrderByDescending(p => p.ReleaseDate).ToList();
                 result = new ReportResultDto(q.Type, ["Scholar #", "Name", "Period", "Amount", "Status", "Release Date", "Method"],
                     rows.Select(p => (IReadOnlyList<string?>)[p.Scholar!.ScholarNumber, $"{p.Scholar.FirstName} {p.Scholar.LastName}", p.PaymentPeriod,
@@ -204,10 +234,12 @@ public class ReportService(IskolarDbContext db, ActivityLogService log)
                 break;
             }
         }
+        // Every report run is written to the activity log.
         await log.LogAsync("GENERATE_REPORT", $"Generated {result.Title} with {result.Rows.Count} records");
         return result;
     }
 
+    // Same report, returned as a CSV file.
     public async Task<byte[]> CsvAsync(ReportQuery q)
     {
         var r = await GenerateAsync(q);
@@ -215,6 +247,37 @@ public class ReportService(IskolarDbContext db, ActivityLogService log)
         return Csv.Write(r.Columns, r.Rows);
     }
 
+    // Same report as an editable Word file.
+    public async Task<byte[]> DocxAsync(ReportQuery q)
+    {
+        var r = await GenerateAsync(q);
+        await log.LogAsync("EXPORT", $"Exported {r.Title} to Word");
+        return Docx.Table(r.Title, r.Columns, r.Rows, $"{r.Rows.Count} records");
+    }
+
+    // One payment receipt as an editable Word file (same details as the printed receipt).
+    public async Task<byte[]> ReceiptDocxAsync(int paymentId)
+    {
+        var r = await ReceiptAsync(paymentId);
+        string? D(DateTime? d) => d?.ToString("MMMM dd, yyyy", CultureInfo.InvariantCulture);
+        return Docx.Write(new Docx.Content
+        {
+            Title = "Disbursement Receipt",
+            Lines = [$"Reference: {r.ReferenceNumber ?? "-"}"],
+            Columns = ["Item", "Details"],
+            Rows =
+            [
+                ["Scholar Name", r.ScholarName], ["Scholar Number", r.ScholarNumber], ["Student ID", r.StudentId], ["Course", r.Course],
+                ["Period", r.Period], ["Status", r.Status], ["Release Date", D(r.ReleaseDate)], ["Payment Method", r.PaymentMethod],
+                ["Bank", string.Join(" · ", new[] { r.BankName, r.BankAccountNumber }.Where(x => !string.IsNullOrWhiteSpace(x)))],
+                ["Computation Date", D(r.ComputationDate)], ["Processed By", r.ProcessedBy],
+                ["Amount", "P" + r.Amount.ToString("N2", CultureInfo.InvariantCulture)], ["Amount in Words", r.AmountInWords],
+            ],
+            Signatures = ["Received by (Scholar)", "Authorized Signatory"]
+        });
+    }
+
+    // Data for one printable payment receipt.
     public async Task<ReceiptDto> ReceiptAsync(int paymentId)
     {
         var p = await db.Payments.AsNoTracking().Include(x => x.Scholar).Include(x => x.Processor).FirstOrDefaultAsync(x => x.Id == paymentId)
@@ -225,11 +288,14 @@ public class ReportService(IskolarDbContext db, ActivityLogService log)
             p.Status, p.ReleaseDate, p.PaymentMethod, p.ReferenceNumber, p.Processor?.Name, s.BankName, s.BankAccountNumber, p.ComputationDate);
     }
 
+    // Released payments to pick from when printing a receipt.
     public async Task<List<ReleasedPaymentDto>> ReleasedPaymentsAsync() =>
         (await db.Payments.AsNoTracking().Where(p => p.Status == "Released").Include(p => p.Scholar).OrderByDescending(p => p.ReleaseDate).Take(200).ToListAsync())
         .Select(p => new ReleasedPaymentDto(p.Id, p.Scholar!.ScholarNumber, p.Scholar.FullName, p.PaymentPeriod, p.Amount, p.ReleaseDate)).ToList();
 }
 
+// Everything the scholar portal shows (called by ScholarPortalController).
+// Every method takes the scholar id from the login token, never from the browser.
 public class ScholarPortalService(IskolarDbContext db, ComplianceService compliance, NotificationService notifications, ActivityLogService log)
 {
     /// <summary>Scholars can keep their own contact and payout details current; everything else stays with the Scholarship Office.</summary>
@@ -249,6 +315,7 @@ public class ScholarPortalService(IskolarDbContext db, ComplianceService complia
     private async Task<Data.Entities.Scholar> ScholarAsync(int id) =>
         await db.Scholars.AsNoTracking().Include(s => s.ScholarshipType).FirstOrDefaultAsync(s => s.Id == id) ?? throw AppException.NotFound("Scholar");
 
+    // Scholar home page: scholarship, next payment, compliance and recent notifications.
     public async Task<ScholarDashboardDto> DashboardAsync(int scholarId)
     {
         var s = await ScholarAsync(scholarId);
@@ -277,6 +344,7 @@ public class ScholarPortalService(IskolarDbContext db, ComplianceService complia
             s.ScholarshipFundSource, s.RenewalConditions);
     }
 
+    // The scholar's payment history plus totals: received, pending, last payment.
     public async Task<ScholarPaymentsDto> PaymentsAsync(int scholarId)
     {
         var rows = await db.Payments.AsNoTracking().Include(p => p.Processor).Where(p => p.ScholarId == scholarId).ToListAsync();
@@ -288,11 +356,26 @@ public class ScholarPortalService(IskolarDbContext db, ComplianceService complia
             rows.Where(p => p.Status is "Pending" or "Processed").Sum(p => p.Amount), last?.Amount ?? 0, last?.ReleaseDate, rows.Count);
     }
 
+    // Same payment history as a CSV download.
     public async Task<byte[]> PaymentsCsvAsync(int scholarId)
     {
+        var (columns, rows) = await PaymentRowsAsync(scholarId);
+        return Csv.Write(columns, rows);
+    }
+
+    // Same payment history as an editable Word file.
+    public async Task<byte[]> PaymentsDocxAsync(int scholarId)
+    {
+        var s = await ScholarAsync(scholarId);
+        var (columns, rows) = await PaymentRowsAsync(scholarId);
+        return Docx.Table("Payment History", columns, rows, $"{s.FullName} ({s.ScholarNumber})");
+    }
+
+    private async Task<(string[] Columns, List<IReadOnlyList<string?>> Rows)> PaymentRowsAsync(int scholarId)
+    {
         var p = await PaymentsAsync(scholarId);
-        return Csv.Write(["ID", "Period", "Amount", "Status", "Release Date", "Payment Method", "Reference Number", "Processed By"],
+        return (["ID", "Period", "Amount", "Status", "Release Date", "Payment Method", "Reference Number", "Processed By"],
             p.Items.Select(i => (IReadOnlyList<string?>)[i.Id.ToString(), i.Period, i.Amount.ToString("F2", CultureInfo.InvariantCulture), i.Status,
-                i.ReleaseDate?.ToString("yyyy-MM-dd"), i.PaymentMethod, i.ReferenceNumber, i.ProcessedBy]));
+                i.ReleaseDate?.ToString("yyyy-MM-dd"), i.PaymentMethod, i.ReferenceNumber, i.ProcessedBy]).ToList());
     }
 }

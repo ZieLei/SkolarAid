@@ -1,3 +1,7 @@
+// =====================================================================
+// live-status.ts - the small "Live / Offline" pill in the top bar.
+// It reads RealtimeService.state (core/realtime.ts).
+// =====================================================================
 import { Component, computed, inject } from '@angular/core';
 import { RealtimeService } from '../core/realtime';
 
@@ -5,7 +9,7 @@ import { RealtimeService } from '../core/realtime';
 @Component({
   selector: 'app-live-status',
   template: `
-    <span class="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-2.5 py-1 text-[12px] font-bold"
+    <span class="inline-flex items-center gap-1.5 rounded-full border border-black/5 px-2.5 py-1 text-[12px] font-semibold shadow-sm"
           [class]="view().cls" role="status" [attr.title]="view().hint">
       <span class="h-2 w-2 rounded-full" [class]="view().dot" aria-hidden="true"></span>{{ view().label }}
     </span>

@@ -1,3 +1,9 @@
+// =====================================================================
+// form-errors.ts - showing form mistakes to the user.
+// FormErrors   -> holds the list of errors (field id + message)
+// ErrorSummary -> red box at the top of the form, each error links to its field
+// focusField   -> puts the cursor in the first wrong field
+// =====================================================================
 import { Component, input, output } from '@angular/core';
 import { signal } from '@angular/core';
 import { AppIcon } from './icon';

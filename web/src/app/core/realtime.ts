@@ -1,3 +1,15 @@
+// =====================================================================
+// realtime.ts - LIVE updates from the server (SignalR).
+//
+// Full flow:
+// API service changes data -> AppEvents -> RealtimeNotifier (API)
+// -> SignalR message over a WebSocket -> this service
+// -> a Subject (e.g. paymentsChanged$) fires
+// -> pages that called reloadOn([...]) fetch fresh data over HTTP.
+//
+// The shells (layout/admin-shell.ts, layout/scholar-shell.ts) call
+// connect() after login and disconnect() on logout.
+// =====================================================================
 import { Injectable, InjectionToken, inject, isDevMode, signal } from '@angular/core';
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';

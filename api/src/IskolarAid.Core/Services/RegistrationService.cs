@@ -1,3 +1,19 @@
+// =====================================================================
+// RegistrationService.cs - scholarship applications (OLD FLOW).
+//
+// New scholars no longer apply through the website: the admin adds them and
+// they sign up with their Scholar ID (AuthService.SignUpAsync). This service
+// stays so admins can still review applications already in the database.
+//
+// Flow:
+// 1. SubmitAsync saved an application as "Pending" (no longer reachable from
+//    the website; kept for tests and the old data).
+// 2. Admin opens Admin > Notifications (registrations list) -> ListAsync / GetAsync.
+// 3. Admin approves -> ApproveAsync creates the scholar + a "Pending" login
+//    and emails the scholar how to sign up.
+//    or rejects  -> RejectAsync saves the reason and can email it.
+// Each step raises an AppEvents event so admins see it live.
+// =====================================================================
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using IskolarAid.Core.Common;
@@ -11,9 +27,11 @@ namespace IskolarAid.Core.Services;
 public class RegistrationService(IskolarDbContext db, IFileStore files, PasswordService passwords, ActivityLogService log,
     IEmailSender email, IOptions<SmtpOptions> smtp, IOptions<UploadOptions> upload, AppEvents events)
 {
+    // PSA, COE and COR must be uploaded. Grades and Contract are optional.
     public static readonly string[] RequiredFiles = ["PSA", "COE", "COR"];
     public static readonly string[] AllFiles = ["PSA", "COE", "COR", "Grades", "Contract"];
 
+    // Save a new application. Returns its id.
     public async Task<int> SubmitAsync(RegistrationSubmitDto dto, IReadOnlyList<RegistrationFile> uploads)
     {
         foreach (var key in RequiredFiles)
@@ -25,14 +43,17 @@ public class RegistrationService(IskolarDbContext db, IFileStore files, Password
                     _ => "Please upload your Certificate of Registration."
                 });
 
+        // The chosen scholarship must exist and be active.
         var type = await db.ScholarshipTypes.FirstOrDefaultAsync(t => t.Id == dto.ScholarshipTypeId && t.IsActive)
                    ?? throw new AppException("Please select a Scholarship Type.");
 
+        // Stop duplicates: this student id must not already be a user, a scholar, or a pending application.
         var studentId = dto.StudentId.Trim();
         if (await db.Users.AnyAsync(u => u.Username == studentId) || await db.Scholars.AnyAsync(s => s.StudentId == studentId) ||
             await db.ScholarRegistrations.AnyAsync(r => r.StudentId == studentId && r.Status == "Pending"))
             throw AppException.Conflict("This Student ID or Email is already registered.");
 
+        // Save each uploaded file to disk (FileStore). We keep only the path in the database.
         var saved = new Dictionary<string, string>();
         foreach (var u in uploads.Where(x => AllFiles.Contains(x.Key)))
         {
@@ -64,6 +85,7 @@ public class RegistrationService(IskolarDbContext db, IFileStore files, Password
         return reg.Id;
     }
 
+    // All applications: Pending first, then Approved, then Rejected; newest first inside each group.
     public async Task<List<RegistrationListItemDto>> ListAsync()
     {
         var rows = await db.ScholarRegistrations.AsNoTracking().ToListAsync();
@@ -73,6 +95,7 @@ public class RegistrationService(IskolarDbContext db, IFileStore files, Password
                 r.ContactNumber, r.Course, r.YearLevel, r.Status, r.RejectionReason, r.CreatedAt)).ToList();
     }
 
+    // Full details of one application, plus which documents were uploaded.
     public async Task<RegistrationDetailDto> GetAsync(int id)
     {
         var r = await db.ScholarRegistrations.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id) ?? throw AppException.NotFound("Registration");
@@ -89,6 +112,7 @@ public class RegistrationService(IskolarDbContext db, IFileStore files, Password
             r.BankName, r.BankAccountNumber, fileKeys, r.Notes, r.Status, r.RejectionReason, r.CreatedAt);
     }
 
+    // Read one uploaded document from disk so the admin can view it.
     public async Task<(string Name, string ContentType, byte[] Data)> GetFileAsync(int id, string key)
     {
         var r = await db.ScholarRegistrations.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id) ?? throw AppException.NotFound("Registration");
@@ -97,6 +121,7 @@ public class RegistrationService(IskolarDbContext db, IFileStore files, Password
         return (Path.GetFileName(path), UploadRules.ContentType(path), data);
     }
 
+    // Document key -> the saved file path on that application.
     private static string? FileOf(ScholarRegistration r, string key) => key switch
     {
         "PSA" => r.FilePsa, "COE" => r.FileCoe, "COR" => r.FileCor, "Grades" => r.FileGrades, "Contract" => r.FileContract, _ => null
@@ -108,6 +133,7 @@ public class RegistrationService(IskolarDbContext db, IFileStore files, Password
         var r = await db.ScholarRegistrations.FirstOrDefaultAsync(x => x.Id == id) ?? throw AppException.NotFound("Registration");
         if (r.Status != "Pending") throw AppException.Conflict($"This registration was already {r.Status.ToLowerInvariant()}.");
 
+        // Everything below is saved together (transaction) or not at all.
         var year = DateTime.Now.Year;
         await using var tx = await db.Database.BeginTransactionAsync();
         var existing = await db.Scholars.Where(s => s.ScholarNumber.StartsWith($"SCH-{year}-")).Select(s => s.ScholarNumber).ToListAsync();
@@ -117,8 +143,8 @@ public class RegistrationService(IskolarDbContext db, IFileStore files, Password
             throw AppException.Conflict("An account with this Student ID already exists.");
 
         var fullName = ScholarRules.FullName(r.FirstName, r.MiddleName, r.LastName);
-        var password = ScholarRules.GeneratePassword();
-        var user = new User { Username = studentId, Password = passwords.Hash(password), Role = Roles.Scholar, Name = fullName, AccountStatus = "Active" };
+        // "Pending" account: the scholar signs up with their Scholar ID and picks a password.
+        var user = new User { Username = studentId, Password = passwords.Hash(ScholarRules.GeneratePassword()), Role = Roles.Scholar, Name = fullName, AccountStatus = AccountStatuses.Pending };
         var scholar = new Scholar
         {
             User = user, StudentId = studentId, ScholarNumber = number, FirstName = r.FirstName, MiddleName = r.MiddleName, LastName = r.LastName,
@@ -148,17 +174,19 @@ public class RegistrationService(IskolarDbContext db, IFileStore files, Password
                     FileType = Path.GetExtension(paths[i]!).ToLowerInvariant(), FileSize = data.Length, FileData = data
                 });
         }
+        // Mark the application done, commit, then log + notify + email.
         r.Status = "Approved";
         await db.SaveChangesAsync();
         await tx.CommitAsync();
 
         await log.LogCreate("scholars", scholar.Id, $"Approved registration #{r.Id}: {fullName} ({number})");
         events.RaiseRegistrationReviewed(r.Id, fullName, "Approved");
-        var (subject, body) = MessageTemplates.Welcome(fullName, number, studentId, password, smtp.Value.LoginUrl);
+        var (subject, body) = MessageTemplates.SignUpInvite(fullName, number, studentId, smtp.Value.SignUpUrl);
         var sent = await email.SendAsync(r.Email, fullName, subject, body);
         return new RegistrationApprovedDto(scholar.Id, number, studentId, fullName, sent);
     }
 
+    // Reject a pending application. Returns true only if the rejection email was sent.
     public async Task<bool> RejectAsync(int id, string reason, bool sendEmail)
     {
         var r = await db.ScholarRegistrations.FirstOrDefaultAsync(x => x.Id == id) ?? throw AppException.NotFound("Registration");
